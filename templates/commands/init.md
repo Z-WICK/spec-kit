@@ -1,6 +1,9 @@
 ---
 description: 分析当前项目并自动填充 .factory 工作流配置（AGENT.md、constitution、templates 中的占位符）
 argument-hint: [--force 强制重新分析]
+scripts:
+  sh: scripts/bash/find-placeholders.sh
+  ps: scripts/powershell/find-placeholders.ps1
 ---
 
 ## User Input
@@ -179,9 +182,7 @@ In `droids/*.md`:
 
 **3a. Verify all placeholders are filled**
 
-```bash
-grep -r '\[.*_.*\]' .claude/ --include='*.md' | grep -v '<!--' | grep -v 'example'
-```
+Run `{SCRIPT}` to find any remaining unfilled placeholders in `.claude/` directory.
 
 If any unfilled placeholders remain, list them and ask user for values.
 

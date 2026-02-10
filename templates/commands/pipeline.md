@@ -1,6 +1,13 @@
 ---
 description: 自动化规格流水线：读取外部需求文档，在隔离 worktree 中自主执行 specify → clarify → plan → tasks → implement
 argument-hint: 路径: /path/to/docs 描述: 功能描述
+scripts:
+  flyway:
+    sh: scripts/bash/scan-flyway-versions.sh
+    ps: scripts/powershell/scan-flyway-versions.ps1
+  alembic:
+    sh: scripts/bash/scan-alembic-revisions.sh
+    ps: scripts/powershell/scan-alembic-revisions.ps1
 ---
 
 ## User Input
@@ -54,29 +61,47 @@ To prevent subagent timeouts caused by overly long context:
 Before stage 5 begins and before each migration task dispatch, run version detection to avoid conflicts across worktrees and branches.
 
 **For Flyway (Java/Spring)**:
+
+Use the provided script to scan all worktrees and branches for occupied Flyway version numbers:
+
+**Bash:**
 ```bash
-# Scan all worktrees and branches for occupied Flyway version numbers
-MAIN_MIGRATIONS=$(ls <main-repo>/src/main/resources/db/migration/V*.sql 2>/dev/null | grep -oE 'V[0-9]+' | grep -oE '[0-9]+')
-WORKTREE_MIGRATIONS=$(ls <WORKTREE_ROOT>/src/main/resources/db/migration/V*.sql 2>/dev/null | grep -oE 'V[0-9]+' | grep -oE '[0-9]+')
-# Also check other worktrees
-OTHER_WORKTREES=$(git worktree list --porcelain | grep '^worktree ' | awk '{print $2}')
-for wt in $OTHER_WORKTREES; do
-  ls "$wt"/src/main/resources/db/migration/V*.sql 2>/dev/null
-done
+./scripts/bash/scan-flyway-versions.sh <main-repo> <WORKTREE_ROOT>
+```
+
+**PowerShell:**
+```powershell
+./scripts/powershell/scan-flyway-versions.ps1 -MainRepo <main-repo> -WorktreeRoot <WORKTREE_ROOT>
 ```
 
 **For Alembic (Python)**:
+
+Use the provided script to scan for Alembic revision IDs:
+
+**Bash:**
 ```bash
-# Scan for Alembic revision IDs
-find <main-repo>/alembic/versions -name "*.py" -exec grep -h "^revision = " {} \;
-find <WORKTREE_ROOT>/alembic/versions -name "*.py" -exec grep -h "^revision = " {} \;
+./scripts/bash/scan-alembic-revisions.sh <main-repo> <WORKTREE_ROOT>
+```
+
+**PowerShell:**
+```powershell
+./scripts/powershell/scan-alembic-revisions.ps1 -MainRepo <main-repo> -WorktreeRoot <WORKTREE_ROOT>
 ```
 
 **For Prisma (Node.js/TypeScript)**:
+
+Scan migration directories (cross-platform):
+
+**Bash:**
 ```bash
-# Scan migration directories
-ls <main-repo>/prisma/migrations/*/migration.sql
-ls <WORKTREE_ROOT>/prisma/migrations/*/migration.sql
+ls <main-repo>/prisma/migrations/*/migration.sql 2>/dev/null || true
+ls <WORKTREE_ROOT>/prisma/migrations/*/migration.sql 2>/dev/null || true
+```
+
+**PowerShell:**
+```powershell
+Get-ChildItem <main-repo>/prisma/migrations/*/migration.sql -ErrorAction SilentlyContinue
+Get-ChildItem <WORKTREE_ROOT>/prisma/migrations/*/migration.sql -ErrorAction SilentlyContinue
 ```
 
 **General procedure**:
@@ -276,9 +301,14 @@ Task:
 After tasks are generated, sync the specs directory from the worktree back to the main repo
 for unified management of all feature planning documents:
 
+**Bash:**
 ```bash
-# Copy worktree specs/<BRANCH_NAME>/ to main repo
 cp -r <WORKTREE_ROOT>/specs/<BRANCH_NAME> <main-repo-root>/specs/
+```
+
+**PowerShell:**
+```powershell
+Copy-Item -Path <WORKTREE_ROOT>/specs/<BRANCH_NAME> -Destination <main-repo-root>/specs/ -Recurse -Force
 ```
 
 Sync scope is limited to planning artifacts (no source code): spec.md, plan.md, research.md,
@@ -361,10 +391,12 @@ wait for return before the next.
 
 #### 5c. Phase Gate
 
-After all tasks in a Phase complete:
+After all tasks in a Phase complete, run the build command (cross-platform):
+
 ```bash
 cd <WORKTREE_ROOT> && pnpm build
 ```
+
 Examples: `mvn -DskipTests compile`, `npm run build`, `cargo build`, `go build ./...`
 
 Pass -> next Phase. Fail -> attempt fix (max 2 times), still failing -> halt and report.
@@ -536,10 +568,12 @@ Test classes for different modules/classes can be dispatched in parallel.
 
 #### 7c. Aggregate Test Results
 
-After all test classes are written, run full test suite:
+After all test classes are written, run full test suite (cross-platform):
+
 ```bash
 cd <WORKTREE_ROOT> && pnpm build
 ```
+
 Examples: `mvn test`, `npm test`, `pytest`, `cargo test`, `go test ./...`
 
 - All pass -> proceed to stage 8
@@ -554,22 +588,29 @@ After `pnpm build` all passes, auto-merge to main:
 
 #### 8a. Pre-check
 
+Check for uncommitted changes (cross-platform git commands):
+
 ```bash
 cd <WORKTREE_ROOT> && git status
 cd <WORKTREE_ROOT> && git diff --cached
 ```
+
 - Confirm no uncommitted changes (commit first if any)
 - Check diff for sensitive information
 
 #### 8b. Commit Test Code
 
-If stage 7 produced new files:
+If stage 7 produced new files (cross-platform git commands):
+
 ```bash
 cd <WORKTREE_ROOT> && git add src/test/ && git commit -m "test: add consolidated tests for <BRANCH_NAME>"
 ```
+
 Examples for test directory: `src/test/java` (Java), `tests` (Python/Node), `test` (Go/Rust)
 
 #### 8c. Merge
+
+Merge the feature branch to main (cross-platform git command):
 
 ```bash
 cd <main-repo-root> && git merge <BRANCH_NAME> --no-ff -m "feat: merge <BRANCH_NAME> with tests"
@@ -596,20 +637,38 @@ Push to remote? (yes/no)
 
 ### Stage 9: Rebuild + Documentation Verification
 
-After merge completes, rebuild and start the service, verify API documentation is accessible:
+After merge completes, rebuild and start the service, verify API documentation is accessible.
+
+**Build and deploy** (project-specific, examples shown):
 
 ```bash
 cd <main-repo-root> && pnpm build:prod && scp -P 22 -r ./dist/** root@192.168.0.188:/docker/nginx/web/html
 ```
+
 Examples: `docker compose up -d --build`, `kubectl apply -f k8s/`, `npm run deploy`, `./deploy.sh`
 
-Wait for service startup (poll health check, max 120 seconds):
+**Wait for service startup** (poll health check, max 120 seconds):
+
+**Bash:**
 ```bash
 for i in $(seq 1 24); do
   curl -sf http://localhost:${APP_PORT}/${DOC_PATH} > /dev/null && break
   sleep 5
 done
 ```
+
+**PowerShell:**
+```powershell
+for ($i = 1; $i -le 24; $i++) {
+  try {
+    Invoke-WebRequest -Uri "http://localhost:${APP_PORT}/${DOC_PATH}" -UseBasicParsing -ErrorAction Stop | Out-Null
+    break
+  } catch {
+    Start-Sleep -Seconds 5
+  }
+}
+```
+
 Examples for `${DOC_PATH}`: `doc.html` (knife4j), `swagger` (Swagger UI), `docs` (FastAPI), `api-docs` (Spring REST Docs)
 
 Show to user:
@@ -621,11 +680,21 @@ Service rebuilt and started:
 ============================================================
 ```
 
-If startup fails, show last 30 lines of service logs and report the error:
+**If startup fails**, show last 30 lines of service logs and report the error:
+
+**Bash:**
 ```bash
 ssh root@192.168.0.188 'docker logs nginx --tail=30'
 ```
+
+**PowerShell:**
+```powershell
+ssh root@192.168.0.188 'docker logs nginx --tail=30'
+```
+
 Examples: `docker compose logs app`, `kubectl logs deployment/app`, `pm2 logs app`, `journalctl -u app`
+
+**Note**: SSH commands work on PowerShell 7+ with OpenSSH installed. For older PowerShell versions, use `plink` or native Docker/kubectl commands.
 
 ---
 
