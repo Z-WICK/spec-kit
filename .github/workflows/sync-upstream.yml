@@ -1,0 +1,53 @@
+name: Sync Fork with Upstream
+
+on:
+  schedule:
+    - cron: '0 8 * * *'  # 每天 UTC 8:00（北京时间 16:00）自动同步
+  workflow_dispatch:       # 也支持手动触发
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Add upstream and sync
+        run: |
+          git remote add upstream https://github.com/github/spec-kit.git
+          git fetch upstream main
+
+          # 尝试合并，如果有冲突则创建 Issue 通知
+          if git merge upstream/main --no-edit; then
+            echo "MERGE_SUCCESS=true" >> $GITHUB_ENV
+          else
+            git merge --abort
+            echo "MERGE_SUCCESS=false" >> $GITHUB_ENV
+          fi
+
+      - name: Push changes
+        if: env.MERGE_SUCCESS == 'true'
+        run: git push origin main
+
+      - name: Create issue on conflict
+        if: env.MERGE_SUCCESS == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '⚠️ Upstream sync conflict - manual merge needed',
+              body: `Auto-sync from \`github/spec-kit\` failed due to merge conflicts.\n\nPlease manually resolve:\n\`\`\`bash\ncd spec-kit\ngit fetch upstream\ngit merge upstream/main\n# resolve conflicts\ngit push origin main\n\`\`\``,
+              labels: ['sync-conflict']
+            })
