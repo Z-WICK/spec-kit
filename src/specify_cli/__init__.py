@@ -635,7 +635,7 @@ def merge_json_files(existing_path: Path, new_content: dict, verbose: bool = Fal
     return merged
 
 def download_template_from_github(ai_assistant: str, download_dir: Path, *, script_type: str = "sh", verbose: bool = True, show_progress: bool = True, client: httpx.Client = None, debug: bool = False, github_token: str = None) -> Tuple[Path, dict]:
-    repo_owner = "github"
+    repo_owner = "Z-WICK"
     repo_name = "spec-kit"
     if client is None:
         client = httpx.Client(verify=ssl_context)
@@ -1234,7 +1234,14 @@ def init(
         "",
         f"○ [cyan]/speckit.clarify[/] [bright_black](optional)[/bright_black] - Ask structured questions to de-risk ambiguous areas before planning (run before [cyan]/speckit.plan[/] if used)",
         f"○ [cyan]/speckit.analyze[/] [bright_black](optional)[/bright_black] - Cross-artifact consistency & alignment report (after [cyan]/speckit.tasks[/], before [cyan]/speckit.implement[/])",
-        f"○ [cyan]/speckit.checklist[/] [bright_black](optional)[/bright_black] - Generate quality checklists to validate requirements completeness, clarity, and consistency (after [cyan]/speckit.plan[/])"
+        f"○ [cyan]/speckit.checklist[/] [bright_black](optional)[/bright_black] - Generate quality checklists to validate requirements completeness, clarity, and consistency (after [cyan]/speckit.plan[/])",
+        "",
+        "[bright_black]Enhanced commands (Z-WICK fork):[/bright_black]",
+        "",
+        f"○ [cyan]/speckit.init[/] [bright_black](enhanced)[/bright_black] - Smart project initialization with auto-detection of tech stack",
+        f"○ [cyan]/speckit.pipeline[/] [bright_black](enhanced)[/bright_black] - Full automation pipeline from requirements to deployment",
+        f"○ [cyan]/speckit.issue[/] [bright_black](enhanced)[/bright_black] - Create structured GitHub Issues (bug/feature/task)",
+        f"○ [cyan]/speckit.fixbug[/] [bright_black](enhanced)[/bright_black] - Bug investigation & fix workflow with log analysis"
     ]
     enhancements_panel = Panel("\n".join(enhancement_lines), title="Enhancement Commands", border_style="cyan", padding=(1,2))
     console.print()
@@ -1307,7 +1314,7 @@ def version():
             pass
     
     # Fetch latest template release version
-    repo_owner = "github"
+    repo_owner = "Z-WICK"
     repo_name = "spec-kit"
     api_url = f"https://api.github.com/repos/{repo_owner}/{repo_name}/releases/latest"
     
