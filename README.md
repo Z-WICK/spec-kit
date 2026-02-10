@@ -268,6 +268,17 @@ Additional commands for enhanced quality and validation:
 | `/speckit.analyze`   | Cross-artifact consistency & coverage analysis (run after `/speckit.tasks`, before `/speckit.implement`)                             |
 | `/speckit.checklist` | Generate custom quality checklists that validate requirements completeness, clarity, and consistency (like "unit tests for English") |
 
+#### Enhanced Commands
+
+Extended workflow commands for advanced automation and issue management:
+
+| Command             | Description                                                                                                                                                      |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/speckit.init`     | Project-aware initialization - analyzes your codebase and automatically fills in all configuration placeholders (stack, build tools, conventions, etc.)          |
+| `/speckit.pipeline` | Full automated pipeline - reads external requirement docs and autonomously executes the complete workflow (specify → clarify → plan → tasks → implement → test) |
+| `/speckit.issue`    | Create GitHub Issues (bug reports, feature requests, or tasks) with structured templates and automatic context detection                                         |
+| `/speckit.fixbug`   | Bug investigation & fix workflow - analyzes logs, locates root cause, proposes fixes, and validates the solution                                                 |
+
 ### Environment Variables
 
 | Variable          | Description                                                                                                                                                                                                                                                                                            |
