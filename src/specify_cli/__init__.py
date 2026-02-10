@@ -1230,18 +1230,12 @@ def init(
     console.print(steps_panel)
 
     enhancement_lines = [
-        "Optional commands that you can use for your specs [bright_black](improve quality & confidence)[/bright_black]",
+        "Enhanced commands [bright_black](Z-WICK fork)[/bright_black]",
         "",
-        f"○ [cyan]/speckit.clarify[/] [bright_black](optional)[/bright_black] - Ask structured questions to de-risk ambiguous areas before planning (run before [cyan]/speckit.plan[/] if used)",
-        f"○ [cyan]/speckit.analyze[/] [bright_black](optional)[/bright_black] - Cross-artifact consistency & alignment report (after [cyan]/speckit.tasks[/], before [cyan]/speckit.implement[/])",
-        f"○ [cyan]/speckit.checklist[/] [bright_black](optional)[/bright_black] - Generate quality checklists to validate requirements completeness, clarity, and consistency (after [cyan]/speckit.plan[/])",
-        "",
-        "[bright_black]Enhanced commands (Z-WICK fork):[/bright_black]",
-        "",
-        f"○ [cyan]/speckit.init[/] [bright_black](enhanced)[/bright_black] - Smart project initialization with auto-detection of tech stack",
-        f"○ [cyan]/speckit.pipeline[/] [bright_black](enhanced)[/bright_black] - Full automation pipeline from requirements to deployment",
-        f"○ [cyan]/speckit.issue[/] [bright_black](enhanced)[/bright_black] - Create structured GitHub Issues (bug/feature/task)",
-        f"○ [cyan]/speckit.fixbug[/] [bright_black](enhanced)[/bright_black] - Bug investigation & fix workflow with log analysis"
+        f"○ [cyan]/speckit.init[/] - Smart project initialization with auto-detection of tech stack",
+        f"○ [cyan]/speckit.pipeline[/] - Full automation pipeline from requirements to deployment",
+        f"○ [cyan]/speckit.issue[/] - Create structured GitHub Issues (bug/feature/task)",
+        f"○ [cyan]/speckit.fixbug[/] - Bug investigation & fix workflow with log analysis"
     ]
     enhancements_panel = Panel("\n".join(enhancement_lines), title="Enhancement Commands", border_style="cyan", padding=(1,2))
     console.print()
