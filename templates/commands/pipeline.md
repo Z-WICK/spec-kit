@@ -64,7 +64,7 @@ To prevent subagent timeouts caused by overly long context:
   subagent has not returned within 5 minutes, MUST stop the call and follow the procedure
   below.
 - **Chunked write instruction**: Every subagent prompt MUST include the following reminder:
-  "When writing large files (>150 lines), you MUST write in chunks (each chunk <=150 lines)
+  "When writing large files (>200 lines), you MUST write in chunks (each chunk <=200 lines)
   to avoid blocking that causes timeouts. Use Create for the first chunk, then Edit to
   append subsequent chunks."
 - **Timeout handling procedure**:
@@ -166,8 +166,8 @@ Task:
     Doc path: <parsed path>
     Read all requirements documents under this path and output a structured
     requirements summary.
-    WARNING: When writing large files (>150 lines), you MUST write in chunks
-    to avoid blocking timeouts.
+    WARNING: When writing large files (>200 lines), you MUST write in chunks
+    (each chunk <=200 lines) to avoid blocking timeouts.
 ```
 
 **Checkpoint**: Confirm a structured requirements summary was returned; record as `DOCS_SUMMARY`.
@@ -198,8 +198,8 @@ Task:
       Reference: specs/009-asset-lifecycle/.
     - >8 modules: STOP and advise the user to split into multiple branches.
 
-    WARNING: When writing large files (>150 lines), you MUST write in chunks
-    (each chunk <=150 lines) to avoid blocking timeouts. Use Create for the
+    WARNING: When writing large files (>200 lines), you MUST write in chunks
+    (each chunk <=200 lines) to avoid blocking timeouts. Use Create for the
     first chunk, then Edit to append.
 ```
 
@@ -221,8 +221,8 @@ Task:
 
     Automatically clarify ambiguities in spec.md, select recommended answers
     and write them back.
-    WARNING: When writing large files (>150 lines), you MUST write in chunks
-    to avoid blocking timeouts.
+    WARNING: When writing large files (>200 lines), you MUST write in chunks
+    (each chunk <=200 lines) to avoid blocking timeouts.
 ```
 
 **Checkpoint**: Confirm clarify completed and spec.md was updated.
@@ -242,8 +242,8 @@ Task:
     Main repo root: <repo root>
 
     Generate the technical implementation plan and supporting design documents.
-    WARNING: When writing large files (>150 lines), you MUST write in chunks
-    to avoid blocking timeouts.
+    WARNING: When writing large files (>200 lines), you MUST write in chunks
+    (each chunk <=200 lines) to avoid blocking timeouts.
 ```
 
 **Checkpoint**: Confirm plan.md was generated and Constitution Check passed.
@@ -277,6 +277,10 @@ Task:
 
     Output your standard Impact Analysis Report. Mark confidence as LOW for
     items based only on plan intent (no actual diff available yet).
+
+    WARNING: When writing large files (>200 lines), you MUST write in chunks
+    (each chunk <=200 lines) to avoid blocking timeouts. Use Create for the
+    first chunk, then Edit to append.
 ```
 
 **Checkpoint**: Parse impact report. If CRITICAL downstream risks found, append them as
@@ -323,8 +327,8 @@ Task:
       Mark cross-module dependencies explicitly:
         `- [ ] T-asset-003 [P] [US2] ... (depends: T-auth-001)`
 
-    WARNING: When writing large files (>150 lines), you MUST write in chunks
-    to avoid blocking timeouts.
+    WARNING: When writing large files (>200 lines), you MUST write in chunks
+    (each chunk <=200 lines) to avoid blocking timeouts.
 ```
 
 **Checkpoint**: Confirm tasks output was generated. For multi-module: verify tasks-index.md
@@ -434,8 +438,8 @@ For each module shard (respecting cross-module dependency order):
         Task: <TaskID> <full description and file paths> (limit 1-2 files)
         Migration version: <NEXT_MIGRATION_VERSION> (only for migration tasks)
         Reference: <only the doc fragments needed for this task, not full docs>
-        WARNING: When writing large files (>150 lines), you MUST write in chunks
-        (each chunk <=150 lines) to avoid blocking timeouts. Use Create for the
+        WARNING: When writing large files (>200 lines), you MUST write in chunks
+        (each chunk <=200 lines) to avoid blocking timeouts. Use Create for the
         first chunk, then Edit to append.
         Return: changed files, verification results, remaining risks.
 ```
@@ -504,6 +508,10 @@ Task:
 
     Output your standard Impact Analysis Report with HIGH confidence
     (based on real diff).
+
+    WARNING: When writing large files (>200 lines), you MUST write in chunks
+    (each chunk <=200 lines) to avoid blocking timeouts. Use Create for the
+    first chunk, then Edit to append.
 ```
 
 **Checkpoint**: Parse impact report.
@@ -576,8 +584,8 @@ Task:
        - [CRITICAL/HIGH/MEDIUM/LOW] <file:line> <issue description>
        Follow-up:
        - <suggested fix action>
-    WARNING: When writing large files (>150 lines), you MUST write in chunks
-    to avoid blocking timeouts.
+    WARNING: When writing large files (>200 lines), you MUST write in chunks
+    (each chunk <=200 lines) to avoid blocking timeouts.
 ```
 
 **Checkpoint**: Parse review results, classify by severity.
@@ -631,8 +639,8 @@ Task:
     - Acceptance criteria: <extract relevant acceptance scenarios from spec.md>
     - API contracts: <extract relevant endpoints from contracts/, if any>
     Write the test class and run verification.
-    WARNING: When writing large files (>150 lines), you MUST write in chunks
-    to avoid blocking timeouts.
+    WARNING: When writing large files (>200 lines), you MUST write in chunks
+    (each chunk <=200 lines) to avoid blocking timeouts.
 ```
 
 Test classes for different modules/classes can be dispatched in parallel.
@@ -650,6 +658,10 @@ Task:
     Working directory: <WORKTREE_ROOT>
     Test command: ${TEST_COMMAND}
     Stack hint: ${STACK}
+
+    WARNING: When writing large files (>200 lines), you MUST write in chunks
+    (each chunk <=200 lines) to avoid blocking timeouts. Use Create for the
+    first chunk, then Edit to append.
 ```
 
 The test-runner agent takes the exact command (from `.specify/.project`), runs it,
@@ -774,6 +786,10 @@ Task:
     Investigation context: Service failed to start after deployment.
     Stack hint: ${STACK}
     Time range: last 5 minutes
+
+    WARNING: When writing large files (>200 lines), you MUST write in chunks
+    (each chunk <=200 lines) to avoid blocking timeouts. Use Create for the
+    first chunk, then Edit to append.
 ```
 
 If `SERVICE_LOG_COMMAND` is empty, instruct the user to provide log output manually.

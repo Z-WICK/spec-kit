@@ -34,7 +34,7 @@ Then fall back to asking the user for BUILD_COMMAND and TEST_COMMAND before proc
   subagent has not returned within 5 minutes, MUST stop the call and follow the procedure
   below.
 - **Chunked write instruction**: Every subagent prompt MUST include the following reminder:
-  "When writing large files (>150 lines), you MUST write in chunks (each chunk <=150 lines)
+  "When writing large files (>200 lines), you MUST write in chunks (each chunk <=200 lines)
   to avoid blocking that causes timeouts. Use Create for the first chunk, then Edit to
   append subsequent chunks."
 - **Timeout handling procedure**:
@@ -152,8 +152,8 @@ Task:
 
     Return your standard Log Analysis Report.
 
-    WARNING: When writing large files (>150 lines), you MUST write in chunks
-    (each chunk <=150 lines) to avoid blocking timeouts.
+    WARNING: When writing large files (>200 lines), you MUST write in chunks
+    (each chunk <=200 lines) to avoid blocking timeouts.
 ```
 
 **2c. Parse Log Findings**
@@ -196,8 +196,8 @@ Task:
     - Related Code files
     - Handoff notes for the analyzer
 
-    WARNING: When writing large files (>150 lines), you MUST write in chunks
-    (each chunk <=150 lines) to avoid blocking timeouts.
+    WARNING: When writing large files (>200 lines), you MUST write in chunks
+    (each chunk <=200 lines) to avoid blocking timeouts.
 ```
 
 **3b. Parse Location Report**
@@ -264,8 +264,8 @@ Task:
     - Recommended Approach for the fixer
     - Watch Out warnings
 
-    WARNING: When writing large files (>150 lines), you MUST write in chunks
-    (each chunk <=150 lines) to avoid blocking timeouts.
+    WARNING: When writing large files (>200 lines), you MUST write in chunks
+    (each chunk <=200 lines) to avoid blocking timeouts.
 ```
 
 **4b. Parse Analysis Report**
@@ -358,8 +358,8 @@ Task:
     - Testing notes for the verifier
     - Rollback plan
 
-    WARNING: When writing large files (>150 lines), you MUST write in chunks
-    (each chunk <=150 lines) to avoid blocking timeouts. Use Create for the
+    WARNING: When writing large files (>200 lines), you MUST write in chunks
+    (each chunk <=200 lines) to avoid blocking timeouts. Use Create for the
     first chunk, then Edit to append.
 ```
 
@@ -404,8 +404,8 @@ Task:
 
     Output your standard Impact Analysis Report.
 
-    WARNING: When writing large files (>150 lines), you MUST write in chunks
-    (each chunk <=150 lines) to avoid blocking timeouts.
+    WARNING: When writing large files (>200 lines), you MUST write in chunks
+    (each chunk <=200 lines) to avoid blocking timeouts.
 ```
 
 **Handle impact results:**
@@ -469,8 +469,8 @@ Task:
     - Regression Found (Yes/No)
     - Final Verdict (Safe to merge / Needs more work / Needs manual testing)
 
-    WARNING: When writing large files (>150 lines), you MUST write in chunks
-    (each chunk <=150 lines) to avoid blocking timeouts.
+    WARNING: When writing large files (>200 lines), you MUST write in chunks
+    (each chunk <=200 lines) to avoid blocking timeouts.
 ```
 
 **6b. Parse Verification Report**
