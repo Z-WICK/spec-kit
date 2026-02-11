@@ -1,15 +1,13 @@
-<p align="right">
-    <a href="./README.zh-CN.md">🇨🇳 中文版</a>
-</p>
+<p align="right"><a href="./README.md">🇺🇸 English</a></p>
 
 <div align="center">
     <img src="./media/logo_large.webp" alt="Spec Kit Logo" width="200" height="200"/>
-    <h1>🌱 Spec Kit — Z-WICK Enhanced Fork</h1>
-    <h3><em>Build high-quality software faster, with sub-agent pipelines.</em></h3>
+    <h1>🌱 Spec Kit — Z-WICK 增强版分支</h1>
+    <h3><em>通过子代理流水线，更快地构建高质量软件。</em></h3>
 </div>
 
 <p align="center">
-    <strong>An enhanced fork of <a href="https://github.com/github/spec-kit">github/spec-kit</a> with additional commands, specialized sub-agents, and automated bug fix pipelines.</strong>
+    <strong><a href="https://github.com/github/spec-kit">github/spec-kit</a> 的增强分支，新增了额外命令、专用子代理和自动化 Bug 修复流水线。</strong>
 </p>
 
 <p align="center">
@@ -22,142 +20,142 @@
 
 ---
 
-## What's Different in This Fork
+## 本分支的增强功能
 
-This fork extends the upstream [github/spec-kit](https://github.com/github/spec-kit) with:
+本分支在上游 [github/spec-kit](https://github.com/github/spec-kit) 的基础上扩展了以下功能：
 
-- `/speckit.init` — project-aware initialization that auto-detects stack, build tools, and conventions
-- `/speckit.pipeline` — full automated pipeline from requirements to tested code
-- `/speckit.issue` — structured GitHub Issue creation with context detection
-- `/speckit.fixbug` — **four-stage sub-agent pipeline** (Locate → Analyze → Fix → Verify) with escalating permissions
-- `/speckit.update` — AI-driven incremental template updates
-- 7 specialized sub-agents: `bug-locator`, `bug-analyzer`, `bug-fixer`, `bug-verifier`, `log-analyzer`, `test-runner`, `impact-analyzer`
+- `/speckit.init` — 项目感知初始化，自动检测技术栈、构建工具和项目约定
+- `/speckit.pipeline` — 从需求到测试代码的全自动流水线
+- `/speckit.issue` — 结构化 GitHub Issue 创建，支持上下文自动检测
+- `/speckit.fixbug` — **四阶段子代理流水线**（定位 → 分析 → 修复 → 验证），权限逐级提升
+- `/speckit.update` — AI 驱动的增量模板更新
+- 7 个专用子代理：`bug-locator`、`bug-analyzer`、`bug-fixer`、`bug-verifier`、`log-analyzer`、`test-runner`、`impact-analyzer`
 
-## Table of Contents
+## 目录
 
-- [🤔 What is Spec-Driven Development?](#-what-is-spec-driven-development)
-- [⚡ Get Started](#-get-started)
-- [🔗 Sub-Agent Architecture](#-sub-agent-architecture)
-- [📽️ Video Overview](#️-video-overview)
-- [🤖 Supported AI Agents](#-supported-ai-agents)
-- [🔧 Specify CLI Reference](#-specify-cli-reference)
-- [📚 Core Philosophy](#-core-philosophy)
-- [🌟 Development Phases](#-development-phases)
-- [🎯 Experimental Goals](#-experimental-goals)
-- [🔧 Prerequisites](#-prerequisites)
-- [📖 Learn More](#-learn-more)
-- [📋 Detailed Process](#-detailed-process)
-- [🔍 Troubleshooting](#-troubleshooting)
-- [👥 Maintainers](#-maintainers)
-- [💬 Support](#-support)
-- [🙏 Acknowledgements](#-acknowledgements)
-- [📄 License](#-license)
+- [🤔 什么是规格驱动开发？](#-什么是规格驱动开发)
+- [⚡ 快速开始](#-快速开始)
+- [🔗 子代理架构](#-子代理架构)
+- [📽️ 视频概览](#️-视频概览)
+- [🤖 支持的 AI 代理](#-支持的-ai-代理)
+- [🔧 Specify CLI 参考](#-specify-cli-参考)
+- [📚 核心理念](#-核心理念)
+- [🌟 开发阶段](#-开发阶段)
+- [🎯 实验目标](#-实验目标)
+- [🔧 前置要求](#-前置要求)
+- [📖 了解更多](#-了解更多)
+- [📋 详细流程](#-详细流程)
+- [🔍 故障排除](#-故障排除)
+- [👥 维护者](#-维护者)
+- [💬 支持](#-支持)
+- [🙏 致谢](#-致谢)
+- [📄 许可证](#-许可证)
 
-## 🤔 What is Spec-Driven Development?
+## 🤔 什么是规格驱动开发？
 
-Spec-Driven Development **flips the script** on traditional software development. For decades, code has been king — specifications were just scaffolding we built and discarded once the "real work" of coding began. Spec-Driven Development changes this: **specifications become executable**, directly generating working implementations rather than just guiding them.
+规格驱动开发（Spec-Driven Development）**颠覆了**传统软件开发的模式。几十年来，代码一直是核心——规格说明只是我们搭建后就丢弃的脚手架，一旦"真正的工作"（编码）开始就不再需要了。规格驱动开发改变了这一点：**规格说明变得可执行**，直接生成可运行的实现，而不仅仅是指导开发。
 
-## ⚡ Get Started
+## ⚡ 快速开始
 
-### 1. Install Specify CLI
+### 1. 安装 Specify CLI
 
-Choose your preferred installation method:
+选择你偏好的安装方式：
 
-#### Option 1: Persistent Installation (Recommended)
+#### 方式一：持久安装（推荐）
 
-Install once and use everywhere:
+安装一次，随处使用：
 
 ```bash
 uv tool install specify-cli --from git+https://github.com/Z-WICK/spec-kit.git
 ```
 
-Then use the tool directly:
+然后直接使用：
 
 ```bash
-# Create new project
+# 创建新项目
 specify init <PROJECT_NAME>
 
-# Or initialize in existing project
+# 或在现有项目中初始化
 specify init . --ai claude
-# or
+# 或
 specify init --here --ai claude
 
-# Check installed tools
+# 检查已安装的工具
 specify check
 ```
 
-To upgrade Specify, see the [Upgrade Guide](./docs/upgrade.md) for detailed instructions. Quick upgrade:
+如需升级 Specify，请参阅[升级指南](./docs/upgrade.md)获取详细说明。快速升级：
 
 ```bash
 uv tool install specify-cli --force --from git+https://github.com/Z-WICK/spec-kit.git
 ```
 
-#### Option 2: One-time Usage
+#### 方式二：一次性使用
 
-Run directly without installing:
+无需安装，直接运行：
 
 ```bash
 uvx --from git+https://github.com/Z-WICK/spec-kit.git specify init <PROJECT_NAME>
 ```
 
-**Benefits of persistent installation:**
+**持久安装的优势：**
 
-- Tool stays installed and available in PATH
-- No need to create shell aliases
-- Better tool management with `uv tool list`, `uv tool upgrade`, `uv tool uninstall`
-- Cleaner shell configuration
+- 工具保持安装状态，可在 PATH 中直接使用
+- 无需创建 shell 别名
+- 通过 `uv tool list`、`uv tool upgrade`、`uv tool uninstall` 更好地管理工具
+- 更简洁的 shell 配置
 
-### 2. Establish project principles
+### 2. 建立项目原则
 
-Launch your AI assistant in the project directory. The `/speckit.*` commands are available in the assistant.
+在项目目录中启动你的 AI 助手。助手中已内置 `/speckit.*` 命令。
 
-Use the **`/speckit.constitution`** command to create your project's governing principles and development guidelines that will guide all subsequent development.
+使用 **`/speckit.constitution`** 命令创建项目的治理原则和开发指南，这些原则将指导后续所有开发工作。
 
 ```bash
 /speckit.constitution Create principles focused on code quality, testing standards, user experience consistency, and performance requirements
 ```
 
-### 3. Create the spec
+### 3. 创建规格说明
 
-Use the **`/speckit.specify`** command to describe what you want to build. Focus on the **what** and **why**, not the tech stack.
+使用 **`/speckit.specify`** 命令描述你想要构建的内容。专注于**做什么**和**为什么**，而不是技术栈。
 
 ```bash
 /speckit.specify Build an application that can help me organize my photos in separate photo albums. Albums are grouped by date and can be re-organized by dragging and dropping on the main page. Albums are never in other nested albums. Within each album, photos are previewed in a tile-like interface.
 ```
 
-### 4. Create a technical implementation plan
+### 4. 创建技术实施计划
 
-Use the **`/speckit.plan`** command to provide your tech stack and architecture choices.
+使用 **`/speckit.plan`** 命令提供你的技术栈和架构选择。
 
 ```bash
 /speckit.plan The application uses Vite with minimal number of libraries. Use vanilla HTML, CSS, and JavaScript as much as possible. Images are not uploaded anywhere and metadata is stored in a local SQLite database.
 ```
 
-### 5. Break down into tasks
+### 5. 分解为任务
 
-Use **`/speckit.tasks`** to create an actionable task list from your implementation plan.
+使用 **`/speckit.tasks`** 从实施计划中创建可执行的任务列表。
 
 ```bash
 /speckit.tasks
 ```
 
-### 6. Execute implementation
+### 6. 执行实施
 
-Use **`/speckit.implement`** to execute all tasks and build your feature according to the plan.
+使用 **`/speckit.implement`** 执行所有任务，按照计划构建你的功能。
 
 ```bash
 /speckit.implement
 ```
 
-For detailed step-by-step instructions, see our [comprehensive guide](./spec-driven.md).
+如需详细的分步说明，请参阅我们的[完整指南](./spec-driven.md)。
 
-## 🔗 Sub-Agent Architecture
+## 🔗 子代理架构
 
-The enhanced commands dispatch work to specialized sub-agents, each with scoped permissions and a single responsibility. This keeps the main conversation clean — only structured reports flow between stages.
+增强命令将工作分派给专用子代理，每个子代理拥有限定的权限和单一职责。这使主对话保持简洁——各阶段之间只传递结构化报告。
 
-### Development Pipeline (`/speckit.pipeline`)
+### 开发流水线（`/speckit.pipeline`）
 
-One command to go from requirements document to tested, merged code:
+一条命令，从需求文档到测试通过、合并完成的代码：
 
 ```
 Stage 0   Read Requirements     Parse external docs into structured summary
@@ -175,9 +173,9 @@ Stage 8   Merge                 Auto-merge to main with user confirmation
 Stage 9   Rebuild + Docs        Deploy and verify
 ```
 
-Key features: checkpoint recovery (resume from any failed stage), multi-module parallel execution, migration version conflict detection, and progressive knowledge base enrichment.
+核心特性：检查点恢复（可从任何失败阶段继续）、多模块并行执行、迁移版本冲突检测，以及渐进式知识库积累。
 
-### Bug Fix Pipeline (`/speckit.fixbug`)
+### Bug 修复流水线（`/speckit.fixbug`）
 
 ```
 Phase 1  Gather Context     fixbug (no sub-agent)
@@ -190,32 +188,32 @@ Phase 6  Verify              → bug-verifier        Bash access
 Phase 7  Report              fixbug (no sub-agent)
 ```
 
-Each agent receives only the structured output from the previous stage plus the original bug context. Agents can be independently replaced, rolled back, or audited.
+每个代理只接收前一阶段的结构化输出以及原始 Bug 上下文。代理可以独立替换、回滚或审计。
 
-### Available Sub-Agents
+### 可用子代理
 
-| Agent | Role | Tools | Model |
+| Agent | 角色 | Tools | Model |
 |-------|------|-------|-------|
-| `bug-locator` | Find where the bug originates | Read, Grep, Glob | sonnet |
-| `bug-analyzer` | Deep root cause analysis | Read, Grep, Glob | sonnet |
-| `bug-fixer` | Implement minimal fix | Read, Edit, Write, Grep, Glob | sonnet |
-| `bug-verifier` | Run tests and verify fix | Read, Bash, Grep, Glob | haiku |
-| `log-analyzer` | Parse and analyze log files | Read, Grep, Glob, Bash | sonnet |
-| `test-runner` | Execute test suites | Bash | haiku |
-| `impact-analyzer` | Trace call chains and assess change impact | Read, Grep, Glob, Bash | sonnet |
+| `bug-locator` | 定位 Bug 的源头 | Read, Grep, Glob | sonnet |
+| `bug-analyzer` | 深度根因分析 | Read, Grep, Glob | sonnet |
+| `bug-fixer` | 实施最小化修复 | Read, Edit, Write, Grep, Glob | sonnet |
+| `bug-verifier` | 运行测试并验证修复 | Read, Bash, Grep, Glob | haiku |
+| `log-analyzer` | 解析和分析日志文件 | Read, Grep, Glob, Bash | sonnet |
+| `test-runner` | 执行测试套件 | Bash | haiku |
+| `impact-analyzer` | 追踪调用链并评估变更影响 | Read, Grep, Glob, Bash | sonnet |
 
-## 📽️ Video Overview
+## 📽️ 视频概览
 
-Want to see Spec Kit in action? Watch our [video overview](https://www.youtube.com/watch?v=a9eR1xsfvHg&pp=0gcJCckJAYcqIYzv)!
+想看 Spec Kit 的实际演示？观看我们的[视频概览](https://www.youtube.com/watch?v=a9eR1xsfvHg&pp=0gcJCckJAYcqIYzv)！
 
 [![Spec Kit video header](/media/spec-kit-video-header.jpg)](https://www.youtube.com/watch?v=a9eR1xsfvHg&pp=0gcJCckJAYcqIYzv)
 
-## 🤖 Supported AI Agents
+## 🤖 支持的 AI 代理
 
-| Agent                                                                                | Support | Notes                                                                                                                                     |
+| 代理                                                                                  | 支持状态 | 备注                                                                                                                                       |
 | ------------------------------------------------------------------------------------ | ------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | [Qoder CLI](https://qoder.com/cli)                                                   | ✅      |                                                                                                                                           |
-| [Amazon Q Developer CLI](https://aws.amazon.com/developer/learning/q-developer-cli/) | ⚠️      | Amazon Q Developer CLI [does not support](https://github.com/aws/amazon-q-developer-cli/issues/3064) custom arguments for slash commands. |
+| [Amazon Q Developer CLI](https://aws.amazon.com/developer/learning/q-developer-cli/) | ⚠️      | Amazon Q Developer CLI [不支持](https://github.com/aws/amazon-q-developer-cli/issues/3064)斜杠命令的自定义参数。 |
 | [Amp](https://ampcode.com/)                                                          | ✅      |                                                                                                                                           |
 | [Auggie CLI](https://docs.augmentcode.com/cli/overview)                              | ✅      |                                                                                                                                           |
 | [Claude Code](https://www.anthropic.com/claude-code)                                 | ✅      |                                                                                                                                           |
@@ -224,7 +222,7 @@ Want to see Spec Kit in action? Watch our [video overview](https://www.youtube.c
 | [Cursor](https://cursor.sh/)                                                         | ✅      |                                                                                                                                           |
 | [Gemini CLI](https://github.com/google-gemini/gemini-cli)                            | ✅      |                                                                                                                                           |
 | [GitHub Copilot](https://code.visualstudio.com/)                                     | ✅      |                                                                                                                                           |
-| [IBM Bob](https://www.ibm.com/products/bob)                                          | ✅      | IDE-based agent with slash command support                                                                                                |
+| [IBM Bob](https://www.ibm.com/products/bob)                                          | ✅      | 基于 IDE 的代理，支持斜杠命令                                                                                                |
 | [Jules](https://jules.google.com/)                                                   | ✅      |                                                                                                                                           |
 | [Kilo Code](https://github.com/Kilo-Org/kilocode)                                    | ✅      |                                                                                                                                           |
 | [opencode](https://opencode.ai/)                                                     | ✅      |                                                                                                                                           |
@@ -233,33 +231,33 @@ Want to see Spec Kit in action? Watch our [video overview](https://www.youtube.c
 | [SHAI (OVHcloud)](https://github.com/ovh/shai)                                       | ✅      |                                                                                                                                           |
 | [Windsurf](https://windsurf.com/)                                                    | ✅      |                                                                                                                                           |
 
-## 🔧 Specify CLI Reference
+## 🔧 Specify CLI 参考
 
-The `specify` command supports the following options:
+`specify` 命令支持以下选项：
 
-### Commands
+### 命令
 
-| Command | Description                                                                                                                                             |
+| 命令    | 描述                                                                                                                                             |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `init`  | Initialize a new Specify project from the latest template                                                                                               |
-| `check` | Check for installed tools (`git`, `claude`, `gemini`, `code`/`code-insiders`, `cursor-agent`, `windsurf`, `qwen`, `opencode`, `codex`, `shai`, `qoder`) |
+| `init`  | 从最新模板初始化一个新的 Specify 项目                                                                                                |
+| `check` | 检查已安装的工具（`git`、`claude`、`gemini`、`code`/`code-insiders`、`cursor-agent`、`windsurf`、`qwen`、`opencode`、`codex`、`shai`、`qoder`） |
 
-### `specify init` Arguments & Options
+### `specify init` 参数与选项
 
-| Argument/Option        | Type     | Description                                                                                                                                                                                  |
+| 参数/选项               | 类型     | 描述                                                                                                                                                                                  |
 | ---------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `<project-name>`       | Argument | Name for your new project directory (optional if using `--here`, or use `.` for current directory)                                                                                           |
-| `--ai`                 | Option   | AI assistant to use: `claude`, `gemini`, `copilot`, `cursor-agent`, `qwen`, `opencode`, `codex`, `windsurf`, `kilocode`, `auggie`, `roo`, `codebuddy`, `amp`, `shai`, `q`, `bob`, or `qoder` |
-| `--script`             | Option   | Script variant to use: `sh` (bash/zsh) or `ps` (PowerShell)                                                                                                                                  |
-| `--ignore-agent-tools` | Flag     | Skip checks for AI agent tools like Claude Code                                                                                                                                              |
-| `--no-git`             | Flag     | Skip git repository initialization                                                                                                                                                           |
-| `--here`               | Flag     | Initialize project in the current directory instead of creating a new one                                                                                                                    |
-| `--force`              | Flag     | Force merge/overwrite when initializing in current directory (skip confirmation)                                                                                                             |
-| `--skip-tls`           | Flag     | Skip SSL/TLS verification (not recommended)                                                                                                                                                  |
-| `--debug`              | Flag     | Enable detailed debug output for troubleshooting                                                                                                                                             |
-| `--github-token`       | Option   | GitHub token for API requests (or set GH_TOKEN/GITHUB_TOKEN env variable)                                                                                                                    |
+| `<project-name>`       | 参数     | 新项目目录的名称（使用 `--here` 时可选，或使用 `.` 表示当前目录）                                                                                           |
+| `--ai`                 | 选项     | 使用的 AI 助手：`claude`、`gemini`、`copilot`、`cursor-agent`、`qwen`、`opencode`、`codex`、`windsurf`、`kilocode`、`auggie`、`roo`、`codebuddy`、`amp`、`shai`、`q`、`bob` 或 `qoder` |
+| `--script`             | 选项     | 脚本变体：`sh`（bash/zsh）或 `ps`（PowerShell）                                                                                                                  |
+| `--ignore-agent-tools` | 标志     | 跳过 AI 代理工具（如 Claude Code）的检查                                                                                                                              |
+| `--no-git`             | 标志     | 跳过 git 仓库初始化                                                                                                                                                           |
+| `--here`               | 标志     | 在当前目录中初始化项目，而不是创建新目录                                                                                                                    |
+| `--force`              | 标志     | 在当前目录初始化时强制合并/覆盖（跳过确认）                                                                                                             |
+| `--skip-tls`           | 标志     | 跳过 SSL/TLS 验证（不推荐）                                                                                                                                  |
+| `--debug`              | 标志     | 启用详细调试输出以便排查问题                                                                                                                                             |
+| `--github-token`       | 选项     | 用于 API 请求的 GitHub 令牌（或设置 GH_TOKEN/GITHUB_TOKEN 环境变量）                                                                                                    |
 
-### Examples
+### 示例
 
 ```bash
 # Basic project initialization
@@ -312,114 +310,116 @@ specify init my-project --ai claude --github-token ghp_your_token_here
 specify check
 ```
 
-### Available Slash Commands
+### 可用斜杠命令
 
-After running `specify init`, your AI coding agent will have access to these slash commands for structured development:
+运行 `specify init` 后，你的 AI 编码代理将可以使用以下斜杠命令进行结构化开发：
 
-#### Core Commands
+#### 核心命令
 
-Essential commands for the Spec-Driven Development workflow:
+规格驱动开发工作流的基本命令：
 
-| Command                 | Description                                                              |
+| 命令                    | 描述                                                              |
 | ----------------------- | ------------------------------------------------------------------------ |
-| `/speckit.constitution` | Create or update project governing principles and development guidelines |
-| `/speckit.specify`      | Define what you want to build (requirements and user stories)            |
-| `/speckit.plan`         | Create technical implementation plans with your chosen tech stack        |
-| `/speckit.tasks`        | Generate actionable task lists for implementation                        |
-| `/speckit.implement`    | Execute all tasks to build the feature according to the plan             |
+| `/speckit.constitution` | 创建或更新项目治理原则和开发指南 |
+| `/speckit.specify`      | 定义你想要构建的内容（需求和用户故事）            |
+| `/speckit.plan`         | 使用你选择的技术栈创建技术实施计划        |
+| `/speckit.tasks`        | 生成可执行的实施任务列表                        |
+| `/speckit.implement`    | 执行所有任务，按照计划构建功能             |
 
-#### Optional Commands
+#### 可选命令
 
-Additional commands for enhanced quality and validation:
+用于增强质量和验证的附加命令：
 
-| Command              | Description                                                                                                                          |
+| 命令                 | 描述                                                                                                                          |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `/speckit.clarify`   | Clarify underspecified areas (recommended before `/speckit.plan`; formerly `/quizme`)                                                |
-| `/speckit.analyze`   | Cross-artifact consistency & coverage analysis (run after `/speckit.tasks`, before `/speckit.implement`)                             |
-| `/speckit.checklist` | Generate custom quality checklists that validate requirements completeness, clarity, and consistency (like "unit tests for English") |
+| `/speckit.clarify`   | 澄清规格中不明确的部分（建议在 `/speckit.plan` 之前使用；原名 `/quizme`）                                                |
+| `/speckit.analyze`   | 跨制品一致性和覆盖率分析（在 `/speckit.tasks` 之后、`/speckit.implement` 之前运行）                             |
+| `/speckit.checklist` | 生成自定义质量检查清单，验证需求的完整性、清晰度和一致性（类似于"英文的单元测试"） |
 
-#### Enhanced Commands
+#### 增强命令
 
-Extended workflow commands for advanced automation and issue management:
+用于高级自动化和问题管理的扩展工作流命令：
 
-| Command             | Description                                                                                                                                                      |
+| 命令                | 描述                                                                                                                                                      |
 | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/speckit.init`     | Project-aware initialization - analyzes your codebase and automatically fills in all configuration placeholders (stack, build tools, conventions, etc.)          |
-| `/speckit.pipeline` | Full automated pipeline - reads external requirement docs and autonomously executes the complete workflow (specify → clarify → plan → tasks → implement → test) |
-| `/speckit.issue`    | Create GitHub Issues (bug reports, feature requests, or tasks) with structured templates and automatic context detection                                         |
-| `/speckit.fixbug`   | Four-stage bug fix pipeline — dispatches `bug-locator` → `bug-analyzer` → `bug-fixer` → `bug-verifier` with escalating permissions (read → write → bash)       |
-| `/speckit.update`   | AI-driven incremental template updates — detects version drift and applies changes from latest release                                                           |
+| `/speckit.init`     | 项目感知初始化——分析你的代码库并自动填充所有配置占位符（技术栈、构建工具、约定等）          |
+| `/speckit.pipeline` | 全自动流水线——读取外部需求文档并自主执行完整工作流（specify → clarify → plan → tasks → implement → test） |
+| `/speckit.issue`    | 创建 GitHub Issue（Bug 报告、功能请求或任务），使用结构化模板并自动检测上下文                                         |
+| `/speckit.fixbug`   | 四阶段 Bug 修复流水线——分派 `bug-locator` → `bug-analyzer` → `bug-fixer` → `bug-verifier`，权限逐级提升（read → write → bash）       |
+| `/speckit.update`   | AI 驱动的增量模板更新——检测版本偏差并应用最新发布的变更                                                           |
 
-### Environment Variables
+### 环境变量
 
-| Variable          | Description                                                                                                                                                                                                                                                                                            |
+| 变量              | 描述                                                                                                                                                                                                                                                                                            |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `SPECIFY_FEATURE` | Override feature detection for non-Git repositories. Set to the feature directory name (e.g., `001-photo-albums`) to work on a specific feature when not using Git branches.<br/>\*\*Must be set in the context of the agent you're working with prior to using `/speckit.plan` or follow-up commands. |
+| `SPECIFY_FEATURE` | 为非 Git 仓库覆盖功能检测。设置为功能目录名称（例如 `001-photo-albums`），以便在不使用 Git 分支时处理特定功能。<br/>\*\*必须在使用 `/speckit.plan` 或后续命令之前，在代理的上下文中设置。 |
 
-## 📚 Core Philosophy
+## 📚 核心理念
 
-Spec-Driven Development is a structured process that emphasizes:
+规格驱动开发是一个结构化流程，强调：
 
-- **Intent-driven development** where specifications define the "*what*" before the "*how*"
-- **Rich specification creation** using guardrails and organizational principles
-- **Multi-step refinement** rather than one-shot code generation from prompts
-- **Heavy reliance** on advanced AI model capabilities for specification interpretation
+- **意图驱动开发**——规格说明先定义"做什么"，再考虑"怎么做"
+- **丰富的规格创建**——使用护栏和组织原则
+- **多步骤迭代**——而非从提示词一次性生成代码
+- **深度依赖**先进 AI 模型的规格解读能力
 
-## 🌟 Development Phases
+## 🌟 开发阶段
 
-| Phase                                    | Focus                    | Key Activities                                                                                                                                                     |
+| 阶段                                    | 重点                    | 关键活动                                                                                                                                     |
 | ---------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **0-to-1 Development** ("Greenfield")    | Generate from scratch    | <ul><li>Start with high-level requirements</li><li>Generate specifications</li><li>Plan implementation steps</li><li>Build production-ready applications</li></ul> |
-| **Creative Exploration**                 | Parallel implementations | <ul><li>Explore diverse solutions</li><li>Support multiple technology stacks & architectures</li><li>Experiment with UX patterns</li></ul>                         |
-| **Iterative Enhancement** ("Brownfield") | Brownfield modernization | <ul><li>Add features iteratively</li><li>Modernize legacy systems</li><li>Adapt processes</li></ul>                                                                |
+| **从零到一开发**（"绿地项目"）    | 从零开始生成    | <ul><li>从高层需求出发</li><li>生成规格说明</li><li>规划实施步骤</li><li>构建生产就绪的应用</li></ul> |
+| **创意探索**                 | 并行实现 | <ul><li>探索多样化方案</li><li>支持多种技术栈和架构</li><li>实验不同的用户体验模式</li></ul>                         |
+| **迭代增强**（"棕地项目"） | 棕地现代化 | <ul><li>迭代添加功能</li><li>现代化遗留系统</li><li>适配流程</li></ul>                                                                |
 
-## 🎯 Experimental Goals
+## 🎯 实验目标
 
-Our research and experimentation focus on:
+我们的研究和实验聚焦于：
 
-### Technology independence
+### 技术无关性
 
-- Create applications using diverse technology stacks
-- Validate the hypothesis that Spec-Driven Development is a process not tied to specific technologies, programming languages, or frameworks
+- 使用多样化的技术栈创建应用
+- 验证规格驱动开发是一种不绑定特定技术、编程语言或框架的流程
 
-### Enterprise constraints
+### 企业约束
 
-- Demonstrate mission-critical application development
-- Incorporate organizational constraints (cloud providers, tech stacks, engineering practices)
-- Support enterprise design systems and compliance requirements
+- 展示关键任务应用的开发
+- 纳入组织约束（云服务商、技术栈、工程实践）
+- 支持企业设计系统和合规要求
 
-### User-centric development
+### 以用户为中心的开发
 
-- Build applications for different user cohorts and preferences
-- Support various development approaches (from vibe-coding to AI-native development)
+- 为不同用户群体和偏好构建应用
+- 支持多种开发方式（从 vibe-coding 到 AI 原生开发）
 
-### Creative & iterative processes
+### 创意与迭代流程
 
-- Validate the concept of parallel implementation exploration
-- Provide robust iterative feature development workflows
-- Extend processes to handle upgrades and modernization tasks
+- 验证并行实现探索的概念
+- 提供健壮的迭代功能开发工作流
+- 将流程扩展到升级和现代化任务
 
-## 🔧 Prerequisites
+## 🔧 前置要求
 
 - **Linux/macOS/Windows**
-- [Supported](#-supported-ai-agents) AI coding agent.
-- [uv](https://docs.astral.sh/uv/) for package management
+- [支持的](#-支持的-ai-代理) AI 编码代理
+- [uv](https://docs.astral.sh/uv/) 包管理工具
 - [Python 3.11+](https://www.python.org/downloads/)
 - [Git](https://git-scm.com/downloads)
 
-If you encounter issues with an agent, please open an issue so we can refine the integration.
+如果你在使用某个代理时遇到问题，请提交 Issue，以便我们改进集成。
 
-## 📖 Learn More
+## 📖 了解更多
 
-- **[Complete Spec-Driven Development Methodology](./spec-driven.md)** - Deep dive into the full process
-- **[Detailed Walkthrough](#-detailed-process)** - Step-by-step implementation guide
+- **[完整的规格驱动开发方法论](./spec-driven.md)** - 深入了解完整流程
+- **[详细教程](#-详细流程)** - 分步实施指南
 
 ---
 
-## 📋 Detailed Process
+## 📋 详细流程
 
 <details>
-<summary>Click to expand the detailed step-by-step walkthrough</summary>
+<summary>点击展开详细的分步教程</summary>
+
+以下详细教程来自上游项目，保留英文原文。
 
 You can use the Specify CLI to bootstrap your project, which will bring in the required artifacts in your environment. Run:
 
@@ -699,11 +699,11 @@ Once the implementation is complete, test the application and resolve any runtim
 
 ---
 
-## 🔍 Troubleshooting
+## 🔍 故障排除
 
-### Git Credential Manager on Linux
+### Linux 上的 Git 凭据管理器
 
-If you're having issues with Git authentication on Linux, you can install Git Credential Manager:
+如果你在 Linux 上遇到 Git 认证问题，可以安装 Git Credential Manager：
 
 ```bash
 #!/usr/bin/env bash
@@ -718,24 +718,24 @@ echo "Cleaning up..."
 rm gcm-linux_amd64.2.6.1.deb
 ```
 
-## 👥 Maintainers
+## 👥 维护者
 
-**Upstream ([github/spec-kit](https://github.com/github/spec-kit)):**
+**上游（[github/spec-kit](https://github.com/github/spec-kit)）：**
 - Den Delimarsky ([@localden](https://github.com/localden))
 - John Lam ([@jflam](https://github.com/jflam))
 
-**This fork:**
+**本分支：**
 - [@Z-WICK](https://github.com/Z-WICK)
 
-## 💬 Support
+## 💬 支持
 
-For issues specific to this fork (enhanced commands, sub-agents, pipeline), open an issue at [Z-WICK/spec-kit](https://github.com/Z-WICK/spec-kit/issues/new).
-For upstream issues, use [github/spec-kit](https://github.com/github/spec-kit/issues/new).
+如遇本分支特有的问题（增强命令、子代理、流水线），请在 [Z-WICK/spec-kit](https://github.com/Z-WICK/spec-kit/issues/new) 提交 Issue。
+如遇上游问题，请前往 [github/spec-kit](https://github.com/github/spec-kit/issues/new)。
 
-## 🙏 Acknowledgements
+## 🙏 致谢
 
-This project is heavily influenced by and based on the work and research of [John Lam](https://github.com/jflam).
+本项目深受 [John Lam](https://github.com/jflam) 的工作和研究的影响，并以此为基础。
 
-## 📄 License
+## 📄 许可证
 
-This project is licensed under the terms of the MIT open source license. Please refer to the [LICENSE](./LICENSE) file for the full terms.
+本项目基于 MIT 开源许可证授权。完整条款请参阅 [LICENSE](./LICENSE) 文件。
