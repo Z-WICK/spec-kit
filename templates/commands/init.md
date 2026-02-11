@@ -170,13 +170,18 @@ In `speckit/memory/chain-topology.md`:
 - Fill in Key Dependencies based on import analysis
 - Set up basic call chain patterns based on detected architecture
 
-**2f. Configure Droids**
+**2f. Initialize Incident Log**
 
-In `droids/*.md`:
-- If BYOK models are configured in `~/.claude/settings.json`, use them
-- Otherwise, set all droids to `model: inherit`
-- Add project-specific conventions to `project-code-reviewer.md` and
-  `coding-worker-low.md`, `coding-worker-medium.md`, `coding-worker-high.md` based on detected stack
+In `speckit/memory/incident-log.md`:
+- No placeholders to fill — this file is auto-populated by pipeline runs
+- Verify the file exists; if missing, copy from template
+
+**2g. Configure Subagents (Claude Code only)**
+
+If the project uses Claude Code (`.claude/` directory exists):
+- Verify `.claude/agents/impact-analyzer.md` exists (copied from template during init)
+- Add project-specific context to the agent's prompt if needed (e.g., known module
+  boundaries, SLA budgets from chain-topology.md)
 
 #### Phase 3: Validation & Report
 
@@ -186,11 +191,22 @@ Run `{SCRIPT}` to find any remaining unfilled placeholders in `.claude/` directo
 
 If any unfilled placeholders remain, list them and ask user for values.
 
-**3b. Run constitution init**
+**3b. Write version marker**
+
+Write the current Spec-Kit version to `.specify/.version` for future update detection:
+
+```
+echo "<SPEC_KIT_VERSION>" > .specify/.version
+```
+
+Where `<SPEC_KIT_VERSION>` is read from the release package's `.specify/.version` file (if present),
+or from the `speckit.version` command output, or set to `unknown` if neither is available.
+
+**3c. Run constitution init**
 
 Trigger `/constitution init` to finalize the constitution with project-specific principles.
 
-**3c. Report**
+**3d. Report**
 
 ```
 ============================================================
@@ -212,9 +228,10 @@ Files updated:
   - AGENT.md (project overview filled)
   - speckit/memory/constitution.md (principles customized)
   - speckit/memory/chain-topology.md (modules populated)
+  - speckit/memory/incident-log.md (initialized)
   - speckit/templates/*.md (placeholders replaced)
   - commands/*.md (placeholders replaced)
-  - droids/*.md (models configured)
+  - .claude/agents/impact-analyzer.md (configured, Claude Code only)
 
 Remaining manual steps:
   - [ ] Review AGENT.md for accuracy

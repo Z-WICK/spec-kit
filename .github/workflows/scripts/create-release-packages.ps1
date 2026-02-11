@@ -269,6 +269,15 @@ function Build-Variant {
         'claude' {
             $cmdDir = Join-Path $baseDir ".claude/commands"
             Generate-Commands -Agent 'claude' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
+            # Copy agent definitions for Claude Code custom agents
+            if (Test-Path "templates/agents") {
+                $agentsDir = Join-Path $baseDir ".claude/agents"
+                New-Item -ItemType Directory -Path $agentsDir -Force | Out-Null
+                Get-ChildItem "templates/agents/*.md" | ForEach-Object {
+                    Copy-Item -Path $_.FullName -Destination $agentsDir
+                }
+                Write-Host "Copied agents -> .claude/agents"
+            }
         }
         'gemini' {
             $cmdDir = Join-Path $baseDir ".gemini/commands"
@@ -349,6 +358,19 @@ function Build-Variant {
         }
     }
     
+    # Generate .version and .file-hashes for update tracking
+    Set-Content -Path (Join-Path $specDir ".version") -Value $Version -NoNewline
+    $hashFile = Join-Path $specDir ".file-hashes"
+    $allFiles = Get-ChildItem -Path $baseDir -Recurse -File | Where-Object { $_.Name -ne '.file-hashes' } | Sort-Object FullName
+    $hashLines = @()
+    $basePath = (Resolve-Path $baseDir).Path.TrimEnd('\', '/')
+    foreach ($f in $allFiles) {
+        $relativePath = $f.FullName.Substring($basePath.Length).TrimStart('\', '/') -replace '\\', '/'
+        $hash = (Get-FileHash -Path $f.FullName -Algorithm SHA256).Hash.ToLower()
+        $hashLines += "$hash  ./$relativePath"
+    }
+    Set-Content -Path $hashFile -Value ($hashLines -join "`n")
+
     # Create zip archive
     $zipFile = Join-Path $GenReleasesDir "spec-kit-template-${Agent}-${Script}-${Version}.zip"
     Compress-Archive -Path "$baseDir/*" -DestinationPath $zipFile -Force

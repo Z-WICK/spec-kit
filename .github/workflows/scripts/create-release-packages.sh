@@ -161,7 +161,16 @@ build_variant() {
   case $agent in
     claude)
       mkdir -p "$base_dir/.claude/commands"
-      generate_commands claude md "\$ARGUMENTS" "$base_dir/.claude/commands" "$script" ;;
+      generate_commands claude md "\$ARGUMENTS" "$base_dir/.claude/commands" "$script"
+      # Copy agent definitions for Claude Code custom agents
+      if [[ -d templates/agents ]]; then
+        mkdir -p "$base_dir/.claude/agents"
+        for agent_file in templates/agents/*.md; do
+          [[ -f "$agent_file" ]] || continue
+          cp "$agent_file" "$base_dir/.claude/agents/"
+        done
+        echo "Copied agents -> .claude/agents"
+      fi ;;
     gemini)
       mkdir -p "$base_dir/.gemini/commands"
       generate_commands gemini toml "{{args}}" "$base_dir/.gemini/commands" "$script"
@@ -219,6 +228,10 @@ build_variant() {
       mkdir -p "$base_dir/.bob/commands"
       generate_commands bob md "\$ARGUMENTS" "$base_dir/.bob/commands" "$script" ;;
   esac
+  # Generate .version and .file-hashes for update tracking
+  echo "$NEW_VERSION" > "$SPEC_DIR/.version"
+  ( cd "$base_dir" && find . -type f ! -name '.file-hashes' -print0 | sort -z | xargs -0 shasum -a 256 > .specify/.file-hashes )
+
   ( cd "$base_dir" && zip -r "../spec-kit-template-${agent}-${script}-${NEW_VERSION}.zip" . )
   echo "Created $GENRELEASES_DIR/spec-kit-template-${agent}-${script}-${NEW_VERSION}.zip"
 }
