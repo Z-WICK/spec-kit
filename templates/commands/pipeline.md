@@ -26,7 +26,7 @@ If either is missing, ask the user to provide: `路径: /path/to/docs 描述: fe
 
 Get the main repo root (`git rev-parse --show-toplevel`).
 
-Dispatch sub-droids sequentially (stages 0-4); stage 5 is dispatched directly by this
+Dispatch subagents sequentially (stages 0-4); stage 5 is dispatched directly by this
 command via `coding-worker-low / coding-worker-medium / coding-worker-high` (pick by task file count).
 **If any stage times out or fails, retry with the same parameters.**
 
@@ -286,11 +286,32 @@ Task:
     Main repo root: <repo root>
 
     Generate an executable task list organized by user stories.
+
+    Multi-Module Sharding Rule:
+    Check if FEATURE_DIR/specs/ contains multiple spec-<module>.md files.
+    - Single module (no specs/ subdirectory or only spec.md):
+      Generate a single tasks.md as usual.
+    - Multiple modules (2+ spec-<module>.md files):
+      MUST generate sharded output:
+      - tasks-index.md: Global dependency graph, shared setup/foundational
+        tasks (Phase 1-2), cross-module integration tasks (Final Phase),
+        and a module manifest listing all shards.
+      - tasks-<module>.md: Per-module task list (Phase 3+) containing only
+        tasks scoped to that module. Each shard must be self-contained —
+        a coding worker reading only this shard plus the shared design docs
+        (plan.md, data-model.md, contracts/) can execute without needing
+        other shards.
+      Task IDs use module prefix to avoid collision: e.g., T-auth-001,
+      T-asset-001. Shared tasks in tasks-index.md use T-000-xxx.
+      Mark cross-module dependencies explicitly:
+        `- [ ] T-asset-003 [P] [US2] ... (depends: T-auth-001)`
+
     WARNING: When writing large files (>150 lines), you MUST write in chunks
     to avoid blocking timeouts.
 ```
 
-**Checkpoint**: Confirm tasks.md (or shards) were generated.
+**Checkpoint**: Confirm tasks output was generated. For multi-module: verify tasks-index.md
+exists and each module in the manifest has a corresponding tasks-<module>.md shard.
 
 ---
 
@@ -330,6 +351,7 @@ Generated files:
   - spec.md (with clarifications)
   - plan.md / research.md / data-model.md / contracts/ / quickstart.md
   - tasks.md (N tasks total, M parallelizable)
+    or tasks-index.md + tasks-<module>.md shards (multi-module)
 
 Start implementation? (yes/no)
   yes  - Begin stage 5 implementation immediately
@@ -346,52 +368,75 @@ Start implementation? (yes/no)
 
 ### Stage 5: Implement (dispatched directly by this command)
 
-This stage is NOT delegated to a single sub-droid. The main command parses tasks and
+This stage is NOT delegated to a single subagent. The main command parses tasks and
 dispatches coding workers (low/medium/high) directly based on task file count.
 
 #### 5a. Parse and Split Tasks
 
-Read `FEATURE_DIR/tasks.md` (or tasks-index.md + shards) and extract:
+Detect task structure:
+- **Single-module** (tasks.md only): Parse as before.
+- **Multi-module** (tasks-index.md + tasks-<module>.md shards): Read tasks-index.md
+  for the module manifest, shared tasks, and cross-module dependency graph. Then read
+  each tasks-<module>.md shard.
+
+From the parsed tasks, extract:
 - Each task's TaskID, [P] marker, [US#], Phase, file paths
 - Group by Phase; within each Phase identify parallel batches vs sequential tasks
+- For multi-module: group tasks by module shard, identify inter-module dependencies
 
 **Split check**: For each task, if it involves 2+ files or multi-step operations, split into
-sub-tasks (e.g., T005 becomes T005a, T005b), each handling only 1-2 files.
+sub-tasks (e.g., T-auth-003 becomes T-auth-003a, T-auth-003b), each handling only 1-2 files.
 
 **Migration pre-scan**: Run version conflict detection (see rules above), record `NEXT_MIGRATION_VERSION`.
 
-#### 5b. Execute Phase by Phase
+#### 5b. Execute: Shared Setup First
 
-For each Phase, dispatch according to these rules:
+Execute shared setup and foundational tasks from tasks-index.md (Phase 1-2) sequentially
+or with [P] parallelism as marked. These MUST complete before any module-specific tasks.
 
-**Parallel tasks** (same Phase, marked [P], not touching the same file) -> dispatch multiple
-Task calls simultaneously:
+After shared setup completes, run Phase Gate (build check).
+
+#### 5c. Execute: Module-Level Parallel Dispatch
+
+**Single-module**: Execute Phase by Phase as before (skip to 5d rules).
+
+**Multi-module**: After shared setup passes, dispatch module shards in parallel:
 
 ```
-Dispatch simultaneously (multiple Task calls in one message):
+For each module shard (respecting cross-module dependency order):
 
-Task 1:
-  subagent_type: coding-worker-low | coding-worker-medium | coding-worker-high  # ← pick by file count
-  description: "<TaskID> <brief>"
-  prompt: |
-    Working directory: <WORKTREE_ROOT>
-    Task: <TaskID> <full description and file paths> (limit 1-2 files)
-    Migration version: <NEXT_MIGRATION_VERSION> (only for migration tasks)
-    Reference: <only the doc fragments needed for this task, not full docs>
-    WARNING: When writing large files (>150 lines), you MUST write in chunks
-    (each chunk <=150 lines) to avoid blocking timeouts. Use Create for the
-    first chunk, then Edit to append.
-    Return: changed files, verification results, remaining risks.
+  For each Phase within the shard:
+    Parallel tasks (marked [P], not touching same file) -> dispatch simultaneously
+    Sequential tasks -> dispatch one at a time
+
+    Task dispatch (same as before):
+      subagent_type: coding-worker-low | coding-worker-medium | coding-worker-high
+      description: "<TaskID> <brief>"
+      prompt: |
+        Working directory: <WORKTREE_ROOT>
+        Task: <TaskID> <full description and file paths> (limit 1-2 files)
+        Migration version: <NEXT_MIGRATION_VERSION> (only for migration tasks)
+        Reference: <only the doc fragments needed for this task, not full docs>
+        WARNING: When writing large files (>150 lines), you MUST write in chunks
+        (each chunk <=150 lines) to avoid blocking timeouts. Use Create for the
+        first chunk, then Edit to append.
+        Return: changed files, verification results, remaining risks.
 ```
 
-**Sequential tasks** (no [P] marker or touching the same file) -> dispatch one at a time,
-wait for return before the next.
+**Module parallelism rules**:
+- Modules with no inter-module dependencies can be dispatched fully in parallel
+- If module B depends on module A (declared in tasks-index.md), module B waits until
+  the depended task in module A completes, then proceeds
+- Within each module, Phase-by-Phase ordering is preserved
+- After ALL tasks in a module shard complete, mark that module as done
 
-**After each task completes**: Mark `[x]` in tasks.md.
+**After each task completes**: Mark `[x]` in the corresponding tasks file
+(tasks.md or tasks-<module>.md).
 
-#### 5c. Phase Gate
+#### 5d. Phase Gate
 
-After all tasks in a Phase complete, run the build command (cross-platform):
+After all tasks in a Phase complete (single-module) or after all module shards complete
+(multi-module), run the build command (cross-platform):
 
 ```bash
 cd <WORKTREE_ROOT> && pnpm build
@@ -399,12 +444,23 @@ cd <WORKTREE_ROOT> && pnpm build
 
 Examples: `mvn -DskipTests compile`, `npm run build`, `cargo build`, `go build ./...`
 
-Pass -> next Phase. Fail -> attempt fix (max 2 times), still failing -> halt and report.
+Pass -> next Phase (or proceed to cross-module integration). Fail -> attempt fix
+(max 2 times), still failing -> halt and report.
 
-#### 5d. Error Handling
+#### 5e. Execute: Cross-Module Integration (multi-module only)
+
+After all module shards complete and build passes, execute integration tasks from
+tasks-index.md (Final Phase). These tasks handle cross-module wiring, shared
+configuration, and end-to-end validation.
+
+Run Phase Gate again after integration tasks complete.
+
+#### 5f. Error Handling
 
 - Parallel batch partial failure: others continue; retry failed task once after batch ends
 - Sequential task failure: halt current Phase, report blocking point
+- Module-level failure (multi-module): other independent modules continue; dependent
+  modules are paused. After the batch completes, retry failed module tasks once.
 - Timeout: record TaskID, split into smaller sub-tasks and re-dispatch (max 2 retries per
   task; see "Subagent Timeout and Chunked Write" rules)
 
