@@ -226,6 +226,12 @@ AGENT_CONFIG = {
         "install_url": None,  # IDE-based
         "requires_cli": False,
     },
+    "droid": {
+        "name": "Factory Droid",
+        "folder": ".factory/",
+        "install_url": "https://docs.factory.ai/cli/getting-started/quickstart",
+        "requires_cli": True,
+    },
 }
 
 SCRIPT_TYPE_CHOICES = {"sh": "POSIX Shell (bash/zsh)", "ps": "PowerShell"}
@@ -980,7 +986,7 @@ def ensure_constitution_from_template(project_path: Path, tracker: StepTracker |
 @app.command()
 def init(
     project_name: str = typer.Argument(None, help="Name for your new project directory (optional if using --here, or use '.' for current directory)"),
-    ai_assistant: str = typer.Option(None, "--ai", help="AI assistant to use: claude, gemini, copilot, cursor-agent, qwen, opencode, codex, windsurf, kilocode, auggie, codebuddy, amp, shai, q, bob, or qoder "),
+    ai_assistant: str = typer.Option(None, "--ai", help="AI assistant to use: claude, gemini, copilot, cursor-agent, qwen, opencode, codex, windsurf, kilocode, auggie, codebuddy, amp, shai, q, bob, qoder, or droid "),
     script_type: str = typer.Option(None, "--script", help="Script type to use: sh or ps"),
     ignore_agent_tools: bool = typer.Option(False, "--ignore-agent-tools", help="Skip checks for AI agent tools like Claude Code"),
     no_git: bool = typer.Option(False, "--no-git", help="Skip git repository initialization"),
@@ -1273,7 +1279,8 @@ def init(
         f"○ [cyan]/speckit.init[/] - Smart project initialization with auto-detection of tech stack",
         f"○ [cyan]/speckit.pipeline[/] - Full automation pipeline from requirements to deployment",
         f"○ [cyan]/speckit.issue[/] - Create structured GitHub Issues (bug/feature/task)",
-        f"○ [cyan]/speckit.fixbug[/] - Bug investigation & fix workflow with log analysis"
+        f"○ [cyan]/speckit.fixbug[/] - Bug investigation & fix workflow with log analysis",
+        f"○ [cyan]/speckit.optimize-constitution[/] - Append engineering efficiency principles to constitution"
     ]
     enhancements_panel = Panel("\n".join(enhancement_lines), title="Enhancement Commands", border_style="cyan", padding=(1,2))
     console.print()

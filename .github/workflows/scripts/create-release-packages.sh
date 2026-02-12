@@ -227,6 +227,18 @@ build_variant() {
     bob)
       mkdir -p "$base_dir/.bob/commands"
       generate_commands bob md "\$ARGUMENTS" "$base_dir/.bob/commands" "$script" ;;
+    droid)
+      mkdir -p "$base_dir/.factory/commands"
+      generate_commands droid md "\$ARGUMENTS" "$base_dir/.factory/commands" "$script"
+      # Copy agent definitions as Droid subagents
+      if [[ -d templates/agents ]]; then
+        mkdir -p "$base_dir/.factory/droids"
+        for agent_file in templates/agents/*.md; do
+          [[ -f "$agent_file" ]] || continue
+          cp "$agent_file" "$base_dir/.factory/droids/"
+        done
+        echo "Copied agents -> .factory/droids"
+      fi ;;
   esac
   # Generate .version and .file-hashes for update tracking
   echo "$NEW_VERSION" > "$SPEC_DIR/.version"
@@ -237,7 +249,7 @@ build_variant() {
 }
 
 # Determine agent list
-ALL_AGENTS=(claude gemini copilot cursor-agent qwen opencode windsurf codex kilocode auggie roo codebuddy amp shai q bob qoder)
+ALL_AGENTS=(claude gemini copilot cursor-agent qwen opencode windsurf codex kilocode auggie roo codebuddy amp shai q bob qoder droid)
 ALL_SCRIPTS=(sh ps)
 
 norm_list() {
