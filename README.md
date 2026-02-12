@@ -206,7 +206,7 @@ Each agent receives only the structured output from the previous stage plus the 
 | `impact-analyzer` | Trace call chains and assess change impact | Read, Grep, Glob, Bash | sonnet |
 
 > [!NOTE]
-> **Model inheritance in Factory Droid**: When using Factory Droid (`--ai droid`), sub-agents inherit the model from the main session by default. To use a specific model, set the `model` field with the `custom:` prefix in your Droid configuration — for example, `model: custom:GLM-4.7-[duojie]-7`. Without explicit configuration, all sub-agents will run on the same model as the parent session, which may increase costs or reduce efficiency.
+> **Model inheritance in Factory Droid**: When using Factory Droid (`--ai droid`), sub-agents inherit the model from the main session by default. To use a custom model, configure the `model` and `id` fields in your Droid definition — for example: `"model": "claude-opus-4-5-max"` with `"id": "custom:Claude-Opus-4.5-Max-[duojie]-0"`. Without explicit configuration, all sub-agents will run on the same model as the parent session, which may increase costs or reduce efficiency.
 
 ## 📽️ Video Overview
 
@@ -236,7 +236,7 @@ Want to see Spec Kit in action? Watch our [video overview](https://www.youtube.c
 | [Roo Code](https://roocode.com/)                                                     | ✅      |                                                                                                                                           |
 | [SHAI (OVHcloud)](https://github.com/ovh/shai)                                       | ✅      |                                                                                                                                           |
 | [Windsurf](https://windsurf.com/)                                                    | ✅      |                                                                                                                                           |
-| [Factory Droid](https://docs.factory.ai/cli/getting-started/quickstart) | ✅      | Sub-agents inherit session model by default; use `model: custom:<id>` to override |
+| [Factory Droid](https://docs.factory.ai/cli/getting-started/quickstart) | ✅      | Sub-agents inherit session model by default; use `model` + `id` fields to override |
 
 ## 🔧 Specify CLI Reference
 

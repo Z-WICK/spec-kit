@@ -204,7 +204,7 @@ Phase 7  Report              fixbug (no sub-agent)
 | `impact-analyzer` | 追踪调用链并评估变更影响 | Read, Grep, Glob, Bash | sonnet |
 
 > [!NOTE]
-> **Factory Droid 的模型继承**：使用 Factory Droid（`--ai droid`）时，子代理默认继承主会话的模型。如需使用自定义模型，请在 Droid 配置中通过 `model` 字段指定，格式为 `custom:` 前缀——例如 `model: custom:GLM-4.7-[duojie]-7`。未显式配置时，所有子代理将使用与父会话相同的模型，这可能增加成本或降低效率。
+> **Factory Droid 的模型继承**：使用 Factory Droid（`--ai droid`）时，子代理默认继承主会话的模型。如需使用自定义模型，请在 Droid 配置中设置 `model` 和 `id` 字段——例如 `"model": "claude-opus-4-5-max"` 配合 `"id": "custom:Claude-Opus-4.5-Max-[duojie]-0"`。未显式配置时，所有子代理将使用与父会话相同的模型，这可能增加成本或降低效率。
 
 ## 📽️ 视频概览
 
@@ -234,7 +234,7 @@ Phase 7  Report              fixbug (no sub-agent)
 | [Roo Code](https://roocode.com/)                                                     | ✅      |                                                                                                                                           |
 | [SHAI (OVHcloud)](https://github.com/ovh/shai)                                       | ✅      |                                                                                                                                           |
 | [Windsurf](https://windsurf.com/)                                                    | ✅      |                                                                                                                                           |
-| [Factory Droid](https://docs.factory.ai/cli/getting-started/quickstart) | ✅      | 子代理默认继承主会话模型；通过 `model: custom:<id>` 覆盖 |
+| [Factory Droid](https://docs.factory.ai/cli/getting-started/quickstart) | ✅      | 子代理默认继承主会话模型；通过 `model` + `id` 字段覆盖 |
 
 ## 🔧 Specify CLI 参考
 
