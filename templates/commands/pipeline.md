@@ -44,7 +44,7 @@ WARNING: .specify/.project not found. Run /speckit.init first to detect project 
 Then fall back to asking the user for BUILD_COMMAND and TEST_COMMAND before proceeding.
 
 Dispatch subagents sequentially (stages 0-4); stage 5 is dispatched directly by this
-command via `coding-worker-low / coding-worker-medium / coding-worker-high` (pick by task file count).
+command via the `coding-worker` agent (tier selected by task file count: low ≤1, medium 2-5, high 6+).
 **If any stage times out or fails, retry with the same parameters.**
 
 ### Task Granularity Rules
@@ -431,7 +431,7 @@ For each module shard (respecting cross-module dependency order):
     Sequential tasks -> dispatch one at a time
 
     Task dispatch (same as before):
-      subagent_type: coding-worker-low | coding-worker-medium | coding-worker-high
+      subagent_type: coding-worker  # tier: low (1 file) | medium (2-5) | high (6+)
       description: "<TaskID> <brief>"
       prompt: |
         Working directory: <WORKTREE_ROOT>
@@ -530,7 +530,7 @@ Task:
     stop     - Halt pipeline for manual assessment
   ```
 - User selects proceed -> pass risks as context to Stage 6 review
-- User selects fix -> dispatch fix tasks via coding-worker-medium, re-run 5.5
+- User selects fix -> dispatch fix tasks via coding-worker, re-run 5.5
 - User selects stop -> halt, output summary
 
 #### 5.5a. Knowledge Feedback (after impact report)
@@ -601,12 +601,12 @@ Task:
   ...
 
   Auto-fix? (yes/no)
-    yes  - Dispatch each issue to coding-worker-medium for fixing,
+    yes  - Dispatch each issue to coding-worker for fixing,
            then re-run review
     no   - Stop; you can fix manually then re-run /spec-pipeline
   ```
 - User selects yes -> dispatch each CRITICAL/HIGH finding as a fix task to
-  `coding-worker-medium`, then re-run stage 6 (max 2 retry rounds)
+  `coding-worker`, then re-run stage 6 (max 2 retry rounds)
 - User selects no -> stop, output final summary with unresolved issues list
 
 ---

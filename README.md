@@ -33,6 +33,7 @@ This fork extends the upstream [github/spec-kit](https://github.com/github/spec-
 - `/speckit.update` — AI-driven incremental template updates
 - `/speckit.optimize-constitution` — append engineering efficiency principles (module decomposition, chunked write, planning model gate, parallelism-first) to the project constitution
 - 7 specialized sub-agents: `bug-locator`, `bug-analyzer`, `bug-fixer`, `bug-verifier`, `log-analyzer`, `test-runner`, `impact-analyzer`
+- `coding-worker` agent for dispatching implementation tasks by complexity tier
 
 ## Table of Contents
 
@@ -204,6 +205,7 @@ Each agent receives only the structured output from the previous stage plus the 
 | `log-analyzer` | Parse and analyze log files | Read, Grep, Glob, Bash | sonnet |
 | `test-runner` | Execute test suites | Bash | haiku |
 | `impact-analyzer` | Trace call chains and assess change impact | Read, Grep, Glob, Bash | sonnet |
+| `coding-worker` | Implement tasks dispatched by pipeline (low/medium/high tier) | Read, Edit, Write, Grep, Glob, Bash | sonnet |
 
 > [!NOTE]
 > **Model inheritance in Factory Droid**: When using Factory Droid (`--ai droid`), sub-agents inherit the model from the main session by default. To use a custom model, configure the `model` and `id` fields in your Droid definition — for example: `"model": "claude-opus-4-5-max"` with `"id": "custom:Claude-Opus-4.5-Max-[duojie]-0"`. Without explicit configuration, all sub-agents will run on the same model as the parent session, which may increase costs or reduce efficiency.

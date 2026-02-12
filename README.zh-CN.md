@@ -31,6 +31,7 @@
 - `/speckit.update` — AI 驱动的增量模板更新
 - `/speckit.optimize-constitution` — 将工程效率原则（模块拆分、分段写入、规划模型约束、任务并行化）增量追加到项目宪法中
 - 7 个专用子代理：`bug-locator`、`bug-analyzer`、`bug-fixer`、`bug-verifier`、`log-analyzer`、`test-runner`、`impact-analyzer`
+- `coding-worker` 编码代理，按复杂度分级委派实现任务
 
 ## 目录
 
@@ -202,6 +203,7 @@ Phase 7  Report              fixbug (no sub-agent)
 | `log-analyzer` | 解析和分析日志文件 | Read, Grep, Glob, Bash | sonnet |
 | `test-runner` | 执行测试套件 | Bash | haiku |
 | `impact-analyzer` | 追踪调用链并评估变更影响 | Read, Grep, Glob, Bash | sonnet |
+| `coding-worker` | 执行流水线委派的实现任务（low/medium/high 分级） | Read, Edit, Write, Grep, Glob, Bash | sonnet |
 
 > [!NOTE]
 > **Factory Droid 的模型继承**：使用 Factory Droid（`--ai droid`）时，子代理默认继承主会话的模型。如需使用自定义模型，请在 Droid 配置中设置 `model` 和 `id` 字段——例如 `"model": "claude-opus-4-5-max"` 配合 `"id": "custom:Claude-Opus-4.5-Max-[duojie]-0"`。未显式配置时，所有子代理将使用与父会话相同的模型，这可能增加成本或降低效率。
