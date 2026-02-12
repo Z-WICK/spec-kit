@@ -31,6 +31,7 @@ This fork extends the upstream [github/spec-kit](https://github.com/github/spec-
 - `/speckit.issue` — structured GitHub Issue creation with context detection
 - `/speckit.fixbug` — **four-stage sub-agent pipeline** (Locate → Analyze → Fix → Verify) with escalating permissions
 - `/speckit.update` — AI-driven incremental template updates
+- `/speckit.optimize-constitution` — append engineering efficiency principles (module decomposition, chunked write, planning model gate, parallelism-first) to the project constitution
 - 7 specialized sub-agents: `bug-locator`, `bug-analyzer`, `bug-fixer`, `bug-verifier`, `log-analyzer`, `test-runner`, `impact-analyzer`
 
 ## Table of Contents
@@ -204,6 +205,9 @@ Each agent receives only the structured output from the previous stage plus the 
 | `test-runner` | Execute test suites | Bash | haiku |
 | `impact-analyzer` | Trace call chains and assess change impact | Read, Grep, Glob, Bash | sonnet |
 
+> [!NOTE]
+> **Model inheritance in Factory Droid**: When using Factory Droid (`--ai droid`), sub-agents inherit the model from the main session by default. To use a specific model, set the `model` field with the `custom:` prefix in your Droid configuration — for example, `model: custom:GLM-4.7-[duojie]-7`. Without explicit configuration, all sub-agents will run on the same model as the parent session, which may increase costs or reduce efficiency.
+
 ## 📽️ Video Overview
 
 Want to see Spec Kit in action? Watch our [video overview](https://www.youtube.com/watch?v=a9eR1xsfvHg&pp=0gcJCckJAYcqIYzv)!
@@ -232,6 +236,7 @@ Want to see Spec Kit in action? Watch our [video overview](https://www.youtube.c
 | [Roo Code](https://roocode.com/)                                                     | ✅      |                                                                                                                                           |
 | [SHAI (OVHcloud)](https://github.com/ovh/shai)                                       | ✅      |                                                                                                                                           |
 | [Windsurf](https://windsurf.com/)                                                    | ✅      |                                                                                                                                           |
+| [Factory Droid](https://docs.factory.ai/cli/getting-started/quickstart) | ✅      | Sub-agents inherit session model by default; use `model: custom:<id>` to override |
 
 ## 🔧 Specify CLI Reference
 
@@ -249,7 +254,7 @@ The `specify` command supports the following options:
 | Argument/Option        | Type     | Description                                                                                                                                                                                  |
 | ---------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `<project-name>`       | Argument | Name for your new project directory (optional if using `--here`, or use `.` for current directory)                                                                                           |
-| `--ai`                 | Option   | AI assistant to use: `claude`, `gemini`, `copilot`, `cursor-agent`, `qwen`, `opencode`, `codex`, `windsurf`, `kilocode`, `auggie`, `roo`, `codebuddy`, `amp`, `shai`, `q`, `bob`, or `qoder` |
+| `--ai`                 | Option   | AI assistant to use: `claude`, `gemini`, `copilot`, `cursor-agent`, `qwen`, `opencode`, `codex`, `windsurf`, `kilocode`, `auggie`, `roo`, `codebuddy`, `amp`, `shai`, `q`, `bob`, `qoder`, or `droid` |
 | `--script`             | Option   | Script variant to use: `sh` (bash/zsh) or `ps` (PowerShell)                                                                                                                                  |
 | `--ignore-agent-tools` | Flag     | Skip checks for AI agent tools like Claude Code                                                                                                                                              |
 | `--no-git`             | Flag     | Skip git repository initialization                                                                                                                                                           |
@@ -285,6 +290,9 @@ specify init my-project --ai shai
 
 # Initialize with IBM Bob support
 specify init my-project --ai bob
+
+# Initialize with Factory Droid support
+specify init my-project --ai droid
 
 # Initialize with PowerShell scripts (Windows/cross-platform)
 specify init my-project --ai copilot --script ps
@@ -349,6 +357,7 @@ Extended workflow commands for advanced automation and issue management:
 | `/speckit.issue`    | Create GitHub Issues (bug reports, feature requests, or tasks) with structured templates and automatic context detection                                         |
 | `/speckit.fixbug`   | Four-stage bug fix pipeline — dispatches `bug-locator` → `bug-analyzer` → `bug-fixer` → `bug-verifier` with escalating permissions (read → write → bash)       |
 | `/speckit.update`   | AI-driven incremental template updates — detects version drift and applies changes from latest release                                                           |
+| `/speckit.optimize-constitution` | Append 4 engineering efficiency principles to the project constitution with deduplication |
 
 ### Environment Variables
 

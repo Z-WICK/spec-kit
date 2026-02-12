@@ -29,6 +29,7 @@
 - `/speckit.issue` — 结构化 GitHub Issue 创建，支持上下文自动检测
 - `/speckit.fixbug` — **四阶段子代理流水线**（定位 → 分析 → 修复 → 验证），权限逐级提升
 - `/speckit.update` — AI 驱动的增量模板更新
+- `/speckit.optimize-constitution` — 将工程效率原则（模块拆分、分段写入、规划模型约束、任务并行化）增量追加到项目宪法中
 - 7 个专用子代理：`bug-locator`、`bug-analyzer`、`bug-fixer`、`bug-verifier`、`log-analyzer`、`test-runner`、`impact-analyzer`
 
 ## 目录
@@ -202,6 +203,9 @@ Phase 7  Report              fixbug (no sub-agent)
 | `test-runner` | 执行测试套件 | Bash | haiku |
 | `impact-analyzer` | 追踪调用链并评估变更影响 | Read, Grep, Glob, Bash | sonnet |
 
+> [!NOTE]
+> **Factory Droid 的模型继承**：使用 Factory Droid（`--ai droid`）时，子代理默认继承主会话的模型。如需使用自定义模型，请在 Droid 配置中通过 `model` 字段指定，格式为 `custom:` 前缀——例如 `model: custom:GLM-4.7-[duojie]-7`。未显式配置时，所有子代理将使用与父会话相同的模型，这可能增加成本或降低效率。
+
 ## 📽️ 视频概览
 
 想看 Spec Kit 的实际演示？观看我们的[视频概览](https://www.youtube.com/watch?v=a9eR1xsfvHg&pp=0gcJCckJAYcqIYzv)！
@@ -230,6 +234,7 @@ Phase 7  Report              fixbug (no sub-agent)
 | [Roo Code](https://roocode.com/)                                                     | ✅      |                                                                                                                                           |
 | [SHAI (OVHcloud)](https://github.com/ovh/shai)                                       | ✅      |                                                                                                                                           |
 | [Windsurf](https://windsurf.com/)                                                    | ✅      |                                                                                                                                           |
+| [Factory Droid](https://docs.factory.ai/cli/getting-started/quickstart) | ✅      | 子代理默认继承主会话模型；通过 `model: custom:<id>` 覆盖 |
 
 ## 🔧 Specify CLI 参考
 
@@ -247,7 +252,7 @@ Phase 7  Report              fixbug (no sub-agent)
 | 参数/选项               | 类型     | 描述                                                                                                                                                                                  |
 | ---------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `<project-name>`       | 参数     | 新项目目录的名称（使用 `--here` 时可选，或使用 `.` 表示当前目录）                                                                                           |
-| `--ai`                 | 选项     | 使用的 AI 助手：`claude`、`gemini`、`copilot`、`cursor-agent`、`qwen`、`opencode`、`codex`、`windsurf`、`kilocode`、`auggie`、`roo`、`codebuddy`、`amp`、`shai`、`q`、`bob` 或 `qoder` |
+| `--ai`                 | 选项     | 使用的 AI 助手：`claude`、`gemini`、`copilot`、`cursor-agent`、`qwen`、`opencode`、`codex`、`windsurf`、`kilocode`、`auggie`、`roo`、`codebuddy`、`amp`、`shai`、`q`、`bob`、`qoder` 或 `droid` |
 | `--script`             | 选项     | 脚本变体：`sh`（bash/zsh）或 `ps`（PowerShell）                                                                                                                  |
 | `--ignore-agent-tools` | 标志     | 跳过 AI 代理工具（如 Claude Code）的检查                                                                                                                              |
 | `--no-git`             | 标志     | 跳过 git 仓库初始化                                                                                                                                                           |
@@ -283,6 +288,9 @@ specify init my-project --ai shai
 
 # Initialize with IBM Bob support
 specify init my-project --ai bob
+
+# Initialize with Factory Droid support
+specify init my-project --ai droid
 
 # Initialize with PowerShell scripts (Windows/cross-platform)
 specify init my-project --ai copilot --script ps
@@ -347,6 +355,7 @@ specify check
 | `/speckit.issue`    | 创建 GitHub Issue（Bug 报告、功能请求或任务），使用结构化模板并自动检测上下文                                         |
 | `/speckit.fixbug`   | 四阶段 Bug 修复流水线——分派 `bug-locator` → `bug-analyzer` → `bug-fixer` → `bug-verifier`，权限逐级提升（read → write → bash）       |
 | `/speckit.update`   | AI 驱动的增量模板更新——检测版本偏差并应用最新发布的变更                                                           |
+| `/speckit.optimize-constitution` | 将 4 条工程效率原则增量追加到项目宪法中，支持去重检测 |
 
 ### 环境变量
 
