@@ -43,6 +43,17 @@ Then fall back to asking the user for BUILD_COMMAND and TEST_COMMAND before proc
   3. Re-dispatch with reduced scope and the chunked-write reminder.
   4. After 2 consecutive timeouts on the same task, halt and report to the user.
 
+### Triage: Full Pipeline vs. Direct Fix
+
+Before entering the pipeline, assess the bug description clarity:
+
+- **Description is vague or ambiguous** (e.g., "app crashes sometimes", "login doesn't work", only a stack trace with no clear root cause): MUST follow the full 7-phase pipeline below. Do NOT skip phases — unclear bugs need systematic investigation.
+- **Description already pinpoints the exact problem** (e.g., "typo in `config.py` line 42: `databse` should be `database`", "missing null check in `UserService.getById()` causes NPE"): Skip the sub-agent pipeline entirely. Fix the bug directly in the main session, run tests to verify, and report the result. No need to dispatch locator/analyzer/fixer sub-agents for a problem that is already located and understood.
+
+When in doubt, default to the full pipeline — it's better to over-investigate than to miss a deeper root cause.
+
+---
+
 ### Pipeline Overview
 
 ```
