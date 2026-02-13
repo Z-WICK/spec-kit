@@ -646,6 +646,32 @@ def merge_json_files(existing_path: Path, new_content: dict, verbose: bool = Fal
 
     return merged
 
+def should_preserve_existing_on_reinit(project_relative_path: Path) -> bool:
+    """Return True when re-initialization should preserve an existing file.
+
+    This protects user-authored artifacts when `specify init --here` is run
+    repeatedly for different AI assistants in the same project.
+    """
+    parts = project_relative_path.parts
+    if not parts:
+        return False
+
+    # User-generated specs should never be overwritten during re-init.
+    if parts[0] == "specs":
+        return True
+
+    if parts[0] == ".specify":
+        # Preserve knowledge base and extension state.
+        if len(parts) >= 2 and parts[1] in {"memory", "extensions"}:
+            return True
+        # Preserve detected project profile and pipeline recovery state.
+        if len(parts) >= 2 and parts[1] == ".project":
+            return True
+        if len(parts) >= 2 and parts[1].startswith("pipeline-state"):
+            return True
+
+    return False
+
 def download_template_from_github(ai_assistant: str, download_dir: Path, *, script_type: str = "sh", verbose: bool = True, show_progress: bool = True, client: httpx.Client = None, debug: bool = False, github_token: str = None) -> Tuple[Path, dict]:
     repo_owner = "Z-WICK"
     repo_name = "spec-kit"
@@ -797,6 +823,7 @@ def download_and_extract_template(project_path: Path, ai_assistant: str, script_
     elif verbose:
         console.print("Extracting template...")
 
+    extract_detail: str | None = None
     try:
         if not is_current_dir:
             project_path.mkdir(parents=True)
@@ -814,6 +841,7 @@ def download_and_extract_template(project_path: Path, ai_assistant: str, script_
                     temp_path = Path(temp_dir)
                     zip_ref.extractall(temp_path)
 
+                    preserved_paths: list[str] = []
                     extracted_items = list(temp_path.iterdir())
                     if tracker:
                         tracker.start("extracted-summary")
@@ -841,6 +869,12 @@ def download_and_extract_template(project_path: Path, ai_assistant: str, script_
                                         rel_path = sub_item.relative_to(item)
                                         dest_file = dest_path / rel_path
                                         dest_file.parent.mkdir(parents=True, exist_ok=True)
+                                        project_rel = dest_file.relative_to(project_path)
+
+                                        if dest_file.exists() and should_preserve_existing_on_reinit(project_rel):
+                                            preserved_paths.append(str(project_rel))
+                                            continue
+
                                         # Special handling for .vscode/settings.json - merge instead of overwrite
                                         if dest_file.name == "settings.json" and dest_file.parent.name == ".vscode":
                                             handle_vscode_settings(sub_item, dest_file, rel_path, verbose, tracker)
@@ -849,11 +883,23 @@ def download_and_extract_template(project_path: Path, ai_assistant: str, script_
                             else:
                                 shutil.copytree(item, dest_path)
                         else:
+                            project_rel = dest_path.relative_to(project_path)
+                            if dest_path.exists() and should_preserve_existing_on_reinit(project_rel):
+                                preserved_paths.append(str(project_rel))
+                                continue
                             if dest_path.exists() and verbose and not tracker:
                                 console.print(f"[yellow]Overwriting file:[/yellow] {item.name}")
                             shutil.copy2(item, dest_path)
                     if verbose and not tracker:
+                        if preserved_paths:
+                            preview = ", ".join(preserved_paths[:5])
+                            more = f" (+{len(preserved_paths)-5} more)" if len(preserved_paths) > 5 else ""
+                            console.print(f"[yellow]Preserved existing files:[/yellow] {preview}{more}")
                         console.print(f"[cyan]Template files merged into current directory[/cyan]")
+                    if preserved_paths:
+                        extract_detail = f"merged, preserved {len(preserved_paths)} existing files"
+                    else:
+                        extract_detail = "merged"
             else:
                 zip_ref.extractall(project_path)
 
@@ -895,7 +941,10 @@ def download_and_extract_template(project_path: Path, ai_assistant: str, script_
         raise typer.Exit(1)
     else:
         if tracker:
-            tracker.complete("extract")
+            if extract_detail:
+                tracker.complete("extract", extract_detail)
+            else:
+                tracker.complete("extract")
     finally:
         if tracker:
             tracker.add("cleanup", "Remove temporary archive")
