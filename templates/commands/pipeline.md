@@ -48,6 +48,73 @@ Resolve runtime defaults after loading config:
 - `BASE_BRANCH`: use `.specify/.project` value if present; otherwise detect `origin/HEAD`; fallback to `main`.
 - `MAX_PARALLEL_WORKERS`: use `.specify/.project` value if present; fallback to `4`; cap at `8`.
 
+### Strict Pipeline Mode (Default)
+
+To reduce workflow drift on lower-capability models, run in strict mode by default:
+- Do not advance stage unless gate script exits `0`
+- Persist normalized artifact files for each stage (see table below)
+- Persist stage receipts for audit/recovery
+
+Initialize runtime context once at the beginning:
+
+**Bash:**
+```bash
+PIPELINE_ID="$(date +%Y%m%d-%H%M%S)"
+RUNTIME_DIR="<main-repo-root>/.specify/pipeline-runtime/${PIPELINE_ID}"
+mkdir -p "${RUNTIME_DIR}"
+```
+
+**PowerShell:**
+```powershell
+$PIPELINE_ID = Get-Date -Format 'yyyyMMdd-HHmmss'
+$RUNTIME_DIR = "<main-repo-root>/.specify/pipeline-runtime/$PIPELINE_ID"
+New-Item -ItemType Directory -Path $RUNTIME_DIR -Force | Out-Null
+```
+
+If gate script is missing, stop and tell user to run `/speckit.update` first.
+
+### Normalized Stage Artifacts (Required)
+
+| Stage | Required artifact(s) |
+|-------|----------------------|
+| 0 | `<RUNTIME_DIR>/docs-summary.md` |
+| 1 | `<FEATURE_DIR>/spec.md` |
+| 2 | `<FEATURE_DIR>/spec.md` (clarifications written) |
+| 3 | `<FEATURE_DIR>/plan.md`, `<FEATURE_DIR>/research.md` |
+| 3.5 | `<FEATURE_DIR>/impact-pre-analysis.md` |
+| 4 | `<FEATURE_DIR>/tasks.md` OR `<FEATURE_DIR>/tasks-index.md` + `tasks-<module>.md` |
+| 5 | `<FEATURE_DIR>/implementation-summary.md` |
+| 5.5 | `<FEATURE_DIR>/impact-analysis.md` |
+| 6 | `<FEATURE_DIR>/code-review.md` |
+| 7 | `<FEATURE_DIR>/test-summary.md` |
+| 8 | `<FEATURE_DIR>/merge-summary.md` |
+| 9 | `<FEATURE_DIR>/deploy-healthcheck.md` OR `<FEATURE_DIR>/deploy-skipped.md` |
+
+### Mandatory Stage Gate
+
+For **every** stage `N`, execute these steps in order:
+1. Write/update the stage artifact file(s) from the table above.
+2. Write `<RUNTIME_DIR>/stage-N.receipt.json`:
+   ```json
+   {
+     "stage": "N",
+     "status": "completed",
+     "next_stage": "N+1",
+     "retries": 0,
+     "evidence": ["<artifact-path-1>", "<artifact-path-2>"]
+   }
+   ```
+3. Run gate script (must pass):
+   - Bash:
+     ```bash
+     ./.specify/scripts/bash/pipeline-stage-gate.sh --stage N --feature-dir "<FEATURE_DIR>" --worktree-root "<WORKTREE_ROOT>" --docs-summary-file "<RUNTIME_DIR>/docs-summary.md" --main-repo-root "<main-repo-root>" --base-branch "${BASE_BRANCH}" --receipt "<RUNTIME_DIR>/stage-N.receipt.json"
+     ```
+   - PowerShell:
+     ```powershell
+     ./.specify/scripts/powershell/pipeline-stage-gate.ps1 -Stage N -FeatureDir "<FEATURE_DIR>" -WorktreeRoot "<WORKTREE_ROOT>" -DocsSummaryFile "<RUNTIME_DIR>/docs-summary.md" -MainRepoRoot "<main-repo-root>" -BaseBranch "${BASE_BRANCH}" -Receipt "<RUNTIME_DIR>/stage-N.receipt.json"
+     ```
+4. If gate fails: stop immediately and report missing evidence (do not continue to next stage).
+
 Dispatch subagents sequentially (stages 0-4); stage 5 is dispatched directly by this
 command via the `coding-worker` agent (tier selected by task file count: low ≤1, medium 2-5, high 6+).
 **If any stage times out or fails, retry with the same parameters.**
@@ -181,18 +248,18 @@ Stage artifact validation (minimum checks):
 
 | Stage | Required evidence |
 |-------|-------------------|
-| 0 | `DOCS_SUMMARY` exists and hash matches `artifact_hash` |
-| 1 | `WORKTREE_ROOT`, `BRANCH_NAME`, `FEATURE_DIR` present; `spec.md` exists |
+| 0 | `<RUNTIME_DIR>/docs-summary.md` exists and hash matches `artifact_hash` |
+| 1 | `WORKTREE_ROOT`, `BRANCH_NAME`, `FEATURE_DIR` present; `<FEATURE_DIR>/spec.md` exists |
 | 2 | `spec.md` contains `## Clarifications` or explicit clarification update marker |
-| 3 | `plan.md` and `research.md` exist |
-| 3.5 | pre-impact report exists or plan contains recorded impact warnings |
+| 3 | `<FEATURE_DIR>/plan.md` and `<FEATURE_DIR>/research.md` exist |
+| 3.5 | `<FEATURE_DIR>/impact-pre-analysis.md` exists |
 | 4 | `tasks.md` or (`tasks-index.md` + shard files) exists |
-| 5 | task files show implementation completion markers and latest build gate passed |
-| 5.5 | `impact-analysis.md` exists |
-| 6 | review report exists and unresolved CRITICAL/HIGH count recorded |
-| 7 | test summary exists and `${TEST_COMMAND}` pass recorded |
-| 8 | merge commit to `${BASE_BRANCH}` recorded |
-| 9 | deploy/health-check result recorded (or explicit skip reason) |
+| 5 | `<FEATURE_DIR>/implementation-summary.md` exists and task files show `[x]` markers |
+| 5.5 | `<FEATURE_DIR>/impact-analysis.md` exists |
+| 6 | `<FEATURE_DIR>/code-review.md` exists and unresolved CRITICAL/HIGH count recorded |
+| 7 | `<FEATURE_DIR>/test-summary.md` exists and `${TEST_COMMAND}` pass recorded |
+| 8 | `<FEATURE_DIR>/merge-summary.md` exists and merge to `${BASE_BRANCH}` recorded |
+| 9 | `<FEATURE_DIR>/deploy-healthcheck.md` or `<FEATURE_DIR>/deploy-skipped.md` exists |
 
 State update rules:
 - Before each stage starts: set stage status to `running`, increment `retry_count` if retry.
@@ -219,7 +286,9 @@ Task:
     requirements summary.
 ```
 
-**Checkpoint**: Confirm a structured requirements summary was returned; record as `DOCS_SUMMARY`.
+**Checkpoint**:
+- Persist summary to `<RUNTIME_DIR>/docs-summary.md` and set `DOCS_SUMMARY` from this file.
+- Run Stage 0 gate (Mandatory Stage Gate); only continue on pass.
 
 ---
 
@@ -248,7 +317,9 @@ Task:
     - >8 modules: STOP and advise the user to split into multiple branches.
 ```
 
-**Checkpoint**: Confirm WORKTREE_ROOT / BRANCH_NAME / FEATURE_DIR were returned; record as context variables.
+**Checkpoint**:
+- Confirm WORKTREE_ROOT / BRANCH_NAME / FEATURE_DIR were returned.
+- Run Stage 1 gate (Mandatory Stage Gate); only continue on pass.
 
 ---
 
@@ -268,7 +339,9 @@ Task:
     and write them back.
 ```
 
-**Checkpoint**: Confirm clarify completed and spec.md was updated.
+**Checkpoint**:
+- Confirm clarify completed and `spec.md` was updated.
+- Run Stage 2 gate (Mandatory Stage Gate); only continue on pass.
 
 ---
 
@@ -287,7 +360,9 @@ Task:
     Generate the technical implementation plan and supporting design documents.
 ```
 
-**Checkpoint**: Confirm plan.md was generated and Constitution Check passed.
+**Checkpoint**:
+- Confirm `plan.md` was generated and Constitution Check passed.
+- Run Stage 3 gate (Mandatory Stage Gate); only continue on pass.
 
 ---
 
@@ -316,13 +391,16 @@ Task:
     3. Schema changes that could impact existing queries
     4. SLA risks from planned new queries or service calls
 
-    Output your standard Impact Analysis Report. Mark confidence as LOW for
-    items based only on plan intent (no actual diff available yet).
+    Output your standard Impact Analysis Report to:
+    <FEATURE_DIR>/impact-pre-analysis.md
+    Mark confidence as LOW for items based only on plan intent (no actual diff available yet).
 ```
 
-**Checkpoint**: Parse impact report. If CRITICAL downstream risks found, append them as
+**Checkpoint**:
+- Parse `<FEATURE_DIR>/impact-pre-analysis.md`. If CRITICAL downstream risks found, append them as
 warnings to plan.md and ensure tasks generation accounts for them (e.g., add adaptation
 tasks for affected downstream modules).
+- Run Stage 3.5 gate (Mandatory Stage Gate); only continue on pass.
 
 **Knowledge Feedback**: If the pre-analysis discovered module dependencies or call chain
 patterns not yet documented in `chain-topology.md`, the main pipeline MUST append them
@@ -365,8 +443,10 @@ Task:
         `- [ ] T-asset-003 [P] [US2] ... (depends: T-auth-001)`
 ```
 
-**Checkpoint**: Confirm tasks output was generated. For multi-module: verify tasks-index.md
+**Checkpoint**:
+- Confirm tasks output was generated. For multi-module: verify tasks-index.md
 exists and each module in the manifest has a corresponding tasks-<module>.md shard.
+- Run Stage 4 gate (Mandatory Stage Gate); only continue on pass.
 
 ---
 
@@ -524,6 +604,19 @@ Run Phase Gate again after integration tasks complete.
 - Timeout: record TaskID, split into smaller sub-tasks and re-dispatch (max 2 retries per
   task; see "Global Execution Contract")
 
+#### 5g. Stage Checkpoint Artifact
+
+Before leaving stage 5, write implementation summary to:
+- `<FEATURE_DIR>/implementation-summary.md`
+
+Minimum content:
+- Completed task IDs (including shard/task file names)
+- Build gate results (pass/fail, retries)
+- Migration versions used (if any)
+- Remaining known risks
+
+Then run Stage 5 gate (Mandatory Stage Gate); only continue on pass.
+
 ---
 
 ### Stage 5.5: Impact Analysis (Full)
@@ -548,10 +641,13 @@ Task:
     5. Check incident history for affected areas
 
     Output your standard Impact Analysis Report with HIGH confidence
-    (based on real diff).
+    (based on real diff), and write it to:
+    <FEATURE_DIR>/impact-analysis.md
 ```
 
-**Checkpoint**: Parse impact report.
+**Checkpoint**:
+- Parse `<FEATURE_DIR>/impact-analysis.md`.
+- Run Stage 5.5 gate (Mandatory Stage Gate); only continue on pass.
 
 - **No HIGH/CRITICAL risks** -> proceed to Stage 6 (Code Review), pass impact report
   as additional context
@@ -615,7 +711,7 @@ Task:
     1. Run git diff ${BASE_BRANCH}..HEAD for the full diff
     2. Validate implementation against <FEATURE_DIR>/spec.md and plan.md
     3. Run your checklist (security, quality, performance, design patterns)
-    4. Output structured report:
+    4. Output structured report to <FEATURE_DIR>/code-review.md:
        Summary: <one-line conclusion>
        Findings:
        - [CRITICAL/HIGH/MEDIUM/LOW] <file:line> <issue description>
@@ -623,7 +719,9 @@ Task:
        - <suggested fix action>
 ```
 
-**Checkpoint**: Parse review results, classify by severity.
+**Checkpoint**:
+- Parse `<FEATURE_DIR>/code-review.md`, classify by severity.
+- Run Stage 6 gate (Mandatory Stage Gate); only continue on pass.
 
 **Show review report to user**, then decide based on results:
 
@@ -702,6 +800,9 @@ the project type — that was already done during `/speckit.init`.
   then re-run `test-runner` to verify
 - **TIMEOUT / ERROR** -> halt, report to user with the error details
 - Still failing after 2 rounds -> halt, report failed tests, wait for user decision
+
+Persist aggregated test result to `<FEATURE_DIR>/test-summary.md`, then run
+Stage 7 gate (Mandatory Stage Gate); only continue on pass.
 
 ---
 
@@ -784,6 +885,9 @@ Push to remote? (yes/no)
 - User selects yes -> `git push origin ${BASE_BRANCH}`
 - User selects no -> stop
 
+Write merge outcome to `<FEATURE_DIR>/merge-summary.md` (include local merge SHA,
+whether pushed, and target branch), then run Stage 8 gate (Mandatory Stage Gate).
+
 ---
 
 ### Stage 9: Rebuild + Documentation Verification
@@ -846,6 +950,12 @@ Task:
 ```
 
 If `SERVICE_LOG_COMMAND` is empty, instruct the user to provide log output manually.
+
+Persist deployment verification:
+- success: write `<FEATURE_DIR>/deploy-healthcheck.md`
+- skipped/fallback: write `<FEATURE_DIR>/deploy-skipped.md` with reason
+
+Then run Stage 9 gate (Mandatory Stage Gate).
 
 ---
 
