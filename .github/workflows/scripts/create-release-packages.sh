@@ -151,7 +151,21 @@ build_variant() {
     esac
   fi
   
-  [[ -d templates ]] && { mkdir -p "$SPEC_DIR/templates"; find templates -type f -not -path "templates/commands/*" -not -name "vscode-settings.json" -exec cp --parents {} "$SPEC_DIR"/ \; ; echo "Copied templates -> .specify/templates"; }
+  if [[ -d templates ]]; then
+    mkdir -p "$SPEC_DIR/templates"
+    while IFS= read -r -d '' template_file; do
+      rel_path="${template_file#templates/}"
+      target_path="$SPEC_DIR/templates/$rel_path"
+      mkdir -p "$(dirname "$target_path")"
+      cp "$template_file" "$target_path"
+    done < <(
+      find templates -type f \
+        -not -path "templates/commands/*" \
+        -not -name "vscode-settings.json" \
+        -print0
+    )
+    echo "Copied templates -> .specify/templates"
+  fi
   
   # NOTE: We substitute {ARGS} internally. Outward tokens differ intentionally:
   #   * Markdown/prompt (claude, copilot, cursor-agent, opencode): $ARGUMENTS
@@ -261,8 +275,26 @@ norm_list() {
 }
 
 validate_subset() {
-  local type=$1; shift; local -n allowed=$1; shift; local items=("$@")
+  local type=$1
+  shift
+  local allowed=()
+  local items=()
   local invalid=0
+  local in_items=0
+  local token
+
+  for token in "$@"; do
+    if [[ $in_items -eq 0 && $token == "--" ]]; then
+      in_items=1
+      continue
+    fi
+    if [[ $in_items -eq 0 ]]; then
+      allowed+=("$token")
+    else
+      items+=("$token")
+    fi
+  done
+
   for it in "${items[@]}"; do
     local found=0
     for a in "${allowed[@]}"; do [[ $it == "$a" ]] && { found=1; break; }; done
@@ -275,15 +307,23 @@ validate_subset() {
 }
 
 if [[ -n ${AGENTS:-} ]]; then
-  mapfile -t AGENT_LIST < <(printf '%s' "$AGENTS" | norm_list)
-  validate_subset agent ALL_AGENTS "${AGENT_LIST[@]}" || exit 1
+  AGENT_LIST=()
+  while IFS= read -r agent; do
+    [[ -n $agent ]] || continue
+    AGENT_LIST+=("$agent")
+  done < <(printf '%s' "$AGENTS" | norm_list)
+  validate_subset agent "${ALL_AGENTS[@]}" -- "${AGENT_LIST[@]}" || exit 1
 else
   AGENT_LIST=("${ALL_AGENTS[@]}")
 fi
 
 if [[ -n ${SCRIPTS:-} ]]; then
-  mapfile -t SCRIPT_LIST < <(printf '%s' "$SCRIPTS" | norm_list)
-  validate_subset script ALL_SCRIPTS "${SCRIPT_LIST[@]}" || exit 1
+  SCRIPT_LIST=()
+  while IFS= read -r script; do
+    [[ -n $script ]] || continue
+    SCRIPT_LIST+=("$script")
+  done < <(printf '%s' "$SCRIPTS" | norm_list)
+  validate_subset script "${ALL_SCRIPTS[@]}" -- "${SCRIPT_LIST[@]}" || exit 1
 else
   SCRIPT_LIST=("${ALL_SCRIPTS[@]}")
 fi
