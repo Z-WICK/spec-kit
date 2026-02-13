@@ -153,6 +153,9 @@ switch ($Stage) {
         if (-not (Select-String -Path $specPath -Pattern '(^##\s+Clarifications)|clarification' -Quiet)) {
             Emit-Fail 'spec.md does not contain clarification markers'
         }
+        if (-not (Select-String -Path $specPath -Pattern '^[\s]*-[\s]*Q:.*Source:\s*\S+' -Quiet)) {
+            Emit-Fail 'stage 2 requires clarification entries with Source anchors'
+        }
     }
     '3' {
         Require-File -Path (Join-Path $FeatureDir 'plan.md') -Label 'plan.md'

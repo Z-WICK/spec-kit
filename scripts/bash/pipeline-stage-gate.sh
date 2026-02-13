@@ -185,6 +185,9 @@ case "$stage" in
     if ! grep -Eqi '(^##[[:space:]]+Clarifications)|clarification' "$feature_dir/spec.md"; then
       emit_fail "spec.md does not contain clarification markers"
     fi
+    if ! grep -Eq '^[[:space:]]*-[[:space:]]*Q:.*Source:[[:space:]]*\S+' "$feature_dir/spec.md"; then
+      emit_fail "stage 2 requires clarification entries with Source anchors"
+    fi
     ;;
   3)
     require_file "$feature_dir/plan.md" "plan.md"

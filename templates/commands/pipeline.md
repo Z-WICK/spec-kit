@@ -8,6 +8,9 @@ scripts:
   alembic:
     sh: scripts/bash/scan-alembic-revisions.sh
     ps: scripts/powershell/scan-alembic-revisions.ps1
+  clarify_guard:
+    sh: scripts/bash/clarify-requirement-guard.sh
+    ps: scripts/powershell/clarify-requirement-guard.ps1
 ---
 
 ## User Input
@@ -79,7 +82,7 @@ If gate script is missing, stop and tell user to run `/speckit.update` first.
 |-------|----------------------|
 | 0 | `<RUNTIME_DIR>/docs-summary.md` |
 | 1 | `<FEATURE_DIR>/spec.md` |
-| 2 | `<FEATURE_DIR>/spec.md` (clarifications written) |
+| 2 | `<FEATURE_DIR>/spec.md` (clarifications with `Source:` anchors) |
 | 3 | `<FEATURE_DIR>/plan.md`, `<FEATURE_DIR>/research.md` |
 | 3.5 | `<FEATURE_DIR>/impact-pre-analysis.md` |
 | 4 | `<FEATURE_DIR>/tasks.md` OR `<FEATURE_DIR>/tasks-index.md` + `tasks-<module>.md` |
@@ -250,7 +253,7 @@ Stage artifact validation (minimum checks):
 |-------|-------------------|
 | 0 | `<RUNTIME_DIR>/docs-summary.md` exists and hash matches `artifact_hash` |
 | 1 | `WORKTREE_ROOT`, `BRANCH_NAME`, `FEATURE_DIR` present; `<FEATURE_DIR>/spec.md` exists |
-| 2 | `spec.md` contains `## Clarifications` or explicit clarification update marker |
+| 2 | `spec.md` contains `## Clarifications` with `Source:` anchors and clarify guard passed |
 | 3 | `<FEATURE_DIR>/plan.md` and `<FEATURE_DIR>/research.md` exist |
 | 3.5 | `<FEATURE_DIR>/impact-pre-analysis.md` exists |
 | 4 | `tasks.md` or (`tasks-index.md` + shard files) exists |
@@ -325,6 +328,18 @@ Task:
 
 ### Stage 2: Clarify
 
+Before dispatching clarify agent, snapshot baseline spec:
+
+**Bash:**
+```bash
+cp "<FEATURE_DIR>/spec.md" "<RUNTIME_DIR>/spec.before-clarify.md"
+```
+
+**PowerShell:**
+```powershell
+Copy-Item -Path "<FEATURE_DIR>/spec.md" -Destination "<RUNTIME_DIR>/spec.before-clarify.md" -Force
+```
+
 ```
 Task:
   subagent_type: spec-clarify-auto
@@ -336,11 +351,23 @@ Task:
     Main repo root: <repo root>
 
     Automatically clarify ambiguities in spec.md, select recommended answers
-    and write them back.
+    and write them back with requirements-lock mode:
+    - Default append-only update in `## Clarifications`
+    - For each clarification line, include source anchor:
+      `- Q: ... -> A: ... | Source: ...`
+    - Do NOT modify non-clarification sections unless explicit user-approved
+      `CHANGE_REQUEST` is recorded
 ```
 
 **Checkpoint**:
 - Confirm clarify completed and `spec.md` was updated.
+- Run clarify guard (must pass) before Stage 2 gate:
+  - Bash:
+    `./.specify/scripts/bash/clarify-requirement-guard.sh --before "<RUNTIME_DIR>/spec.before-clarify.md" --after "<FEATURE_DIR>/spec.md" --min-clarifications 1`
+  - PowerShell:
+    `./.specify/scripts/powershell/clarify-requirement-guard.ps1 -Before "<RUNTIME_DIR>/spec.before-clarify.md" -After "<FEATURE_DIR>/spec.md" -MinClarifications 1`
+- If clarify guard fails: stop pipeline and ask user to either keep strict append-only clarify mode
+  or explicitly approve a `CHANGE_REQUEST`.
 - Run Stage 2 gate (Mandatory Stage Gate); only continue on pass.
 
 ---
