@@ -1263,30 +1263,37 @@ def init(
             cmd = f"setx CODEX_HOME {quoted_path}"
         else:  # Unix-like systems
             cmd = f"export CODEX_HOME={quoted_path}"
-        
-        steps_lines.append(f"{step_num}. Set [cyan]CODEX_HOME[/cyan] environment variable before running Codex: [cyan]{cmd}[/cyan]")
+
+        steps_lines.append(
+            f"{step_num}. (Optional) Set [cyan]CODEX_HOME[/cyan] for project-local Codex prompts: [cyan]{cmd}[/cyan]"
+        )
+        steps_lines.append(
+            "   [dim]If omitted, copy files from .codex/prompts/ to your default Codex prompts directory.[/dim]"
+        )
         step_num += 1
 
     steps_lines.append(f"{step_num}. Start using slash commands with your AI agent:")
 
-    steps_lines.append("   2.1 [cyan]/speckit.constitution[/] - Establish project principles")
-    steps_lines.append("   2.2 [cyan]/speckit.specify[/] - Create baseline specification")
-    steps_lines.append("   2.3 [cyan]/speckit.plan[/] - Create implementation plan")
-    steps_lines.append("   2.4 [cyan]/speckit.tasks[/] - Generate actionable tasks")
-    steps_lines.append("   2.5 [cyan]/speckit.implement[/] - Execute implementation")
+    command_prefix = "/prompts:speckit." if selected_ai == "codex" else "/speckit."
+    steps_lines.append(f"   {step_num}.1 [cyan]{command_prefix}constitution[/] - Establish project principles")
+    steps_lines.append(f"   {step_num}.2 [cyan]{command_prefix}specify[/] - Create baseline specification")
+    steps_lines.append(f"   {step_num}.3 [cyan]{command_prefix}plan[/] - Create implementation plan")
+    steps_lines.append(f"   {step_num}.4 [cyan]{command_prefix}tasks[/] - Generate actionable tasks")
+    steps_lines.append(f"   {step_num}.5 [cyan]{command_prefix}implement[/] - Execute implementation")
 
     steps_panel = Panel("\n".join(steps_lines), title="Next Steps", border_style="cyan", padding=(1,2))
     console.print()
     console.print(steps_panel)
 
+    enhancement_prefix = "/prompts:speckit." if selected_ai == "codex" else "/speckit."
     enhancement_lines = [
         "Enhanced commands [bright_black](Z-WICK fork)[/bright_black]",
         "",
-        f"○ [cyan]/speckit.init[/] - Smart project initialization with auto-detection of tech stack",
-        f"○ [cyan]/speckit.pipeline[/] - Full automation pipeline from requirements to deployment",
-        f"○ [cyan]/speckit.issue[/] - Create structured GitHub Issues (bug/feature/task)",
-        f"○ [cyan]/speckit.fixbug[/] - Bug investigation & fix workflow with log analysis",
-        f"○ [cyan]/speckit.optimize-constitution[/] - Append engineering efficiency principles to constitution"
+        f"○ [cyan]{enhancement_prefix}init[/] - Smart project initialization with auto-detection of tech stack",
+        f"○ [cyan]{enhancement_prefix}pipeline[/] - Full automation pipeline from requirements to deployment",
+        f"○ [cyan]{enhancement_prefix}issue[/] - Create structured GitHub Issues (bug/feature/task)",
+        f"○ [cyan]{enhancement_prefix}fixbug[/] - Bug investigation & fix workflow with log analysis",
+        f"○ [cyan]{enhancement_prefix}optimize-constitution[/] - Append engineering efficiency principles to constitution"
     ]
     enhancements_panel = Panel("\n".join(enhancement_lines), title="Enhancement Commands", border_style="cyan", padding=(1,2))
     console.print()
