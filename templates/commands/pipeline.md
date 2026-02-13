@@ -35,13 +35,18 @@ source .specify/.project
 ```
 
 This provides: `STACK`, `BUILD_COMMAND`, `TEST_COMMAND`, `TEST_DIR`, `DEPLOY_COMMAND`,
-`APP_PORT`, `DOC_PATH`, `MIGRATION_TOOL`, `MIGRATION_PATH`, `SERVICE_LOG_COMMAND`, etc.
+`APP_PORT`, `DOC_PATH`, `MIGRATION_TOOL`, `MIGRATION_PATH`, `SERVICE_LOG_COMMAND`,
+`BASE_BRANCH`, `MAX_PARALLEL_WORKERS`, etc.
 
 If `.specify/.project` does not exist, warn the user:
 ```
 WARNING: .specify/.project not found. Run /speckit.init first to detect project config.
 ```
 Then fall back to asking the user for BUILD_COMMAND and TEST_COMMAND before proceeding.
+
+Resolve runtime defaults after loading config:
+- `BASE_BRANCH`: use `.specify/.project` value if present; otherwise detect `origin/HEAD`; fallback to `main`.
+- `MAX_PARALLEL_WORKERS`: use `.specify/.project` value if present; fallback to `4`; cap at `8`.
 
 Dispatch subagents sequentially (stages 0-4); stage 5 is dispatched directly by this
 command via the `coding-worker` agent (tier selected by task file count: low ≤1, medium 2-5, high 6+).
@@ -58,20 +63,32 @@ To prevent subagent timeouts caused by overly long context:
 - **Context trimming**: Only pass the reference information required for the current task
   in the prompt. Do not pass all design documents in full.
 
-### Subagent Timeout and Chunked Write (Constitution v2.4.0)
+### Global Execution Contract
 
-- **5-minute hard timeout**: Every subagent call (Task tool) MUST set timeout=300. If a
-  subagent has not returned within 5 minutes, MUST stop the call and follow the procedure
-  below.
-- **Chunked write instruction**: Every subagent prompt MUST include the following reminder:
-  "When writing large files (>200 lines), you MUST write in chunks (each chunk <=200 lines)
-  to avoid blocking that causes timeouts. Use Create for the first chunk, then Edit to
-  append subsequent chunks."
-- **Timeout handling procedure**:
-  1. Record the timed-out TaskID and known progress.
-  2. Split the task into smaller sub-tasks if the original scope was too broad.
-  3. Re-dispatch with reduced scope and the chunked-write reminder.
-  4. After 2 consecutive timeouts on the same task, halt and report to the user.
+Apply this contract to **every** subagent dispatch (stages 0-9):
+- **Chunked write**: Large files (>200 lines) MUST be written in chunks (<=200 lines each). Use Create for first chunk, then Edit to append.
+- **Dynamic timeout** (instead of fixed 300s):
+  - Small task (<=1 file, low complexity): `timeout=180`
+  - Medium task (2-5 files or moderate complexity): `timeout=420`
+  - Large task (6+ files, migration-heavy, or integration): `timeout=600`
+- **Retry with exponential backoff**:
+  - Retry 1: wait 15s
+  - Retry 2: wait 30s
+  - If still failing after retry 2: split task scope and re-dispatch once
+  - If split run still fails: halt and report blocking point
+- **Prompt footer**: Dispatcher MUST append a single-line footer to each subagent prompt:
+  `Execution Contract: chunked write, dynamic timeout tier, and retry metadata apply.`
+
+Do not duplicate long timeout/chunked-write paragraphs in every stage prompt; use this global contract.
+
+### Parallel Scheduler and Limits
+
+All [P] execution must go through a centralized scheduler:
+- **Global concurrency cap**: never dispatch more than `MAX_PARALLEL_WORKERS` tasks concurrently.
+- **File mutex**: two tasks touching the same normalized file path MUST NOT run in parallel.
+- **Dependency-aware dispatch**: run only tasks whose dependencies are completed.
+- **Unknown file scope**: if a task has no explicit file list, run it sequentially.
+- **Fair scheduling**: prioritize unblockers first (tasks with highest downstream dependency count), then FIFO.
 
 ### Migration Version Conflict Detection
 
@@ -129,34 +146,68 @@ Get-ChildItem <WORKTREE_ROOT>/prisma/migrations/*/migration.sql -ErrorAction Sil
 
 ---
 
-### Checkpoint Recovery: Detect Existing Artifacts on Startup
+### Checkpoint Recovery: Stateful and Verifiable
 
-Before dispatching, detect current state and skip completed stages:
+Persist pipeline runtime state to:
+`<main-repo-root>/.specify/pipeline-state.json`
 
-1. Check if a matching worktree already exists (`git worktree list` or user input contains WORKTREE_ROOT)
-2. If WORKTREE_ROOT exists, check for artifacts under FEATURE_DIR:
+Use this schema (minimum fields):
+```json
+{
+  "pipeline_id": "<timestamp-or-uuid>",
+  "input_hash": "<sha256(doc_path + feature_description + base_branch + repo_head)>",
+  "main_repo_root": "<path>",
+  "worktree_root": "<path>",
+  "branch_name": "<branch>",
+  "feature_dir": "<path>",
+  "current_stage": "0|1|2|3|3.5|4|5|5.5|6|7|8|9",
+  "stages": {
+    "0": {"status": "pending|running|completed|failed", "retry_count": 0, "artifact_hash": "<hash-or-empty>", "updated_at": "<iso8601>"},
+    "1": {"status": "..."},
+    "2": {"status": "..."}
+  }
+}
+```
 
-| Detected File | Skip Stage |
-|---------------|------------|
-| spec.md | Stage 0 + 1 |
-| spec.md contains `## Clarifications` | Stage 2 |
-| plan.md + research.md | Stage 3 |
-| plan.md contains impact warnings or `impact-pre-analysis.md` exists | Stage 3.5 |
-| tasks.md (or tasks-index.md) | Stage 4 |
-| All tasks in tasks.md marked [x] | Stage 5 |
-| `impact-analysis.md` exists in FEATURE_DIR | Stage 5.5 |
-| Review passed (no CRITICAL/HIGH) | Stage 6 (jump to stage 7 test) |
-| Tests exist under src/test/ and `pnpm build` passes | Stage 7 (jump to stage 8 merge) |
+Startup recovery procedure:
+1. If state file exists, compare `input_hash` with current run input hash.
+2. If hash mismatch: archive old state file to `.specify/pipeline-state.<timestamp>.bak.json`, then start from Stage 0.
+3. If hash matches: validate artifacts for each completed stage (table below).
+4. Resume from the first stage that is not `completed` or fails validation.
+5. Report to user:
+   `Recovered pipeline state from stage file, validated stages 0-N, resuming at stage N+1.`
 
-3. Resume from the first incomplete stage
-4. Report to user: `Detected artifacts for stages 0-N, resuming from stage N+1.`
+Stage artifact validation (minimum checks):
+
+| Stage | Required evidence |
+|-------|-------------------|
+| 0 | `DOCS_SUMMARY` exists and hash matches `artifact_hash` |
+| 1 | `WORKTREE_ROOT`, `BRANCH_NAME`, `FEATURE_DIR` present; `spec.md` exists |
+| 2 | `spec.md` contains `## Clarifications` or explicit clarification update marker |
+| 3 | `plan.md` and `research.md` exist |
+| 3.5 | pre-impact report exists or plan contains recorded impact warnings |
+| 4 | `tasks.md` or (`tasks-index.md` + shard files) exists |
+| 5 | task files show implementation completion markers and latest build gate passed |
+| 5.5 | `impact-analysis.md` exists |
+| 6 | review report exists and unresolved CRITICAL/HIGH count recorded |
+| 7 | test summary exists and `${TEST_COMMAND}` pass recorded |
+| 8 | merge commit to `${BASE_BRANCH}` recorded |
+| 9 | deploy/health-check result recorded (or explicit skip reason) |
+
+State update rules:
+- Before each stage starts: set stage status to `running`, increment `retry_count` if retry.
+- After each stage succeeds: set status to `completed`, write stage artifact hash/evidence.
+- On failure: set status to `failed`, persist error summary.
+- Write state updates atomically (write temp file, then move/rename).
 
 If user input contains only "描述:" without "路径:" and matches an existing worktree/feature,
-enter checkpoint recovery mode.
+enter recovery mode and use state file first, artifact scan second.
 
 ---
 
 ### Stage 0: Read Requirements Documents
+
+All stage prompts below inherit the **Global Execution Contract**; only stage-specific instructions are listed.
 
 ```
 Task:
@@ -166,8 +217,6 @@ Task:
     Doc path: <parsed path>
     Read all requirements documents under this path and output a structured
     requirements summary.
-    WARNING: When writing large files (>200 lines), you MUST write in chunks
-    (each chunk <=200 lines) to avoid blocking timeouts.
 ```
 
 **Checkpoint**: Confirm a structured requirements summary was returned; record as `DOCS_SUMMARY`.
@@ -197,10 +246,6 @@ Task:
       spec-<module>.md for each submodule under FEATURE_DIR/specs/.
       Reference: specs/009-asset-lifecycle/.
     - >8 modules: STOP and advise the user to split into multiple branches.
-
-    WARNING: When writing large files (>200 lines), you MUST write in chunks
-    (each chunk <=200 lines) to avoid blocking timeouts. Use Create for the
-    first chunk, then Edit to append.
 ```
 
 **Checkpoint**: Confirm WORKTREE_ROOT / BRANCH_NAME / FEATURE_DIR were returned; record as context variables.
@@ -221,8 +266,6 @@ Task:
 
     Automatically clarify ambiguities in spec.md, select recommended answers
     and write them back.
-    WARNING: When writing large files (>200 lines), you MUST write in chunks
-    (each chunk <=200 lines) to avoid blocking timeouts.
 ```
 
 **Checkpoint**: Confirm clarify completed and spec.md was updated.
@@ -242,8 +285,6 @@ Task:
     Main repo root: <repo root>
 
     Generate the technical implementation plan and supporting design documents.
-    WARNING: When writing large files (>200 lines), you MUST write in chunks
-    (each chunk <=200 lines) to avoid blocking timeouts.
 ```
 
 **Checkpoint**: Confirm plan.md was generated and Constitution Check passed.
@@ -277,10 +318,6 @@ Task:
 
     Output your standard Impact Analysis Report. Mark confidence as LOW for
     items based only on plan intent (no actual diff available yet).
-
-    WARNING: When writing large files (>200 lines), you MUST write in chunks
-    (each chunk <=200 lines) to avoid blocking timeouts. Use Create for the
-    first chunk, then Edit to append.
 ```
 
 **Checkpoint**: Parse impact report. If CRITICAL downstream risks found, append them as
@@ -326,9 +363,6 @@ Task:
       T-asset-001. Shared tasks in tasks-index.md use T-000-xxx.
       Mark cross-module dependencies explicitly:
         `- [ ] T-asset-003 [P] [US2] ... (depends: T-auth-001)`
-
-    WARNING: When writing large files (>200 lines), you MUST write in chunks
-    (each chunk <=200 lines) to avoid blocking timeouts.
 ```
 
 **Checkpoint**: Confirm tasks output was generated. For multi-module: verify tasks-index.md
@@ -377,7 +411,7 @@ Generated files:
 Start implementation? (yes/no)
   yes  - Begin stage 5 implementation immediately
   no   - Stop here; you can review artifacts first, then re-run
-         /spec-pipeline to auto-resume from stage 5
+         /speckit.pipeline to auto-resume from stage 5
 ============================================================
 ```
 
@@ -405,6 +439,11 @@ From the parsed tasks, extract:
 - Group by Phase; within each Phase identify parallel batches vs sequential tasks
 - For multi-module: group tasks by module shard, identify inter-module dependencies
 
+Build a scheduler-ready task graph:
+- Normalize task file paths (relative to WORKTREE_ROOT) for file-lock checks.
+- Materialize dependency edges from explicit `depends:` markers and phase order.
+- Compute dispatch priority (`unblocker_score`, then FIFO).
+
 **Split check**: For each task, if it involves 2+ files or multi-step operations, split into
 sub-tasks (e.g., T-auth-003 becomes T-auth-003a, T-auth-003b), each handling only 1-2 files.
 
@@ -412,8 +451,13 @@ sub-tasks (e.g., T-auth-003 becomes T-auth-003a, T-auth-003b), each handling onl
 
 #### 5b. Execute: Shared Setup First
 
-Execute shared setup and foundational tasks from tasks-index.md (Phase 1-2) sequentially
-or with [P] parallelism as marked. These MUST complete before any module-specific tasks.
+Execute shared setup and foundational tasks from tasks-index.md (Phase 1-2) through the
+global scheduler. [P] tasks can run concurrently only if:
+- active workers < `MAX_PARALLEL_WORKERS`
+- no file-lock conflict
+- dependencies are satisfied
+
+These MUST complete before any module-specific tasks.
 
 After shared setup completes, run Phase Gate (build check).
 
@@ -427,7 +471,7 @@ After shared setup completes, run Phase Gate (build check).
 For each module shard (respecting cross-module dependency order):
 
   For each Phase within the shard:
-    Parallel tasks (marked [P], not touching same file) -> dispatch simultaneously
+    Parallel tasks (marked [P], not touching same file) -> dispatch via scheduler
     Sequential tasks -> dispatch one at a time
 
     Task dispatch (same as before):
@@ -438,14 +482,11 @@ For each module shard (respecting cross-module dependency order):
         Task: <TaskID> <full description and file paths> (limit 1-2 files)
         Migration version: <NEXT_MIGRATION_VERSION> (only for migration tasks)
         Reference: <only the doc fragments needed for this task, not full docs>
-        WARNING: When writing large files (>200 lines), you MUST write in chunks
-        (each chunk <=200 lines) to avoid blocking timeouts. Use Create for the
-        first chunk, then Edit to append.
         Return: changed files, verification results, remaining risks.
 ```
 
 **Module parallelism rules**:
-- Modules with no inter-module dependencies can be dispatched fully in parallel
+- Modules with no inter-module dependencies can be dispatched in parallel, bounded by `MAX_PARALLEL_WORKERS`
 - If module B depends on module A (declared in tasks-index.md), module B waits until
   the depended task in module A completes, then proceeds
 - Within each module, Phase-by-Phase ordering is preserved
@@ -481,13 +522,13 @@ Run Phase Gate again after integration tasks complete.
 - Module-level failure (multi-module): other independent modules continue; dependent
   modules are paused. After the batch completes, retry failed module tasks once.
 - Timeout: record TaskID, split into smaller sub-tasks and re-dispatch (max 2 retries per
-  task; see "Subagent Timeout and Chunked Write" rules)
+  task; see "Global Execution Contract")
 
 ---
 
 ### Stage 5.5: Impact Analysis (Full)
 
-After all implementation tasks complete and `pnpm build` passes, run a full
+After all implementation tasks complete and `${BUILD_COMMAND}` passes, run a full
 impact analysis based on the actual code diff.
 
 ```
@@ -500,18 +541,14 @@ Task:
 
     This is a POST-IMPLEMENTATION analysis based on actual code changes.
 
-    1. Run: git diff main..HEAD --stat  (to get changed file list)
-    2. Run: git diff main..HEAD          (to get full diff)
+    1. Run: git diff ${BASE_BRANCH}..HEAD --stat  (to get changed file list)
+    2. Run: git diff ${BASE_BRANCH}..HEAD          (to get full diff)
     3. For each changed file, trace all callers and downstream dependencies
     4. Cross-reference with chain topology and SLA budgets
     5. Check incident history for affected areas
 
     Output your standard Impact Analysis Report with HIGH confidence
     (based on real diff).
-
-    WARNING: When writing large files (>200 lines), you MUST write in chunks
-    (each chunk <=200 lines) to avoid blocking timeouts. Use Create for the
-    first chunk, then Edit to append.
 ```
 
 **Checkpoint**: Parse impact report.
@@ -562,7 +599,7 @@ impact analyses progressively more accurate.
 
 ### Stage 6: Code Review
 
-After all implementation tasks complete and final `pnpm build` passes,
+After all implementation tasks complete and final `${BUILD_COMMAND}` passes,
 invoke `project-code-reviewer`:
 
 ```
@@ -574,8 +611,8 @@ Task:
     Branch: <BRANCH_NAME>
     Specs directory: <FEATURE_DIR>
 
-    Review all changes on this branch relative to main:
-    1. Run git diff main..HEAD for the full diff
+    Review all changes on this branch relative to ${BASE_BRANCH}:
+    1. Run git diff ${BASE_BRANCH}..HEAD for the full diff
     2. Validate implementation against <FEATURE_DIR>/spec.md and plan.md
     3. Run your checklist (security, quality, performance, design patterns)
     4. Output structured report:
@@ -584,8 +621,6 @@ Task:
        - [CRITICAL/HIGH/MEDIUM/LOW] <file:line> <issue description>
        Follow-up:
        - <suggested fix action>
-    WARNING: When writing large files (>200 lines), you MUST write in chunks
-    (each chunk <=200 lines) to avoid blocking timeouts.
 ```
 
 **Checkpoint**: Parse review results, classify by severity.
@@ -603,7 +638,7 @@ Task:
   Auto-fix? (yes/no)
     yes  - Dispatch each issue to coding-worker for fixing,
            then re-run review
-    no   - Stop; you can fix manually then re-run /spec-pipeline
+    no   - Stop; you can fix manually then re-run /speckit.pipeline
   ```
 - User selects yes -> dispatch each CRITICAL/HIGH finding as a fix task to
   `coding-worker`, then re-run stage 6 (max 2 retry rounds)
@@ -639,8 +674,6 @@ Task:
     - Acceptance criteria: <extract relevant acceptance scenarios from spec.md>
     - API contracts: <extract relevant endpoints from contracts/, if any>
     Write the test class and run verification.
-    WARNING: When writing large files (>200 lines), you MUST write in chunks
-    (each chunk <=200 lines) to avoid blocking timeouts.
 ```
 
 Test classes for different modules/classes can be dispatched in parallel.
@@ -658,10 +691,6 @@ Task:
     Working directory: <WORKTREE_ROOT>
     Test command: ${TEST_COMMAND}
     Stack hint: ${STACK}
-
-    WARNING: When writing large files (>200 lines), you MUST write in chunks
-    (each chunk <=200 lines) to avoid blocking timeouts. Use Create for the
-    first chunk, then Edit to append.
 ```
 
 The test-runner agent takes the exact command (from `.specify/.project`), runs it,
@@ -676,9 +705,9 @@ the project type — that was already done during `/speckit.init`.
 
 ---
 
-### Stage 8: Merge to main
+### Stage 8: Merge to Base Branch
 
-After tests pass, auto-merge to main:
+After tests pass, auto-merge to `${BASE_BRANCH}`:
 
 #### 8a. Pre-check
 
@@ -694,37 +723,65 @@ cd <WORKTREE_ROOT> && git diff --cached
 
 #### 8b. Commit Test Code
 
-If stage 7 produced new files (cross-platform git commands):
+If stage 7 produced new files (cross-platform git commands), add test files using
+`${TEST_DIR}` from `.specify/.project`. If `${TEST_DIR}` is empty, detect in order:
+`tests`, `test`, `src/test`; fallback to `.`.
 
+Resolve `TEST_DIR_TO_ADD` before commit:
+
+**Bash:**
 ```bash
-cd <WORKTREE_ROOT> && git add src/test/ && git commit -m "test: add consolidated tests for <BRANCH_NAME>"
+if [[ -n "${TEST_DIR:-}" ]]; then
+  TEST_DIR_TO_ADD="${TEST_DIR}"
+elif [[ -d tests ]]; then
+  TEST_DIR_TO_ADD="tests"
+elif [[ -d test ]]; then
+  TEST_DIR_TO_ADD="test"
+elif [[ -d src/test ]]; then
+  TEST_DIR_TO_ADD="src/test"
+else
+  TEST_DIR_TO_ADD="."
+fi
 ```
 
-Examples for test directory: `src/test/java` (Java), `tests` (Python/Node), `test` (Go/Rust)
+**PowerShell:**
+```powershell
+if ("${TEST_DIR}") { $TEST_DIR_TO_ADD = "${TEST_DIR}" }
+elseif (Test-Path tests) { $TEST_DIR_TO_ADD = 'tests' }
+elseif (Test-Path test) { $TEST_DIR_TO_ADD = 'test' }
+elseif (Test-Path 'src/test') { $TEST_DIR_TO_ADD = 'src/test' }
+else { $TEST_DIR_TO_ADD = '.' }
+```
+
+```bash
+cd <WORKTREE_ROOT> && git add "${TEST_DIR_TO_ADD}" && git commit -m "test: add consolidated tests for <BRANCH_NAME>"
+```
+
+Examples for test directory: `src/test/java` (Java), `tests` (Python/Node), `test` (Go/Rust).
 
 #### 8c. Merge
 
-Merge the feature branch to main (cross-platform git command):
+Merge the feature branch to `${BASE_BRANCH}` (cross-platform git command):
 
 ```bash
-cd <main-repo-root> && git merge <BRANCH_NAME> --no-ff -m "feat: merge <BRANCH_NAME> with tests"
+cd <main-repo-root> && git checkout ${BASE_BRANCH} && git merge <BRANCH_NAME> --no-ff -m "feat: merge <BRANCH_NAME> with tests"
 ```
 
 #### 8d. Confirm Push with User
 
 ```
 ============================================================
-Branch <BRANCH_NAME> merged to main (local).
+Branch <BRANCH_NAME> merged to ${BASE_BRANCH} (local).
   Tests: all passed (N test classes, M test methods)
   Review: PASS
 
 Push to remote? (yes/no)
-  yes  - git push origin main
+  yes  - git push origin ${BASE_BRANCH}
   no   - Keep local merge; you can push manually
 ============================================================
 ```
 
-- User selects yes -> `git push origin main`
+- User selects yes -> `git push origin ${BASE_BRANCH}`
 - User selects no -> stop
 
 ---
@@ -786,10 +843,6 @@ Task:
     Investigation context: Service failed to start after deployment.
     Stack hint: ${STACK}
     Time range: last 5 minutes
-
-    WARNING: When writing large files (>200 lines), you MUST write in chunks
-    (each chunk <=200 lines) to avoid blocking timeouts. Use Create for the
-    first chunk, then Edit to append.
 ```
 
 If `SERVICE_LOG_COMMAND` is empty, instruct the user to provide log output manually.
@@ -815,11 +868,14 @@ Pipeline complete:
   Specs: <FEATURE_DIR>
   Review: <PASS/FAIL>
   Tests: <N classes, M methods, all passed>
-  Merge: <merged to main / pending>
+  Merge: <merged to ${BASE_BRANCH} / pending>
 
 Next steps:
   cd <WORKTREE_ROOT>
-  /analyze    - Analyze spec/plan/tasks consistency
-  /implement  - Re-run or continue unfinished tasks
+  /speckit.analyze    - Analyze spec/plan/tasks consistency
+  /speckit.implement  - Re-run or continue unfinished tasks
+  # Codex CLI equivalents:
+  /prompts:speckit.analyze
+  /prompts:speckit.implement
 ============================================================
 ```
