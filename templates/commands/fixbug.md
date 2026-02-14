@@ -28,20 +28,19 @@ WARNING: .specify/.project not found. Run /speckit.init first to detect project 
 ```
 Then fall back to asking the user for BUILD_COMMAND and TEST_COMMAND before proceeding.
 
-### Subagent Timeout and Chunked Write (Constitution v2.4.0)
+### Shared Subagent Execution Contract (Constitution v2.4.0)
 
-- **5-minute hard timeout**: Every subagent call (Task tool) MUST set timeout=300. If a
-  subagent has not returned within 5 minutes, MUST stop the call and follow the procedure
-  below.
-- **Chunked write instruction**: Every subagent prompt MUST include the following reminder:
-  "When writing large files (>200 lines), you MUST write in chunks (each chunk <=200 lines)
-  to avoid blocking that causes timeouts. Use Create for the first chunk, then Edit to
-  append subsequent chunks."
-- **Timeout handling procedure**:
-  1. Record the timed-out TaskID and known progress.
-  2. Split the task into smaller sub-tasks if the original scope was too broad.
-  3. Re-dispatch with reduced scope and the chunked-write reminder.
-  4. After 2 consecutive timeouts on the same task, halt and report to the user.
+Load `.specify/memory/execution-contract.md` and apply it to every subagent dispatch.
+
+Phase-level timeout tier guidance:
+- Phase 2 (log-analyzer): usually medium
+- Phase 3 (bug-locator): usually medium
+- Phase 4 (bug-analyzer): usually medium
+- Phase 5 (bug-fixer): medium or large (based on changed file scope)
+- Phase 5.5 (impact-analyzer): medium
+- Phase 6 (bug-verifier): medium
+
+On timeout/failure, follow the retry/split procedure defined in the shared contract.
 
 ### Triage: Full Pipeline vs. Direct Fix
 
@@ -143,7 +142,7 @@ Record the resolved log source as `LOG_SOURCE` (a file path or shell command).
 ```
 Task:
   subagent_type: log-analyzer
-  timeout: 300
+  timeout: <select using .specify/memory/execution-contract.md tier>
   description: "Analyze logs for bug: <BUG_SUMMARY>"
   prompt: |
     Log source: <LOG_SOURCE>
@@ -163,8 +162,7 @@ Task:
 
     Return your standard Log Analysis Report.
 
-    WARNING: When writing large files (>200 lines), you MUST write in chunks
-    (each chunk <=200 lines) to avoid blocking timeouts.
+    Execution Contract: chunked write, dynamic timeout tier, and retry metadata apply.
 ```
 
 **2c. Parse Log Findings**
@@ -185,7 +183,7 @@ If log-analyzer returned nothing useful, set `LOG_FINDINGS = "N/A"`.
 ```
 Task:
   subagent_type: bug-locator
-  timeout: 300
+  timeout: <select using .specify/memory/execution-contract.md tier>
   description: "Locate bug: <BUG_SUMMARY>"
   prompt: |
     ## Bug Location Request
@@ -207,8 +205,7 @@ Task:
     - Related Code files
     - Handoff notes for the analyzer
 
-    WARNING: When writing large files (>200 lines), you MUST write in chunks
-    (each chunk <=200 lines) to avoid blocking timeouts.
+    Execution Contract: chunked write, dynamic timeout tier, and retry metadata apply.
 ```
 
 **3b. Parse Location Report**
@@ -247,7 +244,7 @@ Max 1 retry — if still Low after retry, proceed with best guess and note uncer
 ```
 Task:
   subagent_type: bug-analyzer
-  timeout: 300
+  timeout: <select using .specify/memory/execution-contract.md tier>
   description: "Analyze bug: <BUG_SUMMARY>"
   prompt: |
     ## Bug Analysis Request
@@ -275,8 +272,7 @@ Task:
     - Recommended Approach for the fixer
     - Watch Out warnings
 
-    WARNING: When writing large files (>200 lines), you MUST write in chunks
-    (each chunk <=200 lines) to avoid blocking timeouts.
+    Execution Contract: chunked write, dynamic timeout tier, and retry metadata apply.
 ```
 
 **4b. Parse Analysis Report**
@@ -337,7 +333,7 @@ git checkout -b fix/<short-bug-description>
 ```
 Task:
   subagent_type: bug-fixer
-  timeout: 300
+  timeout: <select using .specify/memory/execution-contract.md tier>
   description: "Fix bug: <BUG_SUMMARY>"
   prompt: |
     ## Bug Fix Request
@@ -369,9 +365,7 @@ Task:
     - Testing notes for the verifier
     - Rollback plan
 
-    WARNING: When writing large files (>200 lines), you MUST write in chunks
-    (each chunk <=200 lines) to avoid blocking timeouts. Use Create for the
-    first chunk, then Edit to append.
+    Execution Contract: chunked write, dynamic timeout tier, and retry metadata apply.
 ```
 
 **5c. Parse Fix Report**
@@ -393,7 +387,7 @@ analysis that runs between Fix and Verify.
 ```
 Task:
   subagent_type: impact-analyzer
-  timeout: 300
+  timeout: <select using .specify/memory/execution-contract.md tier>
   description: "Impact analysis for bug fix: <BUG_SUMMARY>"
   prompt: |
     Working directory: <repo root>
@@ -415,8 +409,7 @@ Task:
 
     Output your standard Impact Analysis Report.
 
-    WARNING: When writing large files (>200 lines), you MUST write in chunks
-    (each chunk <=200 lines) to avoid blocking timeouts.
+    Execution Contract: chunked write, dynamic timeout tier, and retry metadata apply.
 ```
 
 **Handle impact results:**
@@ -448,7 +441,7 @@ with date, severity, affected module, root cause, resolution, and lesson learned
 ```
 Task:
   subagent_type: bug-verifier
-  timeout: 300
+  timeout: <select using .specify/memory/execution-contract.md tier>
   description: "Verify fix: <BUG_SUMMARY>"
   prompt: |
     ## Bug Fix Verification Request
@@ -480,8 +473,7 @@ Task:
     - Regression Found (Yes/No)
     - Final Verdict (Safe to merge / Needs more work / Needs manual testing)
 
-    WARNING: When writing large files (>200 lines), you MUST write in chunks
-    (each chunk <=200 lines) to avoid blocking timeouts.
+    Execution Contract: chunked write, dynamic timeout tier, and retry metadata apply.
 ```
 
 **6b. Parse Verification Report**

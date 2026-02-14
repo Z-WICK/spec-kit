@@ -7,6 +7,43 @@ All notable changes to the Specify CLI and templates are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.3] - 2026-02-14
+
+### Added
+
+- **Enhanced command linting**
+  - Added `specify lint-commands` to validate enhanced command templates and release mapping consistency.
+  - Added repository lint checks for:
+    - command frontmatter/script matrix correctness
+    - required pipeline gate script presence
+    - shared execution contract references
+    - release package agent coverage and directory mapping
+
+- **Shared execution contract artifact**
+  - Added `memory/execution-contract.md` as a single reusable dispatch contract for enhanced subagent workflows.
+
+- **Enhanced regression tests**
+  - Added `tests/test_enhanced_commands.py` to prevent regressions in agent mappings, command directories, and release script consistency.
+
+### Changed
+
+- **Single source of truth for agent metadata**
+  - Introduced shared agent metadata module (`src/specify_cli/agents.py`).
+  - Unified CLI agent metadata and extension command registration metadata to use shared definitions.
+  - Added backward-compatible legacy alias handling for previously stored `cursor` extension registrations.
+
+- **Release packaging consistency**
+  - Aligned command output directories for Kilo/Auggie/Roo with rules-based conventions:
+    - `.kilocode/rules`
+    - `.augment/rules`
+    - `.roo/rules`
+  - Updated PowerShell release packaging parity to include `shai`, `agy`, and `droid` variants.
+  - Updated release packaging agent lists/help text to match supported agent matrix.
+
+- **Enhanced command execution contract alignment**
+  - Updated `/speckit.pipeline` and `/speckit.fixbug` templates to reference a shared execution contract and remove duplicated timeout/chunking blocks.
+  - Replaced fixed timeout instructions in `fixbug` with dynamic tier selection guidance tied to the shared contract.
+
 ## [0.1.2] - 2026-02-13
 
 ### Changed

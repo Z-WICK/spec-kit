@@ -20,6 +20,8 @@ import yaml
 from packaging import version as pkg_version
 from packaging.specifiers import SpecifierSet, InvalidSpecifier
 
+from .agents import AGENT_COMMAND_CONFIGS, LEGACY_AGENT_ALIASES
+
 
 class ExtensionError(Exception):
     """Base exception for extension-related errors."""
@@ -444,10 +446,11 @@ class ExtensionManager:
         if registered_commands:
             registrar = CommandRegistrar()
             for agent_name, cmd_names in registered_commands.items():
-                if agent_name not in registrar.AGENT_CONFIGS:
+                resolved_agent = LEGACY_AGENT_ALIASES.get(agent_name, agent_name)
+                if resolved_agent not in registrar.AGENT_CONFIGS:
                     continue
 
-                agent_config = registrar.AGENT_CONFIGS[agent_name]
+                agent_config = registrar.AGENT_CONFIGS[resolved_agent]
                 commands_dir = self.project_root / agent_config["dir"]
 
                 for cmd_name in cmd_names:
@@ -580,104 +583,7 @@ class CommandRegistrar:
     """Handles registration of extension commands with AI agents."""
 
     # Agent configurations with directory, format, and argument placeholder
-    AGENT_CONFIGS = {
-        "claude": {
-            "dir": ".claude/commands",
-            "format": "markdown",
-            "args": "$ARGUMENTS",
-            "extension": ".md"
-        },
-        "gemini": {
-            "dir": ".gemini/commands",
-            "format": "toml",
-            "args": "{{args}}",
-            "extension": ".toml"
-        },
-        "copilot": {
-            "dir": ".github/agents",
-            "format": "markdown",
-            "args": "$ARGUMENTS",
-            "extension": ".md"
-        },
-        "cursor": {
-            "dir": ".cursor/commands",
-            "format": "markdown",
-            "args": "$ARGUMENTS",
-            "extension": ".md"
-        },
-        "qwen": {
-            "dir": ".qwen/commands",
-            "format": "toml",
-            "args": "{{args}}",
-            "extension": ".toml"
-        },
-        "opencode": {
-            "dir": ".opencode/command",
-            "format": "markdown",
-            "args": "$ARGUMENTS",
-            "extension": ".md"
-        },
-        "windsurf": {
-            "dir": ".windsurf/workflows",
-            "format": "markdown",
-            "args": "$ARGUMENTS",
-            "extension": ".md"
-        },
-        "kilocode": {
-            "dir": ".kilocode/rules",
-            "format": "markdown",
-            "args": "$ARGUMENTS",
-            "extension": ".md"
-        },
-        "auggie": {
-            "dir": ".augment/rules",
-            "format": "markdown",
-            "args": "$ARGUMENTS",
-            "extension": ".md"
-        },
-        "roo": {
-            "dir": ".roo/rules",
-            "format": "markdown",
-            "args": "$ARGUMENTS",
-            "extension": ".md"
-        },
-        "codebuddy": {
-            "dir": ".codebuddy/commands",
-            "format": "markdown",
-            "args": "$ARGUMENTS",
-            "extension": ".md"
-        },
-        "qoder": {
-            "dir": ".qoder/commands",
-            "format": "markdown",
-            "args": "$ARGUMENTS",
-            "extension": ".md"
-        },
-        "q": {
-            "dir": ".amazonq/prompts",
-            "format": "markdown",
-            "args": "$ARGUMENTS",
-            "extension": ".md"
-        },
-        "amp": {
-            "dir": ".agents/commands",
-            "format": "markdown",
-            "args": "$ARGUMENTS",
-            "extension": ".md"
-        },
-        "shai": {
-            "dir": ".shai/commands",
-            "format": "markdown",
-            "args": "$ARGUMENTS",
-            "extension": ".md"
-        },
-        "bob": {
-            "dir": ".bob/commands",
-            "format": "markdown",
-            "args": "$ARGUMENTS",
-            "extension": ".md"
-        }
-    }
+    AGENT_CONFIGS = AGENT_COMMAND_CONFIGS
 
     @staticmethod
     def parse_frontmatter(content: str) -> tuple[dict, str]:
@@ -1781,5 +1687,3 @@ class HookExecutor:
                     hook["enabled"] = False
 
         self.save_project_config(config)
-
-

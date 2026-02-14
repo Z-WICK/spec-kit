@@ -1,6 +1,6 @@
 ---
 description: 自动化规格流水线：读取外部需求文档，在隔离 worktree 中自主执行 specify → clarify → plan → tasks → implement
-argument-hint: 路径: /path/to/docs 描述: 功能描述
+argument-hint: "路径: /path/to/docs 描述: 功能描述"
 scripts:
   flyway:
     sh: scripts/bash/scan-flyway-versions.sh
@@ -133,23 +133,15 @@ To prevent subagent timeouts caused by overly long context:
 - **Context trimming**: Only pass the reference information required for the current task
   in the prompt. Do not pass all design documents in full.
 
-### Global Execution Contract
+### Shared Execution Contract
 
-Apply this contract to **every** subagent dispatch (stages 0-9):
-- **Chunked write**: Large files (>200 lines) MUST be written in chunks (<=200 lines each). Use Create for first chunk, then Edit to append.
-- **Dynamic timeout** (instead of fixed 300s):
-  - Small task (<=1 file, low complexity): `timeout=180`
-  - Medium task (2-5 files or moderate complexity): `timeout=420`
-  - Large task (6+ files, migration-heavy, or integration): `timeout=600`
-- **Retry with exponential backoff**:
-  - Retry 1: wait 15s
-  - Retry 2: wait 30s
-  - If still failing after retry 2: split task scope and re-dispatch once
-  - If split run still fails: halt and report blocking point
-- **Prompt footer**: Dispatcher MUST append a single-line footer to each subagent prompt:
-  `Execution Contract: chunked write, dynamic timeout tier, and retry metadata apply.`
+Load and apply `.specify/memory/execution-contract.md` once before dispatching any
+subagent (stages 0-9).
 
-Do not duplicate long timeout/chunked-write paragraphs in every stage prompt; use this global contract.
+Requirements:
+- Every dispatch MUST follow timeout-tier selection, chunked-write policy, and retry policy from the shared contract.
+- Every dispatch prompt MUST append the contract footer line defined in the shared contract file.
+- Do not duplicate long timeout/chunked-write paragraphs in stage prompts; reference the shared contract instead.
 
 ### Parallel Scheduler and Limits
 
@@ -277,7 +269,8 @@ enter recovery mode and use state file first, artifact scan second.
 
 ### Stage 0: Read Requirements Documents
 
-All stage prompts below inherit the **Global Execution Contract**; only stage-specific instructions are listed.
+All stage prompts below inherit the **Shared Execution Contract** from
+`.specify/memory/execution-contract.md`; only stage-specific instructions are listed.
 
 ```
 Task:
@@ -629,7 +622,7 @@ Run Phase Gate again after integration tasks complete.
 - Module-level failure (multi-module): other independent modules continue; dependent
   modules are paused. After the batch completes, retry failed module tasks once.
 - Timeout: record TaskID, split into smaller sub-tasks and re-dispatch (max 2 retries per
-  task; see "Global Execution Contract")
+  task; see `.specify/memory/execution-contract.md`)
 
 #### 5g. Stage Checkpoint Artifact
 

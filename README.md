@@ -250,7 +250,8 @@ The `specify` command supports the following options:
 | Command | Description                                                                                                                                             |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `init`  | Initialize a new Specify project from the latest template                                                                                               |
-| `check` | Check for installed tools (`git`, `claude`, `gemini`, `code`/`code-insiders`, `cursor-agent`, `windsurf`, `qwen`, `opencode`, `codex`, `shai`, `qoder`) |
+| `check` | Check for installed core tools and CLI-based AI agents                                                                                                  |
+| `lint-commands` | Validate enhanced command templates, gate scripts, and release mapping consistency                                                             |
 
 ### `specify init` Arguments & Options
 

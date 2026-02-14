@@ -6,7 +6,7 @@ set -euo pipefail
 # Usage: .github/workflows/scripts/create-release-packages.sh <version>
 #   Version argument should include leading 'v'.
 #   Optionally set AGENTS and/or SCRIPTS env vars to limit what gets built.
-#     AGENTS  : space or comma separated subset of: claude gemini copilot cursor-agent qwen opencode windsurf codex amp shai bob (default: all)
+#     AGENTS  : space or comma separated subset of: claude gemini copilot cursor-agent qwen opencode codex windsurf kilocode auggie roo codebuddy qoder amp shai q agy bob droid (default: all)
 #     SCRIPTS : space or comma separated subset of: sh ps (default: both)
 #   Examples:
 #     AGENTS=claude SCRIPTS=sh $0 v0.2.0
@@ -220,14 +220,14 @@ build_variant() {
       mkdir -p "$base_dir/.codex/prompts"
       generate_commands codex md "\$ARGUMENTS" "$base_dir/.codex/prompts" "$script" ;;
     kilocode)
-      mkdir -p "$base_dir/.kilocode/workflows"
-      generate_commands kilocode md "\$ARGUMENTS" "$base_dir/.kilocode/workflows" "$script" ;;
+      mkdir -p "$base_dir/.kilocode/rules"
+      generate_commands kilocode md "\$ARGUMENTS" "$base_dir/.kilocode/rules" "$script" ;;
     auggie)
-      mkdir -p "$base_dir/.augment/commands"
-      generate_commands auggie md "\$ARGUMENTS" "$base_dir/.augment/commands" "$script" ;;
+      mkdir -p "$base_dir/.augment/rules"
+      generate_commands auggie md "\$ARGUMENTS" "$base_dir/.augment/rules" "$script" ;;
     roo)
-      mkdir -p "$base_dir/.roo/commands"
-      generate_commands roo md "\$ARGUMENTS" "$base_dir/.roo/commands" "$script" ;;
+      mkdir -p "$base_dir/.roo/rules"
+      generate_commands roo md "\$ARGUMENTS" "$base_dir/.roo/rules" "$script" ;;
     codebuddy)
       mkdir -p "$base_dir/.codebuddy/commands"
       generate_commands codebuddy md "\$ARGUMENTS" "$base_dir/.codebuddy/commands" "$script" ;;

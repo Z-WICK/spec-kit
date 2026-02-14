@@ -14,7 +14,7 @@
 
 .PARAMETER Agents
     Comma or space separated subset of agents to build (default: all)
-    Valid agents: claude, gemini, copilot, cursor-agent, qwen, opencode, windsurf, codex, kilocode, auggie, roo, codebuddy, amp, q, bob, qoder
+    Valid agents: claude, gemini, copilot, cursor-agent, qwen, opencode, codex, windsurf, kilocode, auggie, roo, codebuddy, qoder, amp, shai, q, agy, bob, droid
 
 .PARAMETER Scripts
     Comma or space separated subset of script types to build (default: both)
@@ -325,36 +325,57 @@ function Build-Variant {
             Generate-Commands -Agent 'codex' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
         }
         'kilocode' {
-            $cmdDir = Join-Path $baseDir ".kilocode/workflows"
+            $cmdDir = Join-Path $baseDir ".kilocode/rules"
             Generate-Commands -Agent 'kilocode' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
         }
         'auggie' {
-            $cmdDir = Join-Path $baseDir ".augment/commands"
+            $cmdDir = Join-Path $baseDir ".augment/rules"
             Generate-Commands -Agent 'auggie' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
         }
         'roo' {
-            $cmdDir = Join-Path $baseDir ".roo/commands"
+            $cmdDir = Join-Path $baseDir ".roo/rules"
             Generate-Commands -Agent 'roo' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
         }
         'codebuddy' {
             $cmdDir = Join-Path $baseDir ".codebuddy/commands"
             Generate-Commands -Agent 'codebuddy' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
         }
+        'qoder' {
+            $cmdDir = Join-Path $baseDir ".qoder/commands"
+            Generate-Commands -Agent 'qoder' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
+        }
         'amp' {
             $cmdDir = Join-Path $baseDir ".agents/commands"
             Generate-Commands -Agent 'amp' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
+        }
+        'shai' {
+            $cmdDir = Join-Path $baseDir ".shai/commands"
+            Generate-Commands -Agent 'shai' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
         }
         'q' {
             $cmdDir = Join-Path $baseDir ".amazonq/prompts"
             Generate-Commands -Agent 'q' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
         }
+        'agy' {
+            $cmdDir = Join-Path $baseDir ".agent/workflows"
+            Generate-Commands -Agent 'agy' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
+        }
         'bob' {
             $cmdDir = Join-Path $baseDir ".bob/commands"
             Generate-Commands -Agent 'bob' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
         }
-        'qoder' {
-            $cmdDir = Join-Path $baseDir ".qoder/commands"
-            Generate-Commands -Agent 'qoder' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
+        'droid' {
+            $cmdDir = Join-Path $baseDir ".factory/commands"
+            Generate-Commands -Agent 'droid' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
+
+            if (Test-Path "templates/agents") {
+                $droidsDir = Join-Path $baseDir ".factory/droids"
+                New-Item -ItemType Directory -Path $droidsDir -Force | Out-Null
+                Get-ChildItem "templates/agents/*.md" | ForEach-Object {
+                    Copy-Item -Path $_.FullName -Destination $droidsDir
+                }
+                Write-Host "Copied agents -> .factory/droids"
+            }
         }
     }
     
@@ -378,7 +399,7 @@ function Build-Variant {
 }
 
 # Define all agents and scripts
-$AllAgents = @('claude', 'gemini', 'copilot', 'cursor-agent', 'qwen', 'opencode', 'windsurf', 'codex', 'kilocode', 'auggie', 'roo', 'codebuddy', 'amp', 'q', 'bob', 'qoder')
+$AllAgents = @('claude', 'gemini', 'copilot', 'cursor-agent', 'qwen', 'opencode', 'codex', 'windsurf', 'kilocode', 'auggie', 'roo', 'codebuddy', 'qoder', 'amp', 'shai', 'q', 'agy', 'bob', 'droid')
 $AllScripts = @('sh', 'ps')
 
 function Normalize-List {
