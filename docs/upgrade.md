@@ -294,7 +294,7 @@ This tells Spec Kit which feature directory to use when creating specs, plans, a
    ```
 
 3. **Check agent-specific setup:**
-   - Codex requires `CODEX_HOME` environment variable
+   - Codex skills are loaded from project-local `.codex/skills/`
    - Some agents need workspace restart or cache clearing
 
 ### "I lost my constitution customizations"

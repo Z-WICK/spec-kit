@@ -22,7 +22,7 @@ def test_agent_keys_are_consistent_across_modules():
 def test_enhanced_agent_directories_follow_conventions():
     """High-variance agent directory conventions should not regress."""
     assert AGENT_COMMAND_CONFIGS["cursor-agent"]["dir"] == ".cursor/commands"
-    assert AGENT_COMMAND_CONFIGS["codex"]["dir"] == ".codex/prompts"
+    assert AGENT_COMMAND_CONFIGS["codex"]["dir"] == ".codex/skills"
     assert AGENT_COMMAND_CONFIGS["kilocode"]["dir"] == ".kilocode/rules"
     assert AGENT_COMMAND_CONFIGS["auggie"]["dir"] == ".augment/rules"
     assert AGENT_COMMAND_CONFIGS["roo"]["dir"] == ".roo/rules"

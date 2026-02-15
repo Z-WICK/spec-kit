@@ -767,6 +767,9 @@ class CommandRegistrar:
 
             # Render in agent-specific format
             if agent_config["format"] == "markdown":
+                if agent_name == "codex":
+                    frontmatter = dict(frontmatter)
+                    frontmatter.setdefault("name", cmd_name)
                 output = self._render_markdown_command(frontmatter, body, manifest.id)
             elif agent_config["format"] == "toml":
                 output = self._render_toml_command(frontmatter, body, manifest.id)
@@ -782,7 +785,15 @@ class CommandRegistrar:
             # Register aliases
             for alias in cmd_info.get("aliases", []):
                 alias_file = commands_dir / f"{alias}{agent_config['extension']}"
-                alias_file.write_text(output)
+                if agent_name == "codex" and agent_config["format"] == "markdown":
+                    alias_frontmatter = dict(frontmatter)
+                    alias_frontmatter["name"] = alias
+                    alias_output = self._render_markdown_command(
+                        alias_frontmatter, body, manifest.id
+                    )
+                    alias_file.write_text(alias_output)
+                else:
+                    alias_file.write_text(output)
                 registered.append(alias)
 
         return registered

@@ -7,6 +7,25 @@ All notable changes to the Specify CLI and templates are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.4] - 2026-02-15
+
+### Changed
+
+- **Codex CLI now uses skills instead of deprecated prompts**
+  - Updated Codex command output directory to `.codex/skills` in shared agent metadata.
+  - Updated release packaging scripts (bash + PowerShell) to generate Codex assets under `.codex/skills`.
+  - Added Codex-specific frontmatter enrichment so generated skill files include `name: speckit.<command>`.
+  - Updated `specify init` next steps for Codex to show skill-based usage (`speckit.*`) and removed old `/prompts:` guidance.
+  - Updated extension command registration so Codex markdown commands and aliases include valid `name` fields for skills loading.
+
+- **Documentation and template alignment for Codex skills**
+  - Updated README Codex setup/invocation text from `.codex/prompts` and `/prompts:speckit.*` to `.codex/skills` and skill usage.
+  - Updated `docs/upgrade.md` troubleshooting note to reflect project-local Codex skills loading.
+  - Updated `templates/commands/pipeline.md` Codex equivalence examples to skill invocations.
+
+- **Regression coverage updates**
+  - Updated enhanced command directory regression test to assert Codex mapping at `.codex/skills`.
+
 ## [0.1.3] - 2026-02-14
 
 ### Added

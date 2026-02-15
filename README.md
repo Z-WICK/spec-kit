@@ -476,7 +476,7 @@ specify init . --force --ai claude
 specify init --here --force --ai claude
 ```
 
-For Codex CLI, prompts are generated into `.codex/prompts/`. You can either set `CODEX_HOME` to this project's `.codex` folder or copy those prompt files into your default Codex prompts directory (typically `~/.codex/prompts`).
+For Codex CLI, skills are generated into `.codex/skills/`. Codex loads these project-local skills directly (no `CODEX_HOME` setup required).
 
 The CLI will check if you have Claude Code, Gemini CLI, Cursor CLI, Qwen CLI, opencode, Codex CLI, Qoder CLI, or Amazon Q Developer CLI installed. If you do not, or you prefer to get the templates without checking for the right tools, use `--ignore-agent-tools` with your command:
 
@@ -490,14 +490,14 @@ Go to the project folder and run your AI agent. In our example, we're using `cla
 
 ![Bootstrapping Claude Code environment](./media/bootstrap-claude-code.gif)
 
-You will know that things are configured correctly if you see the `/speckit.constitution`, `/speckit.specify`, `/speckit.plan`, `/speckit.tasks`, and `/speckit.implement` commands available. For Codex CLI, use `/prompts:speckit.constitution`, `/prompts:speckit.specify`, etc.
+You will know that things are configured correctly if you see the `/speckit.constitution`, `/speckit.specify`, `/speckit.plan`, `/speckit.tasks`, and `/speckit.implement` commands available. For Codex CLI, use the `speckit.constitution`, `speckit.specify`, `speckit.plan`, `speckit.tasks`, and `speckit.implement` skills.
 
-The first step should be establishing your project's governing principles using the `/speckit.constitution` command (Codex: `/prompts:speckit.constitution`). This helps ensure consistent decision-making throughout all subsequent development phases:
+The first step should be establishing your project's governing principles using the `/speckit.constitution` command (Codex: `speckit.constitution` skill). This helps ensure consistent decision-making throughout all subsequent development phases:
 
 ```text
 /speckit.constitution Create principles focused on code quality, testing standards, user experience consistency, and performance requirements. Include governance for how these principles should guide technical decisions and implementation choices.
 # Codex equivalent:
-/prompts:speckit.constitution Create principles focused on code quality, testing standards, user experience consistency, and performance requirements. Include governance for how these principles should guide technical decisions and implementation choices.
+Use the speckit.constitution skill to create principles focused on code quality, testing standards, user experience consistency, and performance requirements. Include governance for how these principles should guide technical decisions and implementation choices.
 ```
 
 This step creates or updates the `.specify/memory/constitution.md` file with your project's foundational guidelines that the AI agent will reference during specification, planning, and implementation phases.

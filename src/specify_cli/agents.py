@@ -76,7 +76,7 @@ AGENT_METADATA: Dict[str, Dict[str, Any]] = {
         "folder": ".codex/",
         "install_url": "https://github.com/openai/codex",
         "requires_cli": True,
-        "command_dir": ".codex/prompts",
+        "command_dir": ".codex/skills",
         "command_format": "markdown",
         "args": "$ARGUMENTS",
         "extension": ".md",

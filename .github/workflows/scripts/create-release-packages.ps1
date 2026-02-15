@@ -158,6 +158,16 @@ function Generate-Commands {
         $body = $body -replace '\{ARGS\}', $ArgFormat
         $body = $body -replace '__AGENT__', $Agent
         $body = Rewrite-Paths -Content $body
+
+        # Codex skills require a name in frontmatter.
+        if ($Agent -eq 'codex' -and $Extension -eq 'md') {
+            if ($body -match '(?ms)^---\n(.*?)\n---') {
+                $frontmatter = $matches[1]
+                if ($frontmatter -notmatch '(?m)^\s*name:\s*') {
+                    $body = $body -replace '(?m)^---\n', "---`nname: speckit.$name`n"
+                }
+            }
+        }
         
         # Generate output file based on extension
         $outputFile = Join-Path $OutputDir "speckit.$name.$Extension"
@@ -321,7 +331,7 @@ function Build-Variant {
             Generate-Commands -Agent 'windsurf' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
         }
         'codex' {
-            $cmdDir = Join-Path $baseDir ".codex/prompts"
+            $cmdDir = Join-Path $baseDir ".codex/skills"
             Generate-Commands -Agent 'codex' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
         }
         'kilocode' {

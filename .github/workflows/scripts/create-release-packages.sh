@@ -48,7 +48,7 @@ generate_commands() {
   mkdir -p "$output_dir"
   for template in templates/commands/*.md; do
     [[ -f "$template" ]] || continue
-    local name description script_command agent_script_command body
+    local name description script_command agent_script_command body frontmatter
     name=$(basename "$template" .md)
     
     # Normalize line endings
@@ -94,6 +94,14 @@ generate_commands() {
     
     # Apply other substitutions
     body=$(printf '%s\n' "$body" | sed "s/{ARGS}/$arg_format/g" | sed "s/__AGENT__/$agent/g" | rewrite_paths)
+
+    # Codex skills require a name in frontmatter.
+    if [[ $agent == "codex" && $ext == "md" ]]; then
+      frontmatter=$(printf '%s\n' "$body" | awk 'BEGIN{dash=0} /^---$/{dash++; next} dash==1 {print} dash>=2 {exit}')
+      if ! printf '%s\n' "$frontmatter" | grep -Eq '^[[:space:]]*name:[[:space:]]*'; then
+        body=$(printf '%s\n' "$body" | awk -v skill_name="speckit.$name" 'NR==1 && $0=="---" { print; print "name: " skill_name; next } { print }')
+      fi
+    fi
     
     case $ext in
       toml)
@@ -217,8 +225,8 @@ build_variant() {
       mkdir -p "$base_dir/.windsurf/workflows"
       generate_commands windsurf md "\$ARGUMENTS" "$base_dir/.windsurf/workflows" "$script" ;;
     codex)
-      mkdir -p "$base_dir/.codex/prompts"
-      generate_commands codex md "\$ARGUMENTS" "$base_dir/.codex/prompts" "$script" ;;
+      mkdir -p "$base_dir/.codex/skills"
+      generate_commands codex md "\$ARGUMENTS" "$base_dir/.codex/skills" "$script" ;;
     kilocode)
       mkdir -p "$base_dir/.kilocode/rules"
       generate_commands kilocode md "\$ARGUMENTS" "$base_dir/.kilocode/rules" "$script" ;;

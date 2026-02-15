@@ -30,7 +30,6 @@ import sys
 import zipfile
 import tempfile
 import shutil
-import shlex
 import json
 from pathlib import Path
 from typing import Optional, Tuple
@@ -1188,45 +1187,36 @@ def init(
         steps_lines.append("1. You're already in the project directory!")
         step_num = 2
 
-    # Add Codex-specific setup step if needed
     if selected_ai == "codex":
-        codex_path = project_path / ".codex"
-        quoted_path = shlex.quote(str(codex_path))
-        if os.name == "nt":  # Windows
-            cmd = f"setx CODEX_HOME {quoted_path}"
-        else:  # Unix-like systems
-            cmd = f"export CODEX_HOME={quoted_path}"
+        steps_lines.append(f"{step_num}. Start using Codex skills:")
+        steps_lines.append("   [dim]Project skills are in .codex/skills and do not use /prompts: commands.[/dim]")
+        command_prefix = "speckit."
+        command_suffix = " skill"
+    else:
+        steps_lines.append(f"{step_num}. Start using slash commands with your AI agent:")
+        command_prefix = "/speckit."
+        command_suffix = ""
 
-        steps_lines.append(
-            f"{step_num}. (Optional) Set [cyan]CODEX_HOME[/cyan] for project-local Codex prompts: [cyan]{cmd}[/cyan]"
-        )
-        steps_lines.append(
-            "   [dim]If omitted, copy files from .codex/prompts/ to your default Codex prompts directory.[/dim]"
-        )
-        step_num += 1
-
-    steps_lines.append(f"{step_num}. Start using slash commands with your AI agent:")
-
-    command_prefix = "/prompts:speckit." if selected_ai == "codex" else "/speckit."
-    steps_lines.append(f"   {step_num}.1 [cyan]{command_prefix}constitution[/] - Establish project principles")
-    steps_lines.append(f"   {step_num}.2 [cyan]{command_prefix}specify[/] - Create baseline specification")
-    steps_lines.append(f"   {step_num}.3 [cyan]{command_prefix}plan[/] - Create implementation plan")
-    steps_lines.append(f"   {step_num}.4 [cyan]{command_prefix}tasks[/] - Generate actionable tasks")
-    steps_lines.append(f"   {step_num}.5 [cyan]{command_prefix}implement[/] - Execute implementation")
+    steps_lines.append(f"   {step_num}.1 [cyan]{command_prefix}constitution[/]{command_suffix} - Establish project principles")
+    steps_lines.append(f"   {step_num}.2 [cyan]{command_prefix}specify[/]{command_suffix} - Create baseline specification")
+    steps_lines.append(f"   {step_num}.3 [cyan]{command_prefix}plan[/]{command_suffix} - Create implementation plan")
+    steps_lines.append(f"   {step_num}.4 [cyan]{command_prefix}tasks[/]{command_suffix} - Generate actionable tasks")
+    steps_lines.append(f"   {step_num}.5 [cyan]{command_prefix}implement[/]{command_suffix} - Execute implementation")
 
     steps_panel = Panel("\n".join(steps_lines), title="Next Steps", border_style="cyan", padding=(1,2))
     console.print()
     console.print(steps_panel)
 
-    enhancement_prefix = "/prompts:speckit." if selected_ai == "codex" else "/speckit."
+    enhancement_prefix = "speckit." if selected_ai == "codex" else "/speckit."
+    enhancement_suffix = " skill" if selected_ai == "codex" else ""
     enhancement_lines = [
         "Enhanced commands [bright_black](Z-WICK fork)[/bright_black]",
         "",
-        f"○ [cyan]{enhancement_prefix}init[/] - Smart project initialization with auto-detection of tech stack",
-        f"○ [cyan]{enhancement_prefix}pipeline[/] - Full automation pipeline from requirements to deployment",
-        f"○ [cyan]{enhancement_prefix}issue[/] - Create structured GitHub Issues (bug/feature/task)",
-        f"○ [cyan]{enhancement_prefix}fixbug[/] - Bug investigation & fix workflow with log analysis",
-        f"○ [cyan]{enhancement_prefix}optimize-constitution[/] - Append engineering efficiency principles to constitution"
+        f"○ [cyan]{enhancement_prefix}init[/]{enhancement_suffix} - Smart project initialization with auto-detection of tech stack",
+        f"○ [cyan]{enhancement_prefix}pipeline[/]{enhancement_suffix} - Full automation pipeline from requirements to deployment",
+        f"○ [cyan]{enhancement_prefix}issue[/]{enhancement_suffix} - Create structured GitHub Issues (bug/feature/task)",
+        f"○ [cyan]{enhancement_prefix}fixbug[/]{enhancement_suffix} - Bug investigation & fix workflow with log analysis",
+        f"○ [cyan]{enhancement_prefix}optimize-constitution[/]{enhancement_suffix} - Append engineering efficiency principles to constitution"
     ]
     enhancements_panel = Panel("\n".join(enhancement_lines), title="Enhancement Commands", border_style="cyan", padding=(1,2))
     console.print()
