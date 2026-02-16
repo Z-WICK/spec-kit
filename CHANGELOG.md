@@ -7,6 +7,23 @@ All notable changes to the Specify CLI and templates are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.5] - 2026-02-16
+
+### Changed
+
+- **Codex skill packaging now follows SKILL.md directory conventions**
+  - Updated Codex release packaging (bash + PowerShell) to generate skills as `.codex/skills/<skill>/SKILL.md` instead of flat markdown files.
+  - Updated Codex skill naming from dotted form (`speckit.command`) to hyphen form (`speckit-command`) for compatibility with skill naming rules.
+  - Updated `specify init` Codex next-step guidance to reflect SKILL.md folder layout and `~/.codex/skills` discovery behavior.
+
+- **Extension registration parity for Codex**
+  - Updated extension command registration to emit Codex extensions as skill folders with `SKILL.md` and minimal skill frontmatter (`name`, `description`).
+  - Updated extension cleanup logic to remove Codex skill directories when uninstalling extensions.
+  - Added regression coverage for Codex extension skill layout generation.
+
+- **Documentation alignment**
+  - Updated `README.md`, `README.zh-CN.md`, `docs/upgrade.md`, `AGENTS.md`, and `templates/commands/pipeline.md` to match Codex SKILL.md conventions and hyphenated skill invocation examples.
+
 ## [0.1.4] - 2026-02-15
 
 ### Changed

@@ -471,6 +471,31 @@ $ARGUMENTS
         assert "<!-- Extension: test-ext -->" in content
         assert "<!-- Config: .specify/extensions/test-ext/ -->" in content
 
+    def test_register_commands_for_codex_skill_layout(self, extension_dir, project_dir):
+        """Codex commands should be emitted as skill folders with SKILL.md."""
+        codex_dir = project_dir / ".codex" / "skills"
+        codex_dir.mkdir(parents=True)
+
+        manifest = ExtensionManifest(extension_dir / "extension.yml")
+        registrar = CommandRegistrar()
+        registered = registrar.register_commands_for_agent(
+            "codex",
+            manifest,
+            extension_dir,
+            project_dir,
+        )
+
+        assert len(registered) == 1
+        assert "speckit.test.hello" in registered
+
+        skill_file = codex_dir / "speckit-test-hello" / "SKILL.md"
+        assert skill_file.exists()
+
+        content = skill_file.read_text()
+        assert "name: speckit-test-hello" in content
+        assert "description: Test hello command" in content
+        assert "<!-- Extension: test-ext -->" in content
+
     def test_command_with_aliases(self, project_dir, temp_dir):
         """Test registering a command with aliases."""
         import yaml

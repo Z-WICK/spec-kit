@@ -159,16 +159,6 @@ function Generate-Commands {
         $body = $body -replace '__AGENT__', $Agent
         $body = Rewrite-Paths -Content $body
 
-        # Codex skills require a name in frontmatter.
-        if ($Agent -eq 'codex' -and $Extension -eq 'md') {
-            if ($body -match '(?ms)^---\n(.*?)\n---') {
-                $frontmatter = $matches[1]
-                if ($frontmatter -notmatch '(?m)^\s*name:\s*') {
-                    $body = $body -replace '(?m)^---\n', "---`nname: speckit.$name`n"
-                }
-            }
-        }
-        
         # Generate output file based on extension
         $outputFile = Join-Path $OutputDir "speckit.$name.$Extension"
         
@@ -179,7 +169,29 @@ function Generate-Commands {
                 Set-Content -Path $outputFile -Value $output -NoNewline
             }
             'md' {
-                Set-Content -Path $outputFile -Value $body -NoNewline
+                if ($Agent -eq 'codex') {
+                    $skillName = "speckit-$name"
+                    $skillDir = Join-Path $OutputDir $skillName
+                    New-Item -ItemType Directory -Path $skillDir -Force | Out-Null
+
+                    $skillBody = $body
+                    if ($skillBody -match '(?ms)^\s*---\n.*?\n---\n?(.*)$') {
+                        $skillBody = $matches[1]
+                    }
+
+                    $escapedDescription = $description -replace '"', '\"'
+                    $skillContent = @"
+---
+name: $skillName
+description: "$escapedDescription"
+---
+
+$skillBody
+"@
+                    Set-Content -Path (Join-Path $skillDir "SKILL.md") -Value $skillContent -NoNewline
+                } else {
+                    Set-Content -Path $outputFile -Value $body -NoNewline
+                }
             }
             'agent.md' {
                 Set-Content -Path $outputFile -Value $body -NoNewline

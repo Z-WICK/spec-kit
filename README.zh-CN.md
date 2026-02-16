@@ -474,6 +474,9 @@ specify init . --force --ai claude
 specify init --here --force --ai claude
 ```
 
+对于 Codex CLI，会在 `.codex/skills/` 下按目录生成技能（例如：`.codex/skills/speckit-constitution/SKILL.md`）。
+Codex 默认扫描 `CODEX_HOME/skills`（通常是 `~/.codex/skills`）；如果没有自动识别，请将这些技能目录复制或软链接到该路径并重启 Codex 会话。
+
 The CLI will check if you have Claude Code, Gemini CLI, Cursor CLI, Qwen CLI, opencode, Codex CLI, Qoder CLI, or Amazon Q Developer CLI installed. If you do not, or you prefer to get the templates without checking for the right tools, use `--ignore-agent-tools` with your command:
 
 ```bash
@@ -486,9 +489,9 @@ Go to the project folder and run your AI agent. In our example, we're using `cla
 
 ![Bootstrapping Claude Code environment](./media/bootstrap-claude-code.gif)
 
-You will know that things are configured correctly if you see the `/speckit.constitution`, `/speckit.specify`, `/speckit.plan`, `/speckit.tasks`, and `/speckit.implement` commands available.
+当你看到 `/speckit.constitution`、`/speckit.specify`、`/speckit.plan`、`/speckit.tasks`、`/speckit.implement` 这些命令可用时，说明配置成功。对于 Codex CLI，请使用 `speckit-constitution`、`speckit-specify`、`speckit-plan`、`speckit-tasks`、`speckit-implement` 这些 skills。
 
-The first step should be establishing your project's governing principles using the `/speckit.constitution` command. This helps ensure consistent decision-making throughout all subsequent development phases:
+第一步建议使用 `/speckit.constitution` 建立项目治理原则（Codex: `speckit-constitution` skill）。这能确保后续开发阶段决策一致：
 
 ```text
 /speckit.constitution Create principles focused on code quality, testing standards, user experience consistency, and performance requirements. Include governance for how these principles should guide technical decisions and implementation choices.

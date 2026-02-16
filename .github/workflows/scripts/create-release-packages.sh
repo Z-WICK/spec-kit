@@ -95,20 +95,39 @@ generate_commands() {
     # Apply other substitutions
     body=$(printf '%s\n' "$body" | sed "s/{ARGS}/$arg_format/g" | sed "s/__AGENT__/$agent/g" | rewrite_paths)
 
-    # Codex skills require a name in frontmatter.
-    if [[ $agent == "codex" && $ext == "md" ]]; then
-      frontmatter=$(printf '%s\n' "$body" | awk 'BEGIN{dash=0} /^---$/{dash++; next} dash==1 {print} dash>=2 {exit}')
-      if ! printf '%s\n' "$frontmatter" | grep -Eq '^[[:space:]]*name:[[:space:]]*'; then
-        body=$(printf '%s\n' "$body" | awk -v skill_name="speckit.$name" 'NR==1 && $0=="---" { print; print "name: " skill_name; next } { print }')
-      fi
-    fi
-    
     case $ext in
       toml)
         body=$(printf '%s\n' "$body" | sed 's/\\/\\\\/g')
         { echo "description = \"$description\""; echo; echo "prompt = \"\"\""; echo "$body"; echo "\"\"\""; } > "$output_dir/speckit.$name.$ext" ;;
       md)
-        echo "$body" > "$output_dir/speckit.$name.$ext" ;;
+        if [[ $agent == "codex" ]]; then
+          skill_name="speckit-$name"
+          skill_dir="$output_dir/$skill_name"
+          escaped_description=$(printf '%s' "$description" | sed 's/"/\\"/g')
+          skill_body=$(printf '%s\n' "$body" | awk '
+            state == 0 {
+              if ($0 == "") { next }
+              if ($0 == "---") { state = 1; next }
+              state = 2
+            }
+            state == 1 {
+              if ($0 == "---") { state = 2; next }
+              next
+            }
+            state == 2 { print }
+          ')
+          mkdir -p "$skill_dir"
+          {
+            echo "---"
+            echo "name: $skill_name"
+            echo "description: \"$escaped_description\""
+            echo "---"
+            echo
+            printf '%s\n' "$skill_body"
+          } > "$skill_dir/SKILL.md"
+        else
+          echo "$body" > "$output_dir/speckit.$name.$ext"
+        fi ;;
       agent.md)
         echo "$body" > "$output_dir/speckit.$name.$ext" ;;
     esac

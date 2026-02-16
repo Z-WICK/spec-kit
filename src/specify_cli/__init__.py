@@ -1189,8 +1189,9 @@ def init(
 
     if selected_ai == "codex":
         steps_lines.append(f"{step_num}. Start using Codex skills:")
-        steps_lines.append("   [dim]Project skills are in .codex/skills and do not use /prompts: commands.[/dim]")
-        command_prefix = "speckit."
+        steps_lines.append("   [dim]Skills are generated at .codex/skills/<skill>/SKILL.md.[/dim]")
+        steps_lines.append("   [dim]If not auto-detected, copy/symlink them into ~/.codex/skills and restart Codex.[/dim]")
+        command_prefix = "speckit-"
         command_suffix = " skill"
     else:
         steps_lines.append(f"{step_num}. Start using slash commands with your AI agent:")
@@ -1207,7 +1208,7 @@ def init(
     console.print()
     console.print(steps_panel)
 
-    enhancement_prefix = "speckit." if selected_ai == "codex" else "/speckit."
+    enhancement_prefix = "speckit-" if selected_ai == "codex" else "/speckit."
     enhancement_suffix = " skill" if selected_ai == "codex" else ""
     enhancement_lines = [
         "Enhanced commands [bright_black](Z-WICK fork)[/bright_black]",

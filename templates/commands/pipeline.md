@@ -1005,7 +1005,7 @@ Next steps:
   /speckit.analyze    - Analyze spec/plan/tasks consistency
   /speckit.implement  - Re-run or continue unfinished tasks
   # Codex CLI equivalents:
-  use the speckit.analyze skill
-  use the speckit.implement skill
+  use the speckit-analyze skill
+  use the speckit-implement skill
 ============================================================
 ```

@@ -454,9 +454,17 @@ class ExtensionManager:
                 commands_dir = self.project_root / agent_config["dir"]
 
                 for cmd_name in cmd_names:
-                    cmd_file = commands_dir / f"{cmd_name}{agent_config['extension']}"
+                    if resolved_agent == "codex":
+                        skill_name = CommandRegistrar.codex_skill_name(cmd_name)
+                        cmd_file = commands_dir / skill_name / "SKILL.md"
+                    else:
+                        cmd_file = commands_dir / f"{cmd_name}{agent_config['extension']}"
                     if cmd_file.exists():
                         cmd_file.unlink()
+                        if resolved_agent == "codex":
+                            skill_dir = cmd_file.parent
+                            if skill_dir.is_dir() and not any(skill_dir.iterdir()):
+                                skill_dir.rmdir()
 
         if keep_config:
             # Preserve config files, only remove non-config files
@@ -629,6 +637,12 @@ class CommandRegistrar:
         yaml_str = yaml.dump(fm, default_flow_style=False, sort_keys=False)
         return f"---\n{yaml_str}---\n"
 
+    @staticmethod
+    def codex_skill_name(command_name: str) -> str:
+        """Convert a command name to a Codex-compatible skill name."""
+        normalized = re.sub(r"[^a-zA-Z0-9_-]+", "-", command_name).strip("-").lower()
+        return normalized or "skill"
+
     def _adjust_script_paths(self, frontmatter: dict) -> dict:
         """Adjust script paths from extension-relative to repo-relative.
 
@@ -663,6 +677,21 @@ class CommandRegistrar:
         """
         context_note = f"\n<!-- Extension: {ext_id} -->\n<!-- Config: .specify/extensions/{ext_id}/ -->\n"
         return self.render_frontmatter(frontmatter) + "\n" + context_note + body
+
+    def _render_codex_skill(
+        self,
+        skill_name: str,
+        description: str,
+        body: str,
+        ext_id: str,
+    ) -> str:
+        """Render a Codex SKILL.md payload with minimal frontmatter."""
+        skill_frontmatter = {
+            "name": skill_name,
+            "description": description or f"Skill for {skill_name}",
+        }
+        context_note = f"\n<!-- Extension: {ext_id} -->\n<!-- Config: .specify/extensions/{ext_id}/ -->\n"
+        return self.render_frontmatter(skill_frontmatter) + "\n" + context_note + body
 
     def _render_toml_command(
         self,
@@ -768,31 +797,44 @@ class CommandRegistrar:
             # Render in agent-specific format
             if agent_config["format"] == "markdown":
                 if agent_name == "codex":
-                    frontmatter = dict(frontmatter)
-                    frontmatter.setdefault("name", cmd_name)
-                output = self._render_markdown_command(frontmatter, body, manifest.id)
+                    skill_name = self.codex_skill_name(cmd_name)
+                    output = self._render_codex_skill(
+                        skill_name,
+                        str(frontmatter.get("description", "")).strip(),
+                        body,
+                        manifest.id,
+                    )
+                else:
+                    output = self._render_markdown_command(frontmatter, body, manifest.id)
             elif agent_config["format"] == "toml":
                 output = self._render_toml_command(frontmatter, body, manifest.id)
             else:
                 raise ExtensionError(f"Unsupported format: {agent_config['format']}")
 
             # Write command file
-            dest_file = commands_dir / f"{cmd_name}{agent_config['extension']}"
+            if agent_name == "codex":
+                dest_file = commands_dir / self.codex_skill_name(cmd_name) / "SKILL.md"
+                dest_file.parent.mkdir(parents=True, exist_ok=True)
+            else:
+                dest_file = commands_dir / f"{cmd_name}{agent_config['extension']}"
             dest_file.write_text(output)
 
             registered.append(cmd_name)
 
             # Register aliases
             for alias in cmd_info.get("aliases", []):
-                alias_file = commands_dir / f"{alias}{agent_config['extension']}"
                 if agent_name == "codex" and agent_config["format"] == "markdown":
-                    alias_frontmatter = dict(frontmatter)
-                    alias_frontmatter["name"] = alias
-                    alias_output = self._render_markdown_command(
-                        alias_frontmatter, body, manifest.id
+                    alias_file = commands_dir / self.codex_skill_name(alias) / "SKILL.md"
+                    alias_file.parent.mkdir(parents=True, exist_ok=True)
+                    alias_output = self._render_codex_skill(
+                        self.codex_skill_name(alias),
+                        str(frontmatter.get("description", "")).strip(),
+                        body,
+                        manifest.id,
                     )
                     alias_file.write_text(alias_output)
                 else:
+                    alias_file = commands_dir / f"{alias}{agent_config['extension']}"
                     alias_file.write_text(output)
                 registered.append(alias)
 
