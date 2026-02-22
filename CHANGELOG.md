@@ -7,6 +7,15 @@ All notable changes to the Specify CLI and templates are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.7] - 2026-02-22
+
+### Fixed
+
+- **`specify init` parameter-order parsing for `--ai` without value**
+  - Added an early validation guard so `--ai` cannot accidentally consume another flag token (such as `--here` or `--ai-skills`).
+  - Replaced misleading, order-dependent errors with a consistent and actionable message: `--ai requires a valid assistant name`.
+  - Added CLI regression tests for both problematic argument orders.
+
 ## [0.1.6] - 2026-02-22
 
 ### Changed

@@ -610,6 +610,26 @@ class TestCliValidation:
         assert result.exit_code == 1
         assert "--ai-skills requires --ai" in result.output
 
+    def test_missing_ai_value_rejected_regardless_of_order_first(self):
+        """Missing --ai value should fail clearly for '--ai-skills --ai --here'."""
+        from typer.testing import CliRunner
+
+        runner = CliRunner()
+        result = runner.invoke(app, ["init", "--ai-skills", "--ai", "--here"])
+
+        assert result.exit_code == 1
+        assert "--ai requires a valid assistant name" in result.output
+
+    def test_missing_ai_value_rejected_regardless_of_order_second(self):
+        """Missing --ai value should fail clearly for '--here --ai --ai-skills'."""
+        from typer.testing import CliRunner
+
+        runner = CliRunner()
+        result = runner.invoke(app, ["init", "--here", "--ai", "--ai-skills"])
+
+        assert result.exit_code == 1
+        assert "--ai requires a valid assistant name" in result.output
+
     def test_ai_skills_without_ai_shows_usage(self):
         """Error message should include usage hint."""
         from typer.testing import CliRunner

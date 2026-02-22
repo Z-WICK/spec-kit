@@ -1169,6 +1169,13 @@ def init(
 
     show_banner()
 
+    # Guard against a missing --ai value that Click may parse as the next option
+    # token (e.g., "--here" or "--ai-skills"), which otherwise creates
+    # misleading downstream errors that appear order-dependent.
+    if ai_assistant and ai_assistant.startswith("-"):
+        console.print("[red]Error:[/red] --ai requires a valid assistant name (for example: --ai claude)")
+        raise typer.Exit(1)
+
     if project_name == ".":
         here = True
         project_name = None  # Clear project_name to use existing validation logic
