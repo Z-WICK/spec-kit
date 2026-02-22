@@ -347,19 +347,39 @@ function Update-AgentFile {
     )
     if (-not $TargetFile -or -not $AgentName) { Write-Err 'Update-AgentFile requires TargetFile and AgentName'; return $false }
     Write-Info "Updating $AgentName context file: $TargetFile"
+    $effectiveTargetFile = $TargetFile
+
+    try {
+        $item = Get-Item -LiteralPath $TargetFile -Force -ErrorAction Stop
+        if ($null -ne $item -and $item.LinkType -eq 'SymbolicLink') {
+            $linkTarget = $item.Target
+            if ($linkTarget -is [System.Array]) { $linkTarget = $linkTarget[0] }
+            if (-not [string]::IsNullOrWhiteSpace($linkTarget)) {
+                if ([System.IO.Path]::IsPathRooted($linkTarget)) {
+                    $effectiveTargetFile = $linkTarget
+                } else {
+                    $effectiveTargetFile = Join-Path (Split-Path -Parent $TargetFile) $linkTarget
+                }
+                Write-Info "Detected symlink, updating target file instead: $effectiveTargetFile"
+            }
+        }
+    } catch {
+        # File may not exist yet; keep default target path.
+    }
+
     $projectName = Split-Path $REPO_ROOT -Leaf
     $date = Get-Date
 
-    $dir = Split-Path -Parent $TargetFile
+    $dir = Split-Path -Parent $effectiveTargetFile
     if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir | Out-Null }
 
-    if (-not (Test-Path $TargetFile)) {
-        if (New-AgentFile -TargetFile $TargetFile -ProjectName $projectName -Date $date) { Write-Success "Created new $AgentName context file" } else { Write-Err 'Failed to create new agent file'; return $false }
+    if (-not (Test-Path $effectiveTargetFile)) {
+        if (New-AgentFile -TargetFile $effectiveTargetFile -ProjectName $projectName -Date $date) { Write-Success "Created new $AgentName context file" } else { Write-Err 'Failed to create new agent file'; return $false }
     } else {
         try {
-            if (Update-ExistingAgentFile -TargetFile $TargetFile -Date $date) { Write-Success "Updated existing $AgentName context file" } else { Write-Err 'Failed to update agent file'; return $false }
+            if (Update-ExistingAgentFile -TargetFile $effectiveTargetFile -Date $date) { Write-Success "Updated existing $AgentName context file" } else { Write-Err 'Failed to update agent file'; return $false }
         } catch {
-            Write-Err "Cannot access or update existing file: $TargetFile. $_"
+            Write-Err "Cannot access or update existing file: $effectiveTargetFile. $_"
             return $false
         }
     }
@@ -449,4 +469,3 @@ function Main {
 }
 
 Main
-

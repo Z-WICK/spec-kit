@@ -515,6 +515,24 @@ update_agent_file() {
     fi
     
     log_info "Updating $agent_name context file: $target_file"
+
+    local effective_target_file="$target_file"
+    if [[ -L "$target_file" ]]; then
+        local link_target
+        link_target=$(readlink "$target_file")
+        if [[ -z "$link_target" ]]; then
+            log_error "Failed to resolve symlink target for $target_file"
+            return 1
+        fi
+
+        if [[ "$link_target" = /* ]]; then
+            effective_target_file="$link_target"
+        else
+            effective_target_file="$(dirname "$target_file")/$link_target"
+        fi
+
+        log_info "Detected symlink, updating target file instead: $effective_target_file"
+    fi
     
     local project_name
     project_name=$(basename "$REPO_ROOT")
@@ -523,7 +541,7 @@ update_agent_file() {
     
     # Create directory if it doesn't exist
     local target_dir
-    target_dir=$(dirname "$target_file")
+    target_dir=$(dirname "$effective_target_file")
     if [[ ! -d "$target_dir" ]]; then
         if ! mkdir -p "$target_dir"; then
             log_error "Failed to create directory: $target_dir"
@@ -531,7 +549,7 @@ update_agent_file() {
         fi
     fi
     
-    if [[ ! -f "$target_file" ]]; then
+    if [[ ! -f "$effective_target_file" ]]; then
         # Create new file from template
         local temp_file
         temp_file=$(mktemp) || {
@@ -539,11 +557,11 @@ update_agent_file() {
             return 1
         }
         
-        if create_new_agent_file "$target_file" "$temp_file" "$project_name" "$current_date"; then
-            if mv "$temp_file" "$target_file"; then
+        if create_new_agent_file "$effective_target_file" "$temp_file" "$project_name" "$current_date"; then
+            if mv "$temp_file" "$effective_target_file"; then
                 log_success "Created new $agent_name context file"
             else
-                log_error "Failed to move temporary file to $target_file"
+                log_error "Failed to move temporary file to $effective_target_file"
                 rm -f "$temp_file"
                 return 1
             fi
@@ -554,17 +572,17 @@ update_agent_file() {
         fi
     else
         # Update existing file
-        if [[ ! -r "$target_file" ]]; then
-            log_error "Cannot read existing file: $target_file"
+        if [[ ! -r "$effective_target_file" ]]; then
+            log_error "Cannot read existing file: $effective_target_file"
             return 1
         fi
         
-        if [[ ! -w "$target_file" ]]; then
-            log_error "Cannot write to existing file: $target_file"
+        if [[ ! -w "$effective_target_file" ]]; then
+            log_error "Cannot write to existing file: $effective_target_file"
             return 1
         fi
         
-        if update_existing_agent_file "$target_file" "$current_date"; then
+        if update_existing_agent_file "$effective_target_file" "$current_date"; then
             log_success "Updated existing $agent_name context file"
         else
             log_error "Failed to update existing agent file"
@@ -807,4 +825,3 @@ main() {
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     main "$@"
 fi
-
