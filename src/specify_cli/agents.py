@@ -201,11 +201,22 @@ AGENT_METADATA: Dict[str, Dict[str, Any]] = {
         "args": "$ARGUMENTS",
         "extension": ".md",
     },
+    "generic": {
+        "name": "Generic (bring your own agent)",
+        "folder": None,
+        "install_url": None,
+        "requires_cli": False,
+        "command_dir": ".speckit/commands",
+        "command_format": "markdown",
+        "args": "$ARGUMENTS",
+        "extension": ".md",
+    },
 }
 
 # Backward-compatible aliases for previously used keys.
 LEGACY_AGENT_ALIASES: Dict[str, str] = {
     "cursor": "cursor-agent",
+    "qodercli": "qoder",
 }
 
 AGENT_CONFIG: Dict[str, Dict[str, Any]] = {
@@ -214,6 +225,7 @@ AGENT_CONFIG: Dict[str, Dict[str, Any]] = {
         "folder": value["folder"],
         "install_url": value["install_url"],
         "requires_cli": value["requires_cli"],
+        "commands_subdir": value["command_dir"].rsplit("/", 1)[-1],
     }
     for key, value in AGENT_METADATA.items()
 }

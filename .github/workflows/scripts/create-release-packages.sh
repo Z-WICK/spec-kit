@@ -6,7 +6,7 @@ set -euo pipefail
 # Usage: .github/workflows/scripts/create-release-packages.sh <version>
 #   Version argument should include leading 'v'.
 #   Optionally set AGENTS and/or SCRIPTS env vars to limit what gets built.
-#     AGENTS  : space or comma separated subset of: claude gemini copilot cursor-agent qwen opencode codex windsurf kilocode auggie roo codebuddy qoder amp shai q agy bob droid (default: all)
+#     AGENTS  : space or comma separated subset of: claude gemini copilot cursor-agent qwen opencode codex windsurf kilocode auggie roo codebuddy qoder amp shai q agy bob droid generic (default: all)
 #     SCRIPTS : space or comma separated subset of: sh ps (default: both)
 #   Examples:
 #     AGENTS=claude SCRIPTS=sh $0 v0.2.0
@@ -288,6 +288,9 @@ build_variant() {
         done
         echo "Copied agents -> .factory/droids"
       fi ;;
+    generic)
+      mkdir -p "$base_dir/.speckit/commands"
+      generate_commands generic md "\$ARGUMENTS" "$base_dir/.speckit/commands" "$script" ;;
   esac
   # Generate .version and .file-hashes for update tracking
   echo "$NEW_VERSION" > "$SPEC_DIR/.version"
@@ -298,7 +301,7 @@ build_variant() {
 }
 
 # Determine agent list
-ALL_AGENTS=(claude gemini copilot cursor-agent qwen opencode windsurf codex kilocode auggie roo codebuddy amp shai q agy bob qoder droid)
+ALL_AGENTS=(claude gemini copilot cursor-agent qwen opencode windsurf codex kilocode auggie roo codebuddy amp shai q agy bob qoder droid generic)
 ALL_SCRIPTS=(sh ps)
 
 norm_list() {

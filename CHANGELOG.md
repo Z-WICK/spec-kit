@@ -7,6 +7,16 @@ All notable changes to the Specify CLI and templates are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.6] - 2026-02-22
+
+### Changed
+
+- **Merged upstream `main` and resolved integration conflicts**
+  - Kept fork agent metadata as single source of truth via `src/specify_cli/agents.py`.
+  - Added `generic` agent support with `--ai-commands-dir` and aligned release packaging for `generic` bundles.
+  - Preserved fork-specific `qoder` and `droid` support across CLI help text, README docs, and release scripts.
+  - Unified release asset generation/listing between Bash and PowerShell workflows.
+
 ## [0.1.5] - 2026-02-16
 
 ### Changed

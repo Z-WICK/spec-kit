@@ -240,6 +240,7 @@ Want to see Spec Kit in action? Watch our [video overview](https://www.youtube.c
 | [Windsurf](https://windsurf.com/)                                                    | ✅      |                                                                                                                                           |
 | [Antigravity (agy)](https://agy.ai/)                                                 | ✅      |                                                                                                                                           |
 | [Factory Droid](https://docs.factory.ai/cli/getting-started/quickstart)              | ✅      | Sub-agents inherit session model by default; use `model` + `id` fields to override                                                     |
+| Generic                                                                              | ✅      | Bring your own agent — use `--ai generic --ai-commands-dir <path>` for unsupported agents                                               |
 
 ## 🔧 Specify CLI Reference
 
@@ -258,7 +259,8 @@ The `specify` command supports the following options:
 | Argument/Option        | Type     | Description                                                                                                                                                                                  |
 | ---------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `<project-name>`       | Argument | Name for your new project directory (optional if using `--here`, or use `.` for current directory)                                                                                           |
-| `--ai`                 | Option   | AI assistant to use: `claude`, `gemini`, `copilot`, `cursor-agent`, `qwen`, `opencode`, `codex`, `windsurf`, `kilocode`, `auggie`, `roo`, `codebuddy`, `amp`, `shai`, `q`, `agy`, `bob`, `qoder`, or `droid` |
+| `--ai`                 | Option   | AI assistant to use: `claude`, `gemini`, `copilot`, `cursor-agent`, `qwen`, `opencode`, `codex`, `windsurf`, `kilocode`, `auggie`, `roo`, `codebuddy`, `amp`, `shai`, `q`, `agy`, `bob`, `qoder`, `droid`, or `generic` (requires `--ai-commands-dir`) |
+| `--ai-commands-dir`    | Option   | Directory for agent command files (required with `--ai generic`, e.g. `.myagent/commands/`)                                                                                                  |
 | `--script`             | Option   | Script variant to use: `sh` (bash/zsh) or `ps` (PowerShell)                                                                                                                                  |
 | `--ignore-agent-tools` | Flag     | Skip checks for AI agent tools like Claude Code                                                                                                                                              |
 | `--no-git`             | Flag     | Skip git repository initialization                                                                                                                                                           |
@@ -267,6 +269,7 @@ The `specify` command supports the following options:
 | `--skip-tls`           | Flag     | Skip SSL/TLS verification (not recommended)                                                                                                                                                  |
 | `--debug`              | Flag     | Enable detailed debug output for troubleshooting                                                                                                                                             |
 | `--github-token`       | Option   | GitHub token for API requests (or set GH_TOKEN/GITHUB_TOKEN env variable)                                                                                                                    |
+| `--ai-skills`          | Flag     | Install Prompt.MD templates as agent skills in agent-specific `skills/` directory (requires `--ai`)                                                                                          |
 
 ### Examples
 
@@ -298,6 +301,9 @@ specify init my-project --ai bob
 # Initialize with Factory Droid support
 specify init my-project --ai droid
 
+# Initialize with an unsupported agent (generic / bring your own agent)
+specify init my-project --ai generic --ai-commands-dir .myagent/commands/
+
 # Initialize with PowerShell scripts (Windows/cross-platform)
 specify init my-project --ai copilot --script ps
 
@@ -319,6 +325,12 @@ specify init my-project --ai claude --debug
 
 # Use GitHub token for API requests (helpful for corporate environments)
 specify init my-project --ai claude --github-token ghp_your_token_here
+
+# Install agent skills with the project
+specify init my-project --ai claude --ai-skills
+
+# Initialize in current directory with agent skills
+specify init --here --ai gemini --ai-skills
 
 # Check system requirements
 specify check
@@ -744,7 +756,6 @@ rm gcm-linux_amd64.2.6.1.deb
 
 **This fork:**
 - [@Z-WICK](https://github.com/Z-WICK)
-
 ## 💬 Support
 
 For issues specific to this fork (enhanced commands, sub-agents, pipeline), open an issue at [Z-WICK/spec-kit](https://github.com/Z-WICK/spec-kit/issues/new).

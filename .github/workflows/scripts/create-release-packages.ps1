@@ -14,7 +14,7 @@
 
 .PARAMETER Agents
     Comma or space separated subset of agents to build (default: all)
-    Valid agents: claude, gemini, copilot, cursor-agent, qwen, opencode, codex, windsurf, kilocode, auggie, roo, codebuddy, qoder, amp, shai, q, agy, bob, droid
+    Valid agents: claude, gemini, copilot, cursor-agent, qwen, opencode, codex, windsurf, kilocode, auggie, roo, codebuddy, qoder, amp, shai, q, agy, bob, droid, generic
 
 .PARAMETER Scripts
     Comma or space separated subset of script types to build (default: both)
@@ -399,6 +399,10 @@ function Build-Variant {
                 Write-Host "Copied agents -> .factory/droids"
             }
         }
+        'generic' {
+            $cmdDir = Join-Path $baseDir ".speckit/commands"
+            Generate-Commands -Agent 'generic' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
+        }
     }
     
     # Generate .version and .file-hashes for update tracking
@@ -421,7 +425,7 @@ function Build-Variant {
 }
 
 # Define all agents and scripts
-$AllAgents = @('claude', 'gemini', 'copilot', 'cursor-agent', 'qwen', 'opencode', 'codex', 'windsurf', 'kilocode', 'auggie', 'roo', 'codebuddy', 'qoder', 'amp', 'shai', 'q', 'agy', 'bob', 'droid')
+$AllAgents = @('claude', 'gemini', 'copilot', 'cursor-agent', 'qwen', 'opencode', 'codex', 'windsurf', 'kilocode', 'auggie', 'roo', 'codebuddy', 'qoder', 'amp', 'shai', 'q', 'agy', 'bob', 'droid', 'generic')
 $AllScripts = @('sh', 'ps')
 
 function Normalize-List {

@@ -54,5 +54,7 @@ gh release create "$VERSION" \
   .genreleases/spec-kit-template-bob-ps-"$VERSION".zip \
   .genreleases/spec-kit-template-droid-sh-"$VERSION".zip \
   .genreleases/spec-kit-template-droid-ps-"$VERSION".zip \
+  .genreleases/spec-kit-template-generic-sh-"$VERSION".zip \
+  .genreleases/spec-kit-template-generic-ps-"$VERSION".zip \
   --title "Spec Kit Templates - $VERSION_NO_V" \
   --notes-file release_notes.md
