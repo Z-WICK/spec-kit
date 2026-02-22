@@ -277,7 +277,11 @@ function Build-Variant {
         New-Item -ItemType Directory -Path $templatesDestDir -Force | Out-Null
         
         Get-ChildItem -Path "templates" -Recurse -File | Where-Object {
-            $_.FullName -notmatch 'templates[/\\]commands[/\\]' -and $_.Name -ne 'vscode-settings.json'
+            $isCommandTemplate = $_.FullName -match 'templates[/\\]commands[/\\]'
+            $isAgentTemplate = $_.FullName -match 'templates[/\\]agents[/\\]'
+            (-not $isCommandTemplate) -and
+            ($_.Name -ne 'vscode-settings.json') -and
+            (($Agent -ne 'codex') -or (-not $isAgentTemplate))
         } | ForEach-Object {
             $relativePath = $_.FullName.Substring((Resolve-Path "templates").Path.Length + 1)
             $destFile = Join-Path $templatesDestDir $relativePath

@@ -195,17 +195,32 @@ build_variant() {
   
   if [[ -d templates ]]; then
     mkdir -p "$SPEC_DIR/templates"
-    while IFS= read -r -d '' template_file; do
-      rel_path="${template_file#templates/}"
-      target_path="$SPEC_DIR/templates/$rel_path"
-      mkdir -p "$(dirname "$target_path")"
-      cp "$template_file" "$target_path"
-    done < <(
-      find templates -type f \
-        -not -path "templates/commands/*" \
-        -not -name "vscode-settings.json" \
-        -print0
-    )
+    if [[ $agent == "codex" ]]; then
+      while IFS= read -r -d '' template_file; do
+        rel_path="${template_file#templates/}"
+        target_path="$SPEC_DIR/templates/$rel_path"
+        mkdir -p "$(dirname "$target_path")"
+        cp "$template_file" "$target_path"
+      done < <(
+        find templates -type f \
+          -not -path "templates/commands/*" \
+          -not -path "templates/agents/*" \
+          -not -name "vscode-settings.json" \
+          -print0
+      )
+    else
+      while IFS= read -r -d '' template_file; do
+        rel_path="${template_file#templates/}"
+        target_path="$SPEC_DIR/templates/$rel_path"
+        mkdir -p "$(dirname "$target_path")"
+        cp "$template_file" "$target_path"
+      done < <(
+        find templates -type f \
+          -not -path "templates/commands/*" \
+          -not -name "vscode-settings.json" \
+          -print0
+      )
+    fi
     echo "Copied templates -> .specify/templates"
   fi
   

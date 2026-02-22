@@ -78,9 +78,11 @@ def test_release_packages_codex_use_agents_skills_only(tmp_path):
 
     skill_file = fixture_root / ".genreleases" / "sdd-codex-package-sh" / ".agents" / "skills" / "speckit-plan" / "SKILL.md"
     legacy_codex_dir = fixture_root / ".genreleases" / "sdd-codex-package-sh" / ".codex" / "skills"
+    codex_template_agents_dir = fixture_root / ".genreleases" / "sdd-codex-package-sh" / ".specify" / "templates" / "agents"
 
     assert skill_file.exists()
     assert not legacy_codex_dir.exists()
+    assert not codex_template_agents_dir.exists()
 
 
 @pytest.mark.skipif(shutil.which("bash") is None, reason="bash is required for release packaging tests")
