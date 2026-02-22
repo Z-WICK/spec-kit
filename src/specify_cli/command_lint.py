@@ -186,6 +186,21 @@ def _lint_command_templates(repo_root: Path, result: LintResult) -> None:
         if agent_scripts is not None:
             _validate_script_section(repo_root, template, "agent_scripts", agent_scripts, result)
 
+        if template.name == "init.md":
+            legacy_markers = (
+                "`.claude/` directory must already exist",
+                "ERROR: .claude/ directory not found.",
+            )
+            for marker in legacy_markers:
+                if marker in body:
+                    result.errors.append(
+                        f"{template}: still contains Claude-specific init prerequisite '{marker}'"
+                    )
+            if "AGENT_DIR" not in body:
+                result.errors.append(
+                    f"{template}: missing AGENT_DIR guidance for agent-specific initialization"
+                )
+
 
 def _extract_shell_array(content: str, name: str) -> List[str]:
     match = re.search(rf"{re.escape(name)}=\(([^)]*)\)", content, flags=re.DOTALL)

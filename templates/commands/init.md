@@ -1,5 +1,5 @@
 ---
-description: 分析当前项目并自动填充 .factory 工作流配置（AGENT.md、constitution、templates 中的占位符）
+description: 分析当前项目并自动填充 Spec Kit 工作流配置（AGENT.md、constitution、templates 中的占位符）
 argument-hint: [--force 强制重新分析]
 scripts:
   sh: scripts/bash/find-placeholders.sh
@@ -15,12 +15,16 @@ $ARGUMENTS
 ## Spec-Init: Project-Aware Initialization
 
 This command analyzes the current project's codebase and automatically fills in all
-`[PLACEHOLDER]` tokens across the `.claude/` configuration files.
+`[PLACEHOLDER]` tokens across the active agent workspace and `.specify/` files.
 
 ### Prerequisites
 
-- `.claude/` directory must already exist in the project root (copy from the generic template)
-- If `.claude/` does not exist, report error and instruct user to copy the template first
+- Resolve `AGENT_DIR` from the active command location:
+  - `.factory/commands/*` -> `.factory/`
+  - `.claude/commands/*` -> `.claude/`
+  - Similar pattern for other agent command folders
+- `AGENT_DIR` must already exist in the project root (copied from a Spec Kit template package)
+- If `AGENT_DIR` does not exist, report error and instruct user to copy the template first
 
 ### Execution Steps
 
@@ -176,11 +180,16 @@ In `speckit/memory/incident-log.md`:
 - No placeholders to fill — this file is auto-populated by pipeline runs
 - Verify the file exists; if missing, copy from template
 
-**2g. Configure Subagents (Claude Code only)**
+**2g. Configure Subagents (Agent-specific)**
 
 If the project uses Claude Code (`.claude/` directory exists):
 - Verify `.claude/agents/impact-analyzer.md` exists (copied from template during init)
 - Add project-specific context to the agent's prompt if needed (e.g., known module
+  boundaries, SLA budgets from chain-topology.md)
+
+If the project uses Factory Droid (`.factory/` directory exists):
+- Verify `.factory/droids/impact-analyzer.md` exists (copied from template during init)
+- Add project-specific context to the droid prompt if needed (e.g., known module
   boundaries, SLA budgets from chain-topology.md)
 
 **2h. Write project config (.specify/.project)**
@@ -234,7 +243,7 @@ To determine the test runner for Node.js projects, check `devDependencies` in
 
 **3a. Verify all placeholders are filled**
 
-Run `{SCRIPT}` to find any remaining unfilled placeholders in `.claude/` directory.
+Run `{SCRIPT}` to find any remaining unfilled placeholders in `AGENT_DIR`.
 
 If any unfilled placeholders remain, list them and ask user for values.
 
@@ -257,7 +266,7 @@ Trigger `/constitution init` to finalize the constitution with project-specific 
 
 ```
 ============================================================
-.factory initialized for: [PROJECT_NAME]
+[AGENT_DIR] initialized for: [PROJECT_NAME]
 
 Detected Stack:
   Language:    [language + version]
@@ -279,7 +288,8 @@ Files updated:
   - speckit/memory/incident-log.md (initialized)
   - speckit/templates/*.md (placeholders replaced)
   - commands/*.md (placeholders replaced)
-  - .claude/agents/impact-analyzer.md (configured, Claude Code only)
+  - .claude/agents/impact-analyzer.md (configured, Claude Code only, if present)
+  - .factory/droids/impact-analyzer.md (configured, Factory Droid only, if present)
 
 Remaining manual steps:
   - [ ] Review AGENT.md for accuracy
@@ -294,11 +304,11 @@ Next: /specify <feature description> to start your first feature
 
 ### Error Handling
 
-- If `.claude/` does not exist:
+- If `AGENT_DIR` does not exist:
   ```
-  ERROR: .claude/ directory not found.
+  ERROR: AGENT_DIR directory not found.
   Copy the generic template to your project root first:
-    cp -r /path/to/factory-template .factory
+    cp -r /path/to/spec-kit-template <AGENT_DIR>
   ```
 
 - If project type cannot be detected:
