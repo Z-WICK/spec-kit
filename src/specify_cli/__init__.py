@@ -779,7 +779,7 @@ def download_and_extract_template(project_path: Path, ai_assistant: str, script_
                             preview = ", ".join(preserved_paths[:5])
                             more = f" (+{len(preserved_paths)-5} more)" if len(preserved_paths) > 5 else ""
                             console.print(f"[yellow]Preserved existing files:[/yellow] {preview}{more}")
-                        console.print(f"[cyan]Template files merged into current directory[/cyan]")
+                        console.print("[cyan]Template files merged into current directory[/cyan]")
                     if preserved_paths:
                         extract_detail = f"merged, preserved {len(preserved_paths)} existing files"
                     else:
