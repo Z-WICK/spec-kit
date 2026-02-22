@@ -238,7 +238,7 @@ Want to see Spec Kit in action? Watch our [video overview](https://www.youtube.c
 | [Roo Code](https://roocode.com/)                                                     | ✅      |                                                                                                                                           |
 | [SHAI (OVHcloud)](https://github.com/ovh/shai)                                       | ✅      |                                                                                                                                           |
 | [Windsurf](https://windsurf.com/)                                                    | ✅      |                                                                                                                                           |
-| [Antigravity (agy)](https://agy.ai/)                                                 | ✅      |                                                                                                                                           |
+| [Antigravity (agy)](https://antigravity.google/)                                     | ✅      |                                                                                                                                           |
 | [Factory Droid](https://docs.factory.ai/cli/getting-started/quickstart)              | ✅      | Sub-agents inherit session model by default; use `model` + `id` fields to override                                                     |
 | Generic                                                                              | ✅      | Bring your own agent — use `--ai generic --ai-commands-dir <path>` for unsupported agents                                               |
 
@@ -300,6 +300,9 @@ specify init my-project --ai bob
 
 # Initialize with Factory Droid support
 specify init my-project --ai droid
+
+# Initialize with Antigravity support
+specify init my-project --ai agy
 
 # Initialize with an unsupported agent (generic / bring your own agent)
 specify init my-project --ai generic --ai-commands-dir .myagent/commands/
