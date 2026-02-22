@@ -255,10 +255,7 @@ build_variant() {
       generate_commands windsurf md "\$ARGUMENTS" "$base_dir/.windsurf/workflows" "$script" ;;
     codex)
       mkdir -p "$base_dir/.agents/skills"
-      generate_commands codex md "\$ARGUMENTS" "$base_dir/.agents/skills" "$script"
-      # Backward compatibility for older Codex layouts.
-      mkdir -p "$base_dir/.codex/skills"
-      cp -R "$base_dir/.agents/skills/." "$base_dir/.codex/skills/" ;;
+      generate_commands codex md "\$ARGUMENTS" "$base_dir/.agents/skills" "$script" ;;
     kilocode)
       mkdir -p "$base_dir/.kilocode/rules"
       generate_commands kilocode md "\$ARGUMENTS" "$base_dir/.kilocode/rules" "$script" ;;

@@ -492,7 +492,7 @@ specify init --here --force --ai claude
 ```
 
 For Codex CLI, skills are generated as folders under `.agents/skills/` (for example: `.agents/skills/speckit-constitution/SKILL.md`).
-Codex scans `~/.agents/skills` by default, so copy or symlink generated skill folders there and restart the Codex session if they are not detected automatically. Legacy `.codex/skills/` is still emitted for compatibility.
+Codex scans `~/.agents/skills` by default, so copy or symlink generated skill folders there and restart the Codex session if they are not detected automatically.
 
 The CLI will check if you have Claude Code, Gemini CLI, Cursor CLI, Qwen CLI, opencode, Codex CLI, Qoder CLI, or Amazon Q Developer CLI installed. If you do not, or you prefer to get the templates without checking for the right tools, use `--ignore-agent-tools` with your command:
 

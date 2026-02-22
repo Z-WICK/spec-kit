@@ -347,10 +347,6 @@ function Build-Variant {
         'codex' {
             $cmdDir = Join-Path $baseDir ".agents/skills"
             Generate-Commands -Agent 'codex' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
-            # Backward compatibility for older Codex layouts.
-            $legacyCodexDir = Join-Path $baseDir ".codex/skills"
-            New-Item -ItemType Directory -Path $legacyCodexDir -Force | Out-Null
-            Copy-Item -Path (Join-Path $cmdDir "*") -Destination $legacyCodexDir -Recurse -Force
         }
         'kilocode' {
             $cmdDir = Join-Path $baseDir ".kilocode/rules"

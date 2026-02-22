@@ -52,8 +52,8 @@ def test_release_packages_keep_script_matrix_and_placeholder(tmp_path):
 
 
 @pytest.mark.skipif(shutil.which("bash") is None, reason="bash is required for release packaging tests")
-def test_release_packages_codex_use_agents_skills_with_legacy_copy(tmp_path):
-    """Codex packages should use .agents/skills and keep legacy .codex/skills copy."""
+def test_release_packages_codex_use_agents_skills_only(tmp_path):
+    """Codex packages should emit skills only under .agents/skills."""
     repo_root = Path(__file__).resolve().parents[1]
     fixture_root = tmp_path / "fixture-repo-codex"
     fixture_root.mkdir()
@@ -77,10 +77,10 @@ def test_release_packages_codex_use_agents_skills_with_legacy_copy(tmp_path):
     assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
 
     skill_file = fixture_root / ".genreleases" / "sdd-codex-package-sh" / ".agents" / "skills" / "speckit-plan" / "SKILL.md"
-    legacy_skill_file = fixture_root / ".genreleases" / "sdd-codex-package-sh" / ".codex" / "skills" / "speckit-plan" / "SKILL.md"
+    legacy_codex_dir = fixture_root / ".genreleases" / "sdd-codex-package-sh" / ".codex" / "skills"
 
     assert skill_file.exists()
-    assert legacy_skill_file.exists()
+    assert not legacy_codex_dir.exists()
 
 
 @pytest.mark.skipif(shutil.which("bash") is None, reason="bash is required for release packaging tests")

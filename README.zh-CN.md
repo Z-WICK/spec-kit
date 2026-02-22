@@ -475,7 +475,7 @@ specify init --here --force --ai claude
 ```
 
 对于 Codex CLI，会在 `.agents/skills/` 下按目录生成技能（例如：`.agents/skills/speckit-constitution/SKILL.md`）。
-Codex 默认扫描 `~/.agents/skills`；如果没有自动识别，请将这些技能目录复制或软链接到该路径并重启 Codex 会话。为兼容旧版，仍会额外生成 `.codex/skills/`。
+Codex 默认扫描 `~/.agents/skills`；如果没有自动识别，请将这些技能目录复制或软链接到该路径并重启 Codex 会话。
 
 The CLI will check if you have Claude Code, Gemini CLI, Cursor CLI, Qwen CLI, opencode, Codex CLI, Qoder CLI, or Amazon Q Developer CLI installed. If you do not, or you prefer to get the templates without checking for the right tools, use `--ignore-agent-tools` with your command:
 
