@@ -243,7 +243,7 @@ To determine the test runner for Node.js projects, check `devDependencies` in
 
 **3a. Verify all placeholders are filled**
 
-Run `{SCRIPT}` to find any remaining unfilled placeholders in `AGENT_DIR`.
+Run `{SCRIPT} "<AGENT_DIR>"` to find any remaining unfilled placeholders in `AGENT_DIR`.
 
 If any unfilled placeholders remain, list them and ask user for values.
 

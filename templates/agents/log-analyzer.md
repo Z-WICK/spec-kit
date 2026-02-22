@@ -1,4 +1,5 @@
 ---
+name: log-analyzer
 description: Analyze log files and extract actionable insights. Use when troubleshooting production incidents, performance issues, or error investigations.
 ---
 

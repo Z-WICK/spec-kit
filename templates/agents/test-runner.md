@@ -1,4 +1,5 @@
 ---
+name: test-runner
 description: Run tests and report results concisely. Use after code changes to verify correctness without flooding context with raw logs.
 ---
 

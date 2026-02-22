@@ -1,4 +1,5 @@
 ---
+name: coding-worker
 description: General-purpose coding sub-agent for implementing tasks. Dispatched by pipeline with scoped context per task.
 ---
 

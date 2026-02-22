@@ -202,6 +202,61 @@ def _lint_command_templates(repo_root: Path, result: LintResult) -> None:
                 )
 
 
+def _lint_agent_templates(repo_root: Path, result: LintResult) -> None:
+    agents_dir = repo_root / "templates" / "agents"
+    if not agents_dir.exists():
+        result.errors.append(f"{agents_dir}: directory not found")
+        return
+
+    agent_files = sorted(agents_dir.glob("*.md"))
+    if not agent_files:
+        result.errors.append(f"{agents_dir}: no agent templates found")
+        return
+
+    for template in agent_files:
+        frontmatter, _ = _parse_frontmatter(template, result)
+        name = frontmatter.get("name")
+        description = frontmatter.get("description")
+
+        if not isinstance(name, str) or not name.strip():
+            result.errors.append(f"{template}: frontmatter 'name' is required")
+        if not isinstance(description, str) or not description.strip():
+            result.errors.append(f"{template}: frontmatter 'description' is required")
+
+        if isinstance(name, str) and name.strip() and name.strip() != template.stem:
+            result.warnings.append(
+                f"{template}: frontmatter 'name' differs from file stem '{template.stem}'"
+            )
+
+
+def _lint_placeholder_scan_scripts(repo_root: Path, result: LintResult) -> None:
+    bash_script = repo_root / "scripts" / "bash" / "find-placeholders.sh"
+    ps_script = repo_root / "scripts" / "powershell" / "find-placeholders.ps1"
+    init_template = repo_root / "templates" / "commands" / "init.md"
+
+    bash_content = _read_checked_text(bash_script, result)
+    ps_content = _read_checked_text(ps_script, result)
+    init_content = _read_checked_text(init_template, result)
+    if not bash_content or not ps_content or not init_content:
+        return
+
+    if ".claude" in bash_content:
+        result.errors.append(
+            f"{bash_script}: hardcoded '.claude' path detected; use agent-dir argument"
+        )
+    if ".claude" in ps_content:
+        result.errors.append(
+            f"{ps_script}: hardcoded '.claude' path detected; use agent-dir argument"
+        )
+
+    expected_invocation = '{SCRIPT} "<AGENT_DIR>"'
+    if expected_invocation not in init_content:
+        result.errors.append(
+            "templates/commands/init.md: must invoke placeholder scan as "
+            f"`{expected_invocation}`"
+        )
+
+
 def _extract_shell_array(content: str, name: str) -> List[str]:
     match = re.search(rf"{re.escape(name)}=\(([^)]*)\)", content, flags=re.DOTALL)
     if not match:
@@ -303,6 +358,8 @@ def lint_repository(repo_root: Path) -> LintResult:
     """Run repository-level checks for enhanced command consistency."""
     result = LintResult()
     _lint_command_templates(repo_root, result)
+    _lint_agent_templates(repo_root, result)
+    _lint_placeholder_scan_scripts(repo_root, result)
     _lint_pipeline_gate_scripts(repo_root, result)
     _lint_execution_contract(repo_root, result)
     _lint_release_scripts(repo_root, result)

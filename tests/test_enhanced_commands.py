@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+import yaml
+
 from specify_cli.agents import AGENT_CONFIG, AGENT_COMMAND_CONFIGS
 from specify_cli.command_lint import lint_repository
 from specify_cli.extensions import CommandRegistrar
@@ -43,3 +45,50 @@ def test_specify_template_validation_flow_does_not_loop():
     )
     assert "proceed to step 7" in specify_template
     assert "proceed to step 6" not in specify_template
+
+
+def test_update_agent_context_scripts_support_droid_agent():
+    """Droid must be accepted by both bash and PowerShell context update scripts."""
+    bash_script = (REPO_ROOT / "scripts" / "bash" / "update-agent-context.sh").read_text(
+        encoding="utf-8"
+    )
+    ps_script = (
+        REPO_ROOT / "scripts" / "powershell" / "update-agent-context.ps1"
+    ).read_text(encoding="utf-8")
+
+    assert "droid)" in bash_script
+    assert "Factory Droid" in bash_script
+    assert "'droid'" in ps_script
+    assert "Factory Droid" in ps_script
+
+
+def test_find_placeholders_scripts_are_not_claude_hardcoded():
+    """Placeholder scanners should target a caller-provided agent directory."""
+    bash_script = (REPO_ROOT / "scripts" / "bash" / "find-placeholders.sh").read_text(
+        encoding="utf-8"
+    )
+    ps_script = (
+        REPO_ROOT / "scripts" / "powershell" / "find-placeholders.ps1"
+    ).read_text(encoding="utf-8")
+    init_template = (REPO_ROOT / "templates" / "commands" / "init.md").read_text(
+        encoding="utf-8"
+    )
+
+    assert ".claude" not in bash_script
+    assert ".claude" not in ps_script
+    assert "{SCRIPT} \"<AGENT_DIR>\"" in init_template
+
+
+def test_agent_templates_require_name_and_description_frontmatter():
+    """All packaged agent templates must carry required frontmatter fields."""
+    agents_dir = REPO_ROOT / "templates" / "agents"
+    for agent_file in sorted(agents_dir.glob("*.md")):
+        text = agent_file.read_text(encoding="utf-8")
+        assert text.startswith("---\n"), f"{agent_file} must start with frontmatter"
+        parts = text.split("---", 2)
+        assert len(parts) >= 3, f"{agent_file} has malformed frontmatter"
+        frontmatter = yaml.safe_load(parts[1]) or {}
+        assert isinstance(frontmatter.get("name"), str) and frontmatter["name"].strip()
+        assert isinstance(frontmatter.get("description"), str) and frontmatter[
+            "description"
+        ].strip()

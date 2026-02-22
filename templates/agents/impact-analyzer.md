@@ -1,4 +1,5 @@
 ---
+name: impact-analyzer
 description: Analyze the impact scope of code changes on the full call chain. Use before submitting technical designs or PRs for existing systems.
 ---
 
