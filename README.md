@@ -239,7 +239,7 @@ Want to see Spec Kit in action? Watch our [video overview](https://www.youtube.c
 | [SHAI (OVHcloud)](https://github.com/ovh/shai)                                       | ✅      |                                                                                                                                           |
 | [Windsurf](https://windsurf.com/)                                                    | ✅      |                                                                                                                                           |
 | [Antigravity (agy)](https://antigravity.google/)                                     | ✅      |                                                                                                                                           |
-| [Factory Droid](https://docs.factory.ai/cli/getting-started/quickstart)              | ✅      | Sub-agents inherit session model by default; use `model` + `id` fields to override                                                     |
+| [Factory Droid](https://docs.factory.ai/cli/getting-started/quickstart)              | ✅      | Primary command path is `.factory/skills/` with legacy `.factory/commands/` compatibility; sub-agents inherit session model by default |
 | Generic                                                                              | ✅      | Bring your own agent — use `--ai generic --ai-commands-dir <path>` for unsupported agents                                               |
 
 ## 🔧 Specify CLI Reference
@@ -491,8 +491,8 @@ specify init . --force --ai claude
 specify init --here --force --ai claude
 ```
 
-For Codex CLI, skills are generated as folders under `.codex/skills/` (for example: `.codex/skills/speckit-constitution/SKILL.md`).
-Codex scans `CODEX_HOME/skills` (default: `~/.codex/skills`), so copy or symlink generated skill folders there and restart the Codex session if they are not detected automatically.
+For Codex CLI, skills are generated as folders under `.agents/skills/` (for example: `.agents/skills/speckit-constitution/SKILL.md`).
+Codex scans `~/.agents/skills` by default, so copy or symlink generated skill folders there and restart the Codex session if they are not detected automatically. Legacy `.codex/skills/` is still emitted for compatibility.
 
 The CLI will check if you have Claude Code, Gemini CLI, Cursor CLI, Qwen CLI, opencode, Codex CLI, Qoder CLI, or Amazon Q Developer CLI installed. If you do not, or you prefer to get the templates without checking for the right tools, use `--ignore-agent-tools` with your command:
 
@@ -506,14 +506,15 @@ Go to the project folder and run your AI agent. In our example, we're using `cla
 
 ![Bootstrapping Claude Code environment](./media/bootstrap-claude-code.gif)
 
-You will know that things are configured correctly if you see the `/speckit.constitution`, `/speckit.specify`, `/speckit.plan`, `/speckit.tasks`, and `/speckit.implement` commands available. For Codex CLI, use the `speckit-constitution`, `speckit-specify`, `speckit-plan`, `speckit-tasks`, and `speckit-implement` skills.
+You will know that things are configured correctly if you see the `/speckit.constitution`, `/speckit.specify`, `/speckit.plan`, `/speckit.tasks`, and `/speckit.implement` commands available. For Codex CLI, run `/skills` and invoke `$speckit-constitution`, `$speckit-specify`, `$speckit-plan`, `$speckit-tasks`, and `$speckit-implement`.
 
-The first step should be establishing your project's governing principles using the `/speckit.constitution` command (Codex: `speckit-constitution` skill). This helps ensure consistent decision-making throughout all subsequent development phases:
+The first step should be establishing your project's governing principles using the `/speckit.constitution` command (Codex: `$speckit-constitution` after `/skills`). This helps ensure consistent decision-making throughout all subsequent development phases:
 
 ```text
 /speckit.constitution Create principles focused on code quality, testing standards, user experience consistency, and performance requirements. Include governance for how these principles should guide technical decisions and implementation choices.
 # Codex equivalent:
-Use the speckit-constitution skill to create principles focused on code quality, testing standards, user experience consistency, and performance requirements. Include governance for how these principles should guide technical decisions and implementation choices.
+/skills
+$speckit-constitution Create principles focused on code quality, testing standards, user experience consistency, and performance requirements. Include governance for how these principles should guide technical decisions and implementation choices.
 ```
 
 This step creates or updates the `.specify/memory/constitution.md` file with your project's foundational guidelines that the AI agent will reference during specification, planning, and implementation phases.

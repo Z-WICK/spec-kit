@@ -155,7 +155,7 @@ class TestGetSkillsDir:
     def test_codex_uses_override(self, project_dir):
         """Codex should use the AGENT_SKILLS_DIR_OVERRIDES value."""
         result = _get_skills_dir(project_dir, "codex")
-        assert result == project_dir / ".codex" / "skills"
+        assert result == project_dir / ".agents" / "skills"
 
     def test_cursor_agent_skills_dir(self, project_dir):
         """Cursor should use .cursor/skills/."""

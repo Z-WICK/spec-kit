@@ -24,12 +24,24 @@ def test_agent_keys_are_consistent_across_modules():
 def test_enhanced_agent_directories_follow_conventions():
     """High-variance agent directory conventions should not regress."""
     assert AGENT_COMMAND_CONFIGS["cursor-agent"]["dir"] == ".cursor/commands"
-    assert AGENT_COMMAND_CONFIGS["codex"]["dir"] == ".codex/skills"
+    assert AGENT_COMMAND_CONFIGS["codex"]["dir"] == ".agents/skills"
     assert AGENT_COMMAND_CONFIGS["kilocode"]["dir"] == ".kilocode/rules"
     assert AGENT_COMMAND_CONFIGS["auggie"]["dir"] == ".augment/rules"
     assert AGENT_COMMAND_CONFIGS["roo"]["dir"] == ".roo/rules"
-    assert AGENT_COMMAND_CONFIGS["droid"]["dir"] == ".factory/commands"
+    assert AGENT_COMMAND_CONFIGS["droid"]["dir"] == ".factory/skills"
     assert AGENT_COMMAND_CONFIGS["agy"]["dir"] == ".agent/workflows"
+
+
+def test_codex_init_guidance_uses_skills_workflow():
+    """Codex onboarding text should stay aligned with /skills + $skill usage."""
+    cli_source = (REPO_ROOT / "src" / "specify_cli" / "__init__.py").read_text(
+        encoding="utf-8"
+    )
+    assert ".agents/skills/<skill>/SKILL.md" in cli_source
+    assert "~/.agents/skills" in cli_source
+    assert "Legacy .codex/skills remains supported for compatibility." in cli_source
+    assert "run /skills and invoke skills as $speckit-..." in cli_source
+    assert 'enhancement_prefix = "$speckit-" if selected_ai == "codex"' in cli_source
 
 
 def test_repository_command_lint_passes():

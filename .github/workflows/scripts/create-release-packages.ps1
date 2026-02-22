@@ -345,8 +345,12 @@ function Build-Variant {
             Generate-Commands -Agent 'windsurf' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
         }
         'codex' {
-            $cmdDir = Join-Path $baseDir ".codex/skills"
+            $cmdDir = Join-Path $baseDir ".agents/skills"
             Generate-Commands -Agent 'codex' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
+            # Backward compatibility for older Codex layouts.
+            $legacyCodexDir = Join-Path $baseDir ".codex/skills"
+            New-Item -ItemType Directory -Path $legacyCodexDir -Force | Out-Null
+            Copy-Item -Path (Join-Path $cmdDir "*") -Destination $legacyCodexDir -Recurse -Force
         }
         'kilocode' {
             $cmdDir = Join-Path $baseDir ".kilocode/rules"
@@ -389,8 +393,12 @@ function Build-Variant {
             Generate-Commands -Agent 'bob' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
         }
         'droid' {
-            $cmdDir = Join-Path $baseDir ".factory/commands"
+            $cmdDir = Join-Path $baseDir ".factory/skills"
             Generate-Commands -Agent 'droid' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
+            # Backward compatibility for legacy Droid command folder.
+            $legacyDroidDir = Join-Path $baseDir ".factory/commands"
+            New-Item -ItemType Directory -Path $legacyDroidDir -Force | Out-Null
+            Copy-Item -Path (Join-Path $cmdDir "*") -Destination $legacyDroidDir -Recurse -Force
 
             if (Test-Path "templates/agents") {
                 $droidsDir = Join-Path $baseDir ".factory/droids"

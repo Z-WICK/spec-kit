@@ -20,7 +20,7 @@ This command analyzes the current project's codebase and automatically fills in 
 ### Prerequisites
 
 - Resolve `AGENT_DIR` from the active command location:
-  - `.factory/commands/*` -> `.factory/`
+  - `.factory/skills/*` -> `.factory/` (legacy `.factory/commands/*` also maps to `.factory/`)
   - `.claude/commands/*` -> `.claude/`
   - Similar pattern for other agent command folders
 - `AGENT_DIR` must already exist in the project root (copied from a Spec Kit template package)

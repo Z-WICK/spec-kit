@@ -473,7 +473,7 @@ $ARGUMENTS
 
     def test_register_commands_for_codex_skill_layout(self, extension_dir, project_dir):
         """Codex commands should be emitted as skill folders with SKILL.md."""
-        codex_dir = project_dir / ".codex" / "skills"
+        codex_dir = project_dir / ".agents" / "skills"
         codex_dir.mkdir(parents=True)
 
         manifest = ExtensionManifest(extension_dir / "extension.yml")

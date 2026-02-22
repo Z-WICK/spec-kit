@@ -236,7 +236,7 @@ Phase 7  Report              fixbug (no sub-agent)
 | [Roo Code](https://roocode.com/)                                                     | ✅      |                                                                                                                                           |
 | [SHAI (OVHcloud)](https://github.com/ovh/shai)                                       | ✅      |                                                                                                                                           |
 | [Windsurf](https://windsurf.com/)                                                    | ✅      |                                                                                                                                           |
-| [Factory Droid](https://docs.factory.ai/cli/getting-started/quickstart) | ✅      | 子代理默认继承主会话模型；通过 `model` + `id` 字段覆盖 |
+| [Factory Droid](https://docs.factory.ai/cli/getting-started/quickstart) | ✅      | 主命令路径为 `.factory/skills/`，并兼容 legacy `.factory/commands/`；子代理默认继承主会话模型，可通过 `model` + `id` 覆盖 |
 
 ## 🔧 Specify CLI 参考
 
@@ -474,8 +474,8 @@ specify init . --force --ai claude
 specify init --here --force --ai claude
 ```
 
-对于 Codex CLI，会在 `.codex/skills/` 下按目录生成技能（例如：`.codex/skills/speckit-constitution/SKILL.md`）。
-Codex 默认扫描 `CODEX_HOME/skills`（通常是 `~/.codex/skills`）；如果没有自动识别，请将这些技能目录复制或软链接到该路径并重启 Codex 会话。
+对于 Codex CLI，会在 `.agents/skills/` 下按目录生成技能（例如：`.agents/skills/speckit-constitution/SKILL.md`）。
+Codex 默认扫描 `~/.agents/skills`；如果没有自动识别，请将这些技能目录复制或软链接到该路径并重启 Codex 会话。为兼容旧版，仍会额外生成 `.codex/skills/`。
 
 The CLI will check if you have Claude Code, Gemini CLI, Cursor CLI, Qwen CLI, opencode, Codex CLI, Qoder CLI, or Amazon Q Developer CLI installed. If you do not, or you prefer to get the templates without checking for the right tools, use `--ignore-agent-tools` with your command:
 
@@ -489,12 +489,15 @@ Go to the project folder and run your AI agent. In our example, we're using `cla
 
 ![Bootstrapping Claude Code environment](./media/bootstrap-claude-code.gif)
 
-当你看到 `/speckit.constitution`、`/speckit.specify`、`/speckit.plan`、`/speckit.tasks`、`/speckit.implement` 这些命令可用时，说明配置成功。对于 Codex CLI，请使用 `speckit-constitution`、`speckit-specify`、`speckit-plan`、`speckit-tasks`、`speckit-implement` 这些 skills。
+当你看到 `/speckit.constitution`、`/speckit.specify`、`/speckit.plan`、`/speckit.tasks`、`/speckit.implement` 这些命令可用时，说明配置成功。对于 Codex CLI，请先运行 `/skills`，再使用 `$speckit-constitution`、`$speckit-specify`、`$speckit-plan`、`$speckit-tasks`、`$speckit-implement`。
 
-第一步建议使用 `/speckit.constitution` 建立项目治理原则（Codex: `speckit-constitution` skill）。这能确保后续开发阶段决策一致：
+第一步建议使用 `/speckit.constitution` 建立项目治理原则（Codex: 先执行 `/skills`，再运行 `$speckit-constitution`）。这能确保后续开发阶段决策一致：
 
 ```text
 /speckit.constitution Create principles focused on code quality, testing standards, user experience consistency, and performance requirements. Include governance for how these principles should guide technical decisions and implementation choices.
+# Codex 等价用法：
+/skills
+$speckit-constitution Create principles focused on code quality, testing standards, user experience consistency, and performance requirements. Include governance for how these principles should guide technical decisions and implementation choices.
 ```
 
 This step creates or updates the `.specify/memory/constitution.md` file with your project's foundational guidelines that the AI agent will reference during specification, planning, and implementation phases.

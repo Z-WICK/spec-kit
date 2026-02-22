@@ -254,8 +254,11 @@ build_variant() {
       mkdir -p "$base_dir/.windsurf/workflows"
       generate_commands windsurf md "\$ARGUMENTS" "$base_dir/.windsurf/workflows" "$script" ;;
     codex)
+      mkdir -p "$base_dir/.agents/skills"
+      generate_commands codex md "\$ARGUMENTS" "$base_dir/.agents/skills" "$script"
+      # Backward compatibility for older Codex layouts.
       mkdir -p "$base_dir/.codex/skills"
-      generate_commands codex md "\$ARGUMENTS" "$base_dir/.codex/skills" "$script" ;;
+      cp -R "$base_dir/.agents/skills/." "$base_dir/.codex/skills/" ;;
     kilocode)
       mkdir -p "$base_dir/.kilocode/rules"
       generate_commands kilocode md "\$ARGUMENTS" "$base_dir/.kilocode/rules" "$script" ;;
@@ -287,8 +290,11 @@ build_variant() {
       mkdir -p "$base_dir/.bob/commands"
       generate_commands bob md "\$ARGUMENTS" "$base_dir/.bob/commands" "$script" ;;
     droid)
+      mkdir -p "$base_dir/.factory/skills"
+      generate_commands droid md "\$ARGUMENTS" "$base_dir/.factory/skills" "$script"
+      # Backward compatibility for legacy Droid command folder.
       mkdir -p "$base_dir/.factory/commands"
-      generate_commands droid md "\$ARGUMENTS" "$base_dir/.factory/commands" "$script"
+      cp -R "$base_dir/.factory/skills/." "$base_dir/.factory/commands/"
       # Copy agent definitions as Droid subagents
       if [[ -d templates/agents ]]; then
         mkdir -p "$base_dir/.factory/droids"

@@ -929,7 +929,7 @@ def ensure_constitution_from_template(project_path: Path, tracker: StepTracker |
 # Agent-specific skill directory overrides for agents whose skills directory
 # doesn't follow the standard <agent_folder>/skills/ pattern
 AGENT_SKILLS_DIR_OVERRIDES = {
-    "codex": ".codex/skills",  # Codex skills live in .codex/skills
+    "codex": ".agents/skills",  # Codex skills live in .agents/skills
 }
 
 # Default skills directory for agents not in AGENT_CONFIG
@@ -1460,10 +1460,12 @@ def init(
 
     if selected_ai == "codex":
         steps_lines.append(f"{step_num}. Start using Codex skills:")
-        steps_lines.append("   [dim]Skills are generated at .codex/skills/<skill>/SKILL.md.[/dim]")
-        steps_lines.append("   [dim]If not auto-detected, copy/symlink them into ~/.codex/skills and restart Codex.[/dim]")
-        command_prefix = "speckit-"
-        command_suffix = " skill"
+        steps_lines.append("   [dim]Skills are generated at .agents/skills/<skill>/SKILL.md.[/dim]")
+        steps_lines.append("   [dim]Codex scans ~/.agents/skills; copy/symlink skill folders there if needed, then restart Codex.[/dim]")
+        steps_lines.append("   [dim]Legacy .codex/skills remains supported for compatibility.[/dim]")
+        steps_lines.append("   [dim]In Codex, run /skills and invoke skills as $speckit-...[/dim]")
+        command_prefix = "$speckit-"
+        command_suffix = ""
     else:
         steps_lines.append(f"{step_num}. Start using slash commands with your AI agent:")
         command_prefix = "/speckit."
@@ -1479,8 +1481,8 @@ def init(
     console.print()
     console.print(steps_panel)
 
-    enhancement_prefix = "speckit-" if selected_ai == "codex" else "/speckit."
-    enhancement_suffix = " skill" if selected_ai == "codex" else ""
+    enhancement_prefix = "$speckit-" if selected_ai == "codex" else "/speckit."
+    enhancement_suffix = "" if selected_ai == "codex" else ""
     enhancement_lines = [
         "Enhanced commands [bright_black](Z-WICK fork)[/bright_black]",
         "",

@@ -37,7 +37,7 @@ Specify supports multiple AI agents by generating agent-specific command files a
 | **Cursor**                 | `.cursor/commands/`    | Markdown | `cursor-agent`  | Cursor CLI                  |
 | **Qwen Code**              | `.qwen/commands/`      | TOML     | `qwen`          | Alibaba's Qwen Code CLI     |
 | **opencode**               | `.opencode/command/`   | Markdown | `opencode`      | opencode CLI                |
-| **Codex CLI**              | `.codex/skills/<skill>/SKILL.md` | Markdown | `codex`         | Codex CLI                   |
+| **Codex CLI**              | `.agents/skills/<skill>/SKILL.md` | Markdown | `codex`         | Codex CLI                   |
 | **Windsurf**               | `.windsurf/workflows/` | Markdown | N/A (IDE-based) | Windsurf IDE workflows      |
 | **Kilo Code**              | `.kilocode/rules/`     | Markdown | N/A (IDE-based) | Kilo Code IDE               |
 | **Auggie CLI**             | `.augment/rules/`      | Markdown | `auggie`        | Auggie CLI                  |
@@ -86,7 +86,7 @@ This eliminates the need for special-case mappings throughout the codebase.
 - `folder`: Directory where agent-specific files are stored (relative to project root)
 - `commands_subdir`: Subdirectory name within the agent folder where command/prompt files are stored (default: `"commands"`)
   - Most agents use `"commands"` (e.g., `.claude/commands/`)
-  - Some agents use alternative names: `"agents"` (copilot), `"workflows"` (windsurf, kilocode, agy), `"prompts"` (codex, q), `"command"` (opencode - singular)
+  - Some agents use alternative names: `"agents"` (copilot), `"workflows"` (windsurf, kilocode, agy), `"skills"` (codex), `"prompts"` (q), `"command"` (opencode - singular)
   - This field enables `--ai-skills` to locate command templates correctly for skill generation
 - `install_url`: Installation documentation URL (set to `None` for IDE-based agents)
 - `requires_cli`: Whether the agent requires a CLI tool check during initialization

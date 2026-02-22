@@ -7,6 +7,22 @@ All notable changes to the Specify CLI and templates are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.8] - 2026-02-22
+
+### Changed
+
+- **Codex and Droid command path strategy aligned with current docs + compatibility fallback**
+  - Switched Codex canonical output to `.agents/skills/<skill>/SKILL.md` and retained legacy `.codex/skills` copy in release packages.
+  - Switched Droid canonical output to `.factory/skills` and mirrored to legacy `.factory/commands` in release packages.
+  - Updated `specify init` Codex guidance to `/skills` + `$speckit-*` invocation and `~/.agents/skills` discovery path.
+
+### Added
+
+- **Regression coverage for compatibility layout**
+  - Added release packaging tests that assert Codex emits `.agents/skills` and legacy `.codex/skills`.
+  - Added release packaging tests that assert Droid emits `.factory/skills` and legacy `.factory/commands`.
+  - Added regression assertions that Codex init guidance keeps `/skills` + `$speckit-*` workflow text.
+
 ## [0.1.7] - 2026-02-22
 
 ### Fixed

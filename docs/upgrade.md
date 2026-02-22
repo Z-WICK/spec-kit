@@ -294,8 +294,9 @@ This tells Spec Kit which feature directory to use when creating specs, plans, a
    ```
 
 3. **Check agent-specific setup:**
-   - Codex skills are emitted as `.codex/skills/<skill>/SKILL.md`
-   - Codex scans `CODEX_HOME/skills` (default `~/.codex/skills`), so copy/symlink generated skill folders there if needed
+   - Codex skills are emitted as `.agents/skills/<skill>/SKILL.md` (with legacy `.codex/skills` copy for compatibility)
+   - Codex scans `~/.agents/skills`, so copy/symlink generated skill folders there if needed
+   - Factory Droid commands are emitted to `.factory/skills` and mirrored to legacy `.factory/commands`
    - Some agents need workspace restart or cache clearing
 
 ### "I lost my constitution customizations"
