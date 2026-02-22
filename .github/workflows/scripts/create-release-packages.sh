@@ -54,51 +54,53 @@ generate_commands() {
     # Normalize line endings
     file_content=$(tr -d '\r' < "$template")
     
-    # Extract description and script command from YAML frontmatter
+    # Extract description from YAML frontmatter
     description=$(awk '/^description:/ {sub(/^description:[[:space:]]*/, ""); print; exit}' <<< "$file_content")
-    script_command=$(awk -v sv="$script_variant" '
-      /^[[:space:]]*[a-zA-Z0-9_-]+:[[:space:]]*/ {
-        if ($0 ~ "^[[:space:]]*" sv ":[[:space:]]*") {
-          sub("^[[:space:]]*" sv ":[[:space:]]*", "")
+    body="$file_content"
+
+    # Keep script matrices and {SCRIPT}/{AGENT_SCRIPT} placeholders for all
+    # release outputs except Codex, whose SKILL.md format currently strips the
+    # source frontmatter and still requires concrete commands in-body.
+    if [[ $agent == "codex" ]]; then
+      script_command=$(awk -v sv="$script_variant" '
+        /^[[:space:]]*[a-zA-Z0-9_-]+:[[:space:]]*/ {
+          if ($0 ~ "^[[:space:]]*" sv ":[[:space:]]*") {
+            sub("^[[:space:]]*" sv ":[[:space:]]*", "")
+            print
+            exit
+          }
+        }
+      ' <<< "$file_content")
+
+      if [[ -z $script_command ]]; then
+        echo "Warning: no script command found for $script_variant in $template" >&2
+        script_command="(Missing script command for $script_variant)"
+      fi
+
+      agent_script_command=$(awk '
+        /^agent_scripts:$/ { in_agent_scripts=1; next }
+        in_agent_scripts && /^[[:space:]]*'"$script_variant"':[[:space:]]*/ {
+          sub(/^[[:space:]]*'"$script_variant"':[[:space:]]*/, "")
           print
           exit
         }
-      }
-    ' <<< "$file_content")
-    
-    if [[ -z $script_command ]]; then
-      echo "Warning: no script command found for $script_variant in $template" >&2
-      script_command="(Missing script command for $script_variant)"
+        in_agent_scripts && /^[a-zA-Z]/ { in_agent_scripts=0 }
+      ' <<< "$file_content")
+
+      body=$(printf '%s\n' "$body" | sed "s|{SCRIPT}|${script_command}|g")
+      if [[ -n $agent_script_command ]]; then
+        body=$(printf '%s\n' "$body" | sed "s|{AGENT_SCRIPT}|${agent_script_command}|g")
+      fi
+
+      body=$(printf '%s\n' "$body" | awk '
+        /^---$/ { print; if (++dash_count == 1) in_frontmatter=1; else in_frontmatter=0; next }
+        in_frontmatter && /^scripts:$/ { skip_scripts=1; next }
+        in_frontmatter && /^agent_scripts:$/ { skip_scripts=1; next }
+        in_frontmatter && /^[a-zA-Z].*:/ && skip_scripts { skip_scripts=0 }
+        in_frontmatter && skip_scripts && /^[[:space:]]/ { next }
+        { print }
+      ')
     fi
-    
-    # Extract agent_script command from YAML frontmatter if present
-    agent_script_command=$(awk '
-      /^agent_scripts:$/ { in_agent_scripts=1; next }
-      in_agent_scripts && /^[[:space:]]*'"$script_variant"':[[:space:]]*/ {
-        sub(/^[[:space:]]*'"$script_variant"':[[:space:]]*/, "")
-        print
-        exit
-      }
-      in_agent_scripts && /^[a-zA-Z]/ { in_agent_scripts=0 }
-    ' <<< "$file_content")
-    
-    # Replace {SCRIPT} placeholder with the script command
-    body=$(printf '%s\n' "$file_content" | sed "s|{SCRIPT}|${script_command}|g")
-    
-    # Replace {AGENT_SCRIPT} placeholder with the agent script command if found
-    if [[ -n $agent_script_command ]]; then
-      body=$(printf '%s\n' "$body" | sed "s|{AGENT_SCRIPT}|${agent_script_command}|g")
-    fi
-    
-    # Remove the scripts: and agent_scripts: sections from frontmatter while preserving YAML structure
-    body=$(printf '%s\n' "$body" | awk '
-      /^---$/ { print; if (++dash_count == 1) in_frontmatter=1; else in_frontmatter=0; next }
-      in_frontmatter && /^scripts:$/ { skip_scripts=1; next }
-      in_frontmatter && /^agent_scripts:$/ { skip_scripts=1; next }
-      in_frontmatter && /^[a-zA-Z].*:/ && skip_scripts { skip_scripts=0 }
-      in_frontmatter && skip_scripts && /^[[:space:]]/ { next }
-      { print }
-    ')
     
     # Apply other substitutions
     body=$(printf '%s\n' "$body" | sed "s/{ARGS}/$arg_format/g" | sed "s/__AGENT__/$agent/g" | rewrite_paths)

@@ -92,67 +92,69 @@ function Generate-Commands {
             $description = $matches[1]
         }
         
-        # Extract script command from YAML frontmatter
-        $scriptCommand = ""
-        if ($fileContent -match "(?m)^\s*${ScriptVariant}:\s*(.+)$") {
-            $scriptCommand = $matches[1]
-        }
-        
-        if ([string]::IsNullOrEmpty($scriptCommand)) {
-            Write-Warning "No script command found for $ScriptVariant in $($template.Name)"
-            $scriptCommand = "(Missing script command for $ScriptVariant)"
-        }
-        
-        # Extract agent_script command from YAML frontmatter if present
-        $agentScriptCommand = ""
-        if ($fileContent -match "(?ms)agent_scripts:.*?^\s*${ScriptVariant}:\s*(.+?)$") {
-            $agentScriptCommand = $matches[1].Trim()
-        }
-        
-        # Replace {SCRIPT} placeholder with the script command
-        $body = $fileContent -replace '\{SCRIPT\}', $scriptCommand
-        
-        # Replace {AGENT_SCRIPT} placeholder with the agent script command if found
-        if (-not [string]::IsNullOrEmpty($agentScriptCommand)) {
-            $body = $body -replace '\{AGENT_SCRIPT\}', $agentScriptCommand
-        }
-        
-        # Remove the scripts: and agent_scripts: sections from frontmatter
-        $lines = $body -split "`n"
-        $outputLines = @()
-        $inFrontmatter = $false
-        $skipScripts = $false
-        $dashCount = 0
-        
-        foreach ($line in $lines) {
-            if ($line -match '^---$') {
+        $body = $fileContent
+
+        # Keep script matrices and {SCRIPT}/{AGENT_SCRIPT} placeholders for all
+        # release outputs except Codex, whose SKILL.md format currently strips
+        # source frontmatter and still needs concrete commands in-body.
+        if ($Agent -eq 'codex') {
+            $scriptCommand = ""
+            if ($fileContent -match "(?m)^\s*${ScriptVariant}:\s*(.+)$") {
+                $scriptCommand = $matches[1]
+            }
+
+            if ([string]::IsNullOrEmpty($scriptCommand)) {
+                Write-Warning "No script command found for $ScriptVariant in $($template.Name)"
+                $scriptCommand = "(Missing script command for $ScriptVariant)"
+            }
+
+            $agentScriptCommand = ""
+            if ($fileContent -match "(?ms)agent_scripts:.*?^\s*${ScriptVariant}:\s*(.+?)$") {
+                $agentScriptCommand = $matches[1].Trim()
+            }
+
+            $body = $body -replace '\{SCRIPT\}', $scriptCommand
+
+            if (-not [string]::IsNullOrEmpty($agentScriptCommand)) {
+                $body = $body -replace '\{AGENT_SCRIPT\}', $agentScriptCommand
+            }
+
+            $lines = $body -split "`n"
+            $outputLines = @()
+            $inFrontmatter = $false
+            $skipScripts = $false
+            $dashCount = 0
+
+            foreach ($line in $lines) {
+                if ($line -match '^---$') {
+                    $outputLines += $line
+                    $dashCount++
+                    if ($dashCount -eq 1) {
+                        $inFrontmatter = $true
+                    } else {
+                        $inFrontmatter = $false
+                    }
+                    continue
+                }
+
+                if ($inFrontmatter) {
+                    if ($line -match '^(scripts|agent_scripts):$') {
+                        $skipScripts = $true
+                        continue
+                    }
+                    if ($line -match '^[a-zA-Z].*:' -and $skipScripts) {
+                        $skipScripts = $false
+                    }
+                    if ($skipScripts -and $line -match '^\s+') {
+                        continue
+                    }
+                }
+
                 $outputLines += $line
-                $dashCount++
-                if ($dashCount -eq 1) {
-                    $inFrontmatter = $true
-                } else {
-                    $inFrontmatter = $false
-                }
-                continue
             }
-            
-            if ($inFrontmatter) {
-                if ($line -match '^(scripts|agent_scripts):$') {
-                    $skipScripts = $true
-                    continue
-                }
-                if ($line -match '^[a-zA-Z].*:' -and $skipScripts) {
-                    $skipScripts = $false
-                }
-                if ($skipScripts -and $line -match '^\s+') {
-                    continue
-                }
-            }
-            
-            $outputLines += $line
+
+            $body = $outputLines -join "`n"
         }
-        
-        $body = $outputLines -join "`n"
         
         # Apply other substitutions
         $body = $body -replace '\{ARGS\}', $ArgFormat
