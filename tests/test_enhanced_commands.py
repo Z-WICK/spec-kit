@@ -34,3 +34,12 @@ def test_repository_command_lint_passes():
     """Lint checks should catch command/release drift before shipping."""
     result = lint_repository(REPO_ROOT)
     assert result.errors == [], "\n".join(result.errors)
+
+
+def test_specify_template_validation_flow_does_not_loop():
+    """Specify command should advance to step 7 after validation passes."""
+    specify_template = (REPO_ROOT / "templates" / "commands" / "specify.md").read_text(
+        encoding="utf-8"
+    )
+    assert "proceed to step 7" in specify_template
+    assert "proceed to step 6" not in specify_template
