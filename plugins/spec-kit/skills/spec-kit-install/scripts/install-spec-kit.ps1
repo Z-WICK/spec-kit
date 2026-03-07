@@ -34,7 +34,7 @@ function Copy-TreePreserve {
     )
 
     Get-ChildItem -Path $SourceRoot -Recurse -Force | ForEach-Object {
-        $Relative = $_.FullName.Substring($SourceRoot.Length).TrimStart([char[]]@('\\', '/')) -replace '\\', '/'
+        $Relative = $_.FullName.Substring($SourceRoot.Length).TrimStart([char[]]@('\', '/')) -replace '\\', '/'
         if ([string]::IsNullOrEmpty($Relative)) {
             return
         }
