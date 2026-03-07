@@ -30,7 +30,7 @@ copy_tree_preserve() {
     else
       copy_file "$path" "$dest_root/$relative"
     fi
-  done < <(find "$src_root" \( -type d -o -type f \) -print0)
+  done < <(find "$src_root" -mindepth 1 \( -type d -o -type f \) -print0)
 }
 
 copy_tree_preserve "$RESOURCE_ROOT/.claude" "$PROJECT_ROOT/.claude"

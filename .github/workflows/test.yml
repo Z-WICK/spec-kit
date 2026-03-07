@@ -59,3 +59,65 @@ jobs:
         run: |
           chmod +x .github/workflows/scripts/verify-plugin-install-resources.sh
           .github/workflows/scripts/verify-plugin-install-resources.sh v0.0.0
+
+  smoke-test-plugin-install-sh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run shell install smoke test
+        run: |
+          set -euo pipefail
+          TEST_ROOT="$(mktemp -d)"
+          mkdir -p "$TEST_ROOT/specs" "$TEST_ROOT/.specify/memory" "$TEST_ROOT/.specify/extensions"
+          printf 'keep-me' > "$TEST_ROOT/specs/existing.md"
+          printf 'old-memory' > "$TEST_ROOT/.specify/memory/custom.md"
+          printf 'old-extension' > "$TEST_ROOT/.specify/extensions/ext.txt"
+          printf 'old-project' > "$TEST_ROOT/.specify/.project"
+          printf 'old-state' > "$TEST_ROOT/.specify/pipeline-state.json"
+          cd "$TEST_ROOT"
+          bash "$GITHUB_WORKSPACE/plugins/spec-kit/skills/spec-kit-install/scripts/install-spec-kit.sh"
+          test -f "$TEST_ROOT/.claude/commands/speckit.init.md"
+          test -f "$TEST_ROOT/.claude/agents/impact-analyzer.md"
+          test -f "$TEST_ROOT/.specify/memory/constitution.md"
+          test "$(cat "$TEST_ROOT/specs/existing.md")" = 'keep-me'
+          test "$(cat "$TEST_ROOT/.specify/memory/custom.md")" = 'old-memory'
+          test "$(cat "$TEST_ROOT/.specify/extensions/ext.txt")" = 'old-extension'
+          test "$(cat "$TEST_ROOT/.specify/.project")" = 'old-project'
+          test "$(cat "$TEST_ROOT/.specify/pipeline-state.json")" = 'old-state'
+
+  smoke-test-plugin-install-ps:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run PowerShell install smoke test
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $TestRoot = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString())
+          New-Item -ItemType Directory -Path (Join-Path $TestRoot 'specs') -Force | Out-Null
+          New-Item -ItemType Directory -Path (Join-Path $TestRoot '.specify/memory') -Force | Out-Null
+          New-Item -ItemType Directory -Path (Join-Path $TestRoot '.specify/extensions') -Force | Out-Null
+          Set-Content -Path (Join-Path $TestRoot 'specs/existing.md') -Value 'keep-me' -NoNewline
+          Set-Content -Path (Join-Path $TestRoot '.specify/memory/custom.md') -Value 'old-memory' -NoNewline
+          Set-Content -Path (Join-Path $TestRoot '.specify/extensions/ext.txt') -Value 'old-extension' -NoNewline
+          Set-Content -Path (Join-Path $TestRoot '.specify/.project') -Value 'old-project' -NoNewline
+          Set-Content -Path (Join-Path $TestRoot '.specify/pipeline-state.json') -Value 'old-state' -NoNewline
+          Push-Location $TestRoot
+          try {
+            & "$env:GITHUB_WORKSPACE/plugins/spec-kit/skills/spec-kit-install/scripts/install-spec-kit.ps1"
+          }
+          finally {
+            Pop-Location
+          }
+          if (-not (Test-Path (Join-Path $TestRoot '.claude/commands/speckit.init.md'))) { throw 'Missing .claude command output' }
+          if (-not (Test-Path (Join-Path $TestRoot '.claude/agents/impact-analyzer.md'))) { throw 'Missing .claude agent output' }
+          if (-not (Test-Path (Join-Path $TestRoot '.specify/memory/constitution.md'))) { throw 'Missing constitution memory output' }
+          if ((Get-Content -Raw (Join-Path $TestRoot 'specs/existing.md')) -ne 'keep-me') { throw 'specs preserve failed' }
+          if ((Get-Content -Raw (Join-Path $TestRoot '.specify/memory/custom.md')) -ne 'old-memory') { throw 'memory preserve failed' }
+          if ((Get-Content -Raw (Join-Path $TestRoot '.specify/extensions/ext.txt')) -ne 'old-extension') { throw 'extensions preserve failed' }
+          if ((Get-Content -Raw (Join-Path $TestRoot '.specify/.project')) -ne 'old-project') { throw '.project preserve failed' }
+          if ((Get-Content -Raw (Join-Path $TestRoot '.specify/pipeline-state.json')) -ne 'old-state') { throw 'pipeline-state preserve failed' }

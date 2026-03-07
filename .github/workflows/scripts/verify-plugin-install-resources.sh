@@ -35,6 +35,10 @@ compare_variant() {
       echo "Missing bundled metadata file for ${script_variant}: .specify/$metadata_file" >&2
       exit 1
     fi
+    if ! diff -u "$generated_dir/.specify/$metadata_file" "$bundled_dir/.specify/$metadata_file"; then
+      echo "Plugin resource drift detected for ${script_variant} metadata: .specify/$metadata_file" >&2
+      exit 1
+    fi
   done
 
   if ! diff -ru --exclude '.DS_Store' "$generated_dir/.claude" "$bundled_dir/.claude"; then
