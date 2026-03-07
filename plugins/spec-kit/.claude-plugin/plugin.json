@@ -1,0 +1,5 @@
+{
+  "name": "spec-kit",
+  "description": "Spec Kit workflow plugin for Claude Code with bundled commands, agents, templates, and scripts.",
+  "version": "1.0.26"
+}
