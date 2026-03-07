@@ -1564,7 +1564,7 @@ def init(
             if selected_ai == "generic" and ai_commands_dir:
                 placeholder_dir = project_path / ".speckit" / "commands"
                 try:
-                    target_dir = _resolve_project_relative_path(ai_commands_dir, project_path)
+                    _resolve_project_relative_path(ai_commands_dir, project_path)
                 except ValueError as e:
                     tracker.error("final", str(e))
                     raise typer.Exit(1)
@@ -1573,7 +1573,7 @@ def init(
                     raise typer.Exit(1)
                 if placeholder_dir.is_dir():
                     try:
-                        target_dir = _safe_move_directory_into_project(placeholder_dir, ai_commands_dir, project_path)
+                        _safe_move_directory_into_project(placeholder_dir, ai_commands_dir, project_path)
                     except ValueError as e:
                         tracker.error("final", str(e))
                         raise typer.Exit(1)
