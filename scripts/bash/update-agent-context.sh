@@ -30,12 +30,12 @@
 #
 # 5. Multi-Agent Support
 #    - Handles agent-specific file paths and naming conventions
-#    - Supports: Claude, Gemini, Copilot, Cursor, Qwen, opencode, Codex, Windsurf, Kilo Code, Auggie CLI, Roo Code, CodeBuddy CLI, Qoder CLI, Amp, SHAI, Amazon Q Developer CLI, or Antigravity
+#    - Supports: Claude, Gemini, Copilot, Cursor, Qwen, opencode, Codex, Windsurf, Kilo Code, Auggie CLI, Roo Code, CodeBuddy CLI, Qoder CLI, Amp, SHAI, Kiro CLI, Factory Droid, or Antigravity
 #    - Can update single agents or all existing agent files
 #    - Creates default Claude file if no agent files exist
 #
 # Usage: ./update-agent-context.sh [agent_type]
-# Agent types: claude|gemini|copilot|cursor-agent|qwen|opencode|codex|windsurf|kilocode|auggie|roo|codebuddy|amp|shai|q|agy|bob|droid|qodercli
+# Agent types: claude|gemini|copilot|cursor-agent|qwen|opencode|codex|windsurf|kilocode|auggie|roo|codebuddy|amp|shai|kiro-cli|agy|bob|droid|qodercli
 # Leave empty to update all existing agent files
 
 set -e
@@ -73,7 +73,7 @@ CODEBUDDY_FILE="$REPO_ROOT/CODEBUDDY.md"
 QODER_FILE="$REPO_ROOT/QODER.md"
 AMP_FILE="$REPO_ROOT/AGENTS.md"
 SHAI_FILE="$REPO_ROOT/SHAI.md"
-Q_FILE="$REPO_ROOT/AGENTS.md"
+KIRO_FILE="$REPO_ROOT/AGENTS.md"
 AGY_FILE="$REPO_ROOT/.agent/rules/specify-rules.md"
 BOB_FILE="$REPO_ROOT/AGENTS.md"
 DROID_FILE="$REPO_ROOT/.factory/rules/specify-rules.md"
@@ -105,6 +105,29 @@ log_error() {
 
 log_warning() {
     echo "WARNING: $1" >&2
+}
+
+ensure_mdc_frontmatter() {
+    local file_path="$1"
+
+    if head -n 1 "$file_path" | grep -q '^---$'; then
+        return 0
+    fi
+
+    local frontmatter_file
+    frontmatter_file=$(mktemp) || return 1
+
+    cat > "$frontmatter_file" <<'EOF'
+---
+description: Project Development Guidelines
+globs: ["**/*"]
+alwaysApply: true
+---
+
+EOF
+
+    cat "$file_path" >> "$frontmatter_file"
+    mv "$frontmatter_file" "$file_path"
 }
 
 # Cleanup function for temporary files
@@ -355,6 +378,14 @@ create_new_agent_file() {
     
     # Clean up backup files
     rm -f "$temp_file.bak" "$temp_file.bak2"
+
+    if [[ "$target_file" == *.mdc ]]; then
+        if ! ensure_mdc_frontmatter "$temp_file"; then
+            log_error "Failed to add .mdc frontmatter"
+            rm -f "$temp_file"
+            return 1
+        fi
+    fi
     
     return 0
 }
@@ -491,6 +522,14 @@ update_existing_agent_file() {
         echo "## Recent Changes" >> "$temp_file"
         echo "$new_change_entry" >> "$temp_file"
         changes_entries_added=true
+    fi
+
+    if [[ "$target_file" == *.mdc ]]; then
+        if ! ensure_mdc_frontmatter "$temp_file"; then
+            log_error "Failed to add .mdc frontmatter"
+            rm -f "$temp_file"
+            return 1
+        fi
     fi
     
     # Move temp file to target atomically
@@ -647,8 +686,8 @@ update_specific_agent() {
         shai)
             update_agent_file "$SHAI_FILE" "SHAI"
             ;;
-        q)
-            update_agent_file "$Q_FILE" "Amazon Q Developer CLI"
+        kiro-cli)
+            update_agent_file "$KIRO_FILE" "Kiro CLI"
             ;;
         agy)
             update_agent_file "$AGY_FILE" "Antigravity"
@@ -664,7 +703,7 @@ update_specific_agent() {
             ;;
         *)
             log_error "Unknown agent type '$agent_type'"
-            log_error "Expected: claude|gemini|copilot|cursor-agent|qwen|opencode|codex|windsurf|kilocode|auggie|roo|codebuddy|amp|shai|q|agy|bob|droid|qodercli|generic"
+            log_error "Expected: claude|gemini|copilot|cursor-agent|qwen|opencode|codex|windsurf|kilocode|auggie|roo|codebuddy|amp|shai|kiro-cli|agy|bob|droid|qodercli|generic"
             exit 1
             ;;
     esac
@@ -739,8 +778,8 @@ update_all_existing_agents() {
         found_agent=true
     fi
 
-    if [[ -f "$Q_FILE" ]]; then
-        update_agent_file "$Q_FILE" "Amazon Q Developer CLI"
+    if [[ -f "$KIRO_FILE" ]]; then
+        update_agent_file "$KIRO_FILE" "Kiro CLI"
         found_agent=true
     fi
 
@@ -782,7 +821,7 @@ print_summary() {
     
     echo
 
-    log_info "Usage: $0 [claude|gemini|copilot|cursor-agent|qwen|opencode|codex|windsurf|kilocode|auggie|roo|codebuddy|amp|shai|q|agy|bob|droid|qodercli]"
+    log_info "Usage: $0 [claude|gemini|copilot|cursor-agent|qwen|opencode|codex|windsurf|kilocode|auggie|roo|codebuddy|amp|shai|kiro-cli|agy|bob|droid|qodercli]"
 }
 
 #==============================================================================

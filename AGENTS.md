@@ -44,9 +44,10 @@ Specify supports multiple AI agents by generating agent-specific command files a
 | **Roo Code**               | `.roo/rules/`          | Markdown | N/A (IDE-based) | Roo Code IDE                |
 | **CodeBuddy CLI**          | `.codebuddy/commands/` | Markdown | `codebuddy`     | CodeBuddy CLI               |
 | **Qoder CLI**              | `.qoder/commands/`     | Markdown | `qodercli`      | Qoder CLI                   |
-| **Amazon Q Developer CLI** | `.amazonq/prompts/`    | Markdown | `q`             | Amazon Q Developer CLI      |
+| **Kiro CLI**               | `.kiro/prompts/`       | Markdown | `kiro-cli`      | Kiro CLI                    |
 | **Amp**                    | `.agents/commands/`    | Markdown | `amp`           | Amp CLI                     |
 | **SHAI**                   | `.shai/commands/`      | Markdown | `shai`          | SHAI CLI                    |
+| **Factory Droid**          | `.factory/skills/`     | Markdown | `droid`         | Factory Droid CLI           |
 | **IBM Bob**                | `.bob/commands/`       | Markdown | N/A (IDE-based) | IBM Bob IDE                 |
 | **Generic**                | User-specified via `--ai-commands-dir` | Markdown | N/A | Bring your own agent        |
 
@@ -86,7 +87,7 @@ This eliminates the need for special-case mappings throughout the codebase.
 - `folder`: Directory where agent-specific files are stored (relative to project root)
 - `commands_subdir`: Subdirectory name within the agent folder where command/prompt files are stored (default: `"commands"`)
   - Most agents use `"commands"` (e.g., `.claude/commands/`)
-  - Some agents use alternative names: `"agents"` (copilot), `"workflows"` (windsurf, kilocode, agy), `"skills"` (codex), `"prompts"` (q), `"command"` (opencode - singular)
+  - Some agents use alternative names: `"agents"` (copilot), `"workflows"` (windsurf, kilocode, agy), `"skills"` (codex, droid), `"prompts"` (kiro-cli), `"command"` (opencode - singular)
   - This field enables `--ai-skills` to locate command templates correctly for skill generation
 - `install_url`: Installation documentation URL (set to `None` for IDE-based agents)
 - `requires_cli`: Whether the agent requires a CLI tool check during initialization
@@ -96,7 +97,7 @@ This eliminates the need for special-case mappings throughout the codebase.
 Update the `--ai` parameter help text in the `init()` command to include the new agent:
 
 ```python
-ai_assistant: str = typer.Option(None, "--ai", help="AI assistant to use: claude, gemini, copilot, cursor-agent, qwen, opencode, codex, windsurf, kilocode, auggie, codebuddy, new-agent-cli, or q"),
+ai_assistant: str = typer.Option(None, "--ai", help="AI assistant to use: claude, gemini, copilot, cursor-agent, qwen, opencode, codex, windsurf, kilocode, auggie, codebuddy, new-agent-cli, or kiro-cli"),
 ```
 
 Also update any function docstrings, examples, and error messages that list available agents.
@@ -117,7 +118,7 @@ Modify `.github/workflows/scripts/create-release-packages.sh`:
 ##### Add to ALL_AGENTS array
 
 ```bash
-ALL_AGENTS=(claude gemini copilot cursor-agent qwen opencode windsurf q)
+ALL_AGENTS=(claude gemini copilot cursor-agent qwen opencode windsurf kiro-cli)
 ```
 
 ##### Add case statement for directory structure
@@ -317,9 +318,10 @@ Require a command-line tool to be installed:
 - **Cursor**: `cursor-agent` CLI
 - **Qwen Code**: `qwen` CLI
 - **opencode**: `opencode` CLI
-- **Amazon Q Developer CLI**: `q` CLI
+- **Kiro CLI**: `kiro-cli` CLI
 - **CodeBuddy CLI**: `codebuddy` CLI
 - **Qoder CLI**: `qodercli` CLI
+- **Factory Droid**: `droid` CLI
 - **Amp**: `amp` CLI
 - **SHAI**: `shai` CLI
 

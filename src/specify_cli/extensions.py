@@ -461,6 +461,10 @@ class ExtensionManager:
                         cmd_file = commands_dir / f"{cmd_name}{agent_config['extension']}"
                     if cmd_file.exists():
                         cmd_file.unlink()
+                    if resolved_agent == "copilot":
+                        prompt_file = self.project_root / ".github" / "prompts" / f"{cmd_name}.prompt.md"
+                        if prompt_file.exists():
+                            prompt_file.unlink()
                         if resolved_agent == "codex":
                             skill_dir = cmd_file.parent
                             if skill_dir.is_dir() and not any(skill_dir.iterdir()):
@@ -819,6 +823,9 @@ class CommandRegistrar:
                 dest_file = commands_dir / f"{cmd_name}{agent_config['extension']}"
             dest_file.write_text(output)
 
+            if agent_name == "copilot":
+                self._write_copilot_prompt(project_root, cmd_name)
+
             registered.append(cmd_name)
 
             # Register aliases
@@ -836,9 +843,19 @@ class CommandRegistrar:
                 else:
                     alias_file = commands_dir / f"{alias}{agent_config['extension']}"
                     alias_file.write_text(output)
+                if agent_name == "copilot":
+                    self._write_copilot_prompt(project_root, alias)
                 registered.append(alias)
 
         return registered
+
+    @staticmethod
+    def _write_copilot_prompt(project_root: Path, cmd_name: str) -> None:
+        """Generate a companion .prompt.md file for a Copilot agent command."""
+        prompts_dir = project_root / ".github" / "prompts"
+        prompts_dir.mkdir(parents=True, exist_ok=True)
+        prompt_file = prompts_dir / f"{cmd_name}.prompt.md"
+        prompt_file.write_text(f"---\nagent: {cmd_name}\n---\n")
 
     def register_commands_for_all_agents(
         self,

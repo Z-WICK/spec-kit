@@ -19,7 +19,7 @@ AGENT_METADATA: Dict[str, Dict[str, Any]] = {
         "command_dir": ".github/agents",
         "command_format": "markdown",
         "args": "$ARGUMENTS",
-        "extension": ".md",
+        "extension": ".agent.md",
     },
     "claude": {
         "name": "Claude Code",
@@ -121,7 +121,7 @@ AGENT_METADATA: Dict[str, Dict[str, Any]] = {
         "args": "$ARGUMENTS",
         "extension": ".md",
     },
-    "qoder": {
+    "qodercli": {
         "name": "Qoder CLI",
         "folder": ".qoder/",
         "install_url": "https://qoder.com/cli",
@@ -141,12 +141,12 @@ AGENT_METADATA: Dict[str, Dict[str, Any]] = {
         "args": "$ARGUMENTS",
         "extension": ".md",
     },
-    "q": {
-        "name": "Amazon Q Developer CLI",
-        "folder": ".amazonq/",
-        "install_url": "https://aws.amazon.com/developer/learning/q-developer-cli/",
+    "kiro-cli": {
+        "name": "Kiro CLI",
+        "folder": ".kiro/",
+        "install_url": "https://kiro.dev/docs/cli/",
         "requires_cli": True,
-        "command_dir": ".amazonq/prompts",
+        "command_dir": ".kiro/prompts",
         "command_format": "markdown",
         "args": "$ARGUMENTS",
         "extension": ".md",
@@ -216,7 +216,8 @@ AGENT_METADATA: Dict[str, Dict[str, Any]] = {
 # Backward-compatible aliases for previously used keys.
 LEGACY_AGENT_ALIASES: Dict[str, str] = {
     "cursor": "cursor-agent",
-    "qodercli": "qoder",
+    "kiro": "kiro-cli",
+    "qoder": "qodercli",
 }
 
 AGENT_CONFIG: Dict[str, Dict[str, Any]] = {

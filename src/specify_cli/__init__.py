@@ -53,10 +53,39 @@ import ssl
 import truststore
 from datetime import datetime, timezone
 
-from .agents import AGENT_CONFIG
+from .agents import AGENT_CONFIG, LEGACY_AGENT_ALIASES
 
 ssl_context = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
 client = httpx.Client(verify=ssl_context)
+
+AI_ASSISTANT_ALIASES = dict(LEGACY_AGENT_ALIASES)
+
+
+def _build_ai_assistant_help() -> str:
+    """Build the --ai help text from AGENT_CONFIG so it stays in sync."""
+    non_generic_agents = sorted(agent for agent in AGENT_CONFIG if agent != "generic")
+    base_help = (
+        f"AI assistant to use: {', '.join(non_generic_agents)}, "
+        "or generic (requires --ai-commands-dir)."
+    )
+
+    if not AI_ASSISTANT_ALIASES:
+        return base_help
+
+    alias_phrases = [
+        f"'{alias}' as an alias for '{target}'"
+        for alias, target in sorted(AI_ASSISTANT_ALIASES.items())
+    ]
+
+    if len(alias_phrases) == 1:
+        aliases_text = alias_phrases[0]
+    else:
+        aliases_text = ", ".join(alias_phrases[:-1]) + " and " + alias_phrases[-1]
+
+    return base_help + " Use " + aliases_text + "."
+
+
+AI_ASSISTANT_HELP = _build_ai_assistant_help()
 
 def _github_token(cli_token: str | None = None) -> str | None:
     """Return sanitized GitHub token (cli arg takes precedence) or None."""
@@ -398,7 +427,10 @@ def check_tool(tool: str, tracker: StepTracker = None) -> bool:
                 tracker.complete(tool, "available")
             return True
     
-    found = shutil.which(tool) is not None
+    if tool == "kiro-cli":
+        found = shutil.which("kiro-cli") is not None or shutil.which("kiro") is not None
+    else:
+        found = shutil.which(tool) is not None
     
     if tracker:
         if found:
@@ -1127,7 +1159,7 @@ def install_ai_skills(project_path: Path, selected_ai: str, tracker: StepTracker
 @app.command()
 def init(
     project_name: str = typer.Argument(None, help="Name for your new project directory (optional if using --here, or use '.' for current directory)"),
-    ai_assistant: str = typer.Option(None, "--ai", help="AI assistant to use: claude, gemini, copilot, cursor-agent, qwen, opencode, codex, windsurf, kilocode, auggie, roo, codebuddy, amp, shai, q, agy, bob, qoder, droid, or generic (requires --ai-commands-dir)"),
+    ai_assistant: str = typer.Option(None, "--ai", help=AI_ASSISTANT_HELP),
     ai_commands_dir: str = typer.Option(None, "--ai-commands-dir", help="Directory for agent command files (required with --ai generic, e.g. .myagent/commands/)"),
     script_type: str = typer.Option(None, "--script", help="Script type to use: sh or ps"),
     ignore_agent_tools: bool = typer.Option(False, "--ignore-agent-tools", help="Skip checks for AI agent tools like Claude Code"),
@@ -1169,12 +1201,22 @@ def init(
 
     show_banner()
 
-    # Guard against a missing --ai value that Click may parse as the next option
-    # token (e.g., "--here" or "--ai-skills"), which otherwise creates
-    # misleading downstream errors that appear order-dependent.
     if ai_assistant and ai_assistant.startswith("-"):
-        console.print("[red]Error:[/red] --ai requires a valid assistant name (for example: --ai claude)")
+        console.print(f"[red]Error:[/red] Invalid value for --ai: '{ai_assistant}'")
+        console.print("[yellow]Hint:[/yellow] Did you forget to provide a value for --ai?")
+        console.print("[yellow]Rule:[/yellow] --ai requires a valid assistant name")
+        console.print("[yellow]Example:[/yellow] specify init --ai claude --here")
+        console.print(f"[yellow]Available agents:[/yellow] {', '.join(AGENT_CONFIG.keys())}")
         raise typer.Exit(1)
+
+    if ai_commands_dir and ai_commands_dir.startswith("--"):
+        console.print(f"[red]Error:[/red] Invalid value for --ai-commands-dir: '{ai_commands_dir}'")
+        console.print("[yellow]Hint:[/yellow] Did you forget to provide a value for --ai-commands-dir?")
+        console.print("[yellow]Example:[/yellow] specify init --ai generic --ai-commands-dir .myagent/commands/")
+        raise typer.Exit(1)
+
+    if ai_assistant:
+        ai_assistant = AI_ASSISTANT_ALIASES.get(ai_assistant, ai_assistant)
 
     if project_name == ".":
         here = True
@@ -1370,8 +1412,9 @@ def init(
                 if skills_ok and not here:
                     agent_cfg = AGENT_CONFIG.get(selected_ai, {})
                     agent_folder = agent_cfg.get("folder", "")
+                    commands_subdir = agent_cfg.get("commands_subdir", "commands")
                     if agent_folder:
-                        cmds_dir = project_path / agent_folder.rstrip("/") / "commands"
+                        cmds_dir = project_path / agent_folder.rstrip("/") / commands_subdir
                         if cmds_dir.exists():
                             try:
                                 shutil.rmtree(cmds_dir)

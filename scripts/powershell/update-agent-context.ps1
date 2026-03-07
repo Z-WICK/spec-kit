@@ -9,7 +9,7 @@ Mirrors the behavior of scripts/bash/update-agent-context.sh:
  2. Plan Data Extraction
  3. Agent File Management (create from template or update existing)
  4. Content Generation (technology stack, recent changes, timestamp)
- 5. Multi-Agent Support (claude, gemini, copilot, cursor-agent, qwen, opencode, codex, windsurf, kilocode, auggie, roo, codebuddy, amp, shai, q, agy, bob, droid, qodercli)
+ 5. Multi-Agent Support (claude, gemini, copilot, cursor-agent, qwen, opencode, codex, windsurf, kilocode, auggie, roo, codebuddy, amp, shai, kiro-cli, agy, bob, droid, qodercli)
 
 .PARAMETER AgentType
 Optional agent key to update a single agent. If omitted, updates all existing agent files (creating a default Claude file if none exist).
@@ -25,7 +25,7 @@ Relies on common helper functions in common.ps1
 #>
 param(
     [Parameter(Position=0)]
-    [ValidateSet('claude','gemini','copilot','cursor-agent','qwen','opencode','codex','windsurf','kilocode','auggie','roo','codebuddy','amp','shai','q','agy','bob','droid','qodercli','generic')]
+    [ValidateSet('claude','gemini','copilot','cursor-agent','qwen','opencode','codex','windsurf','kilocode','auggie','roo','codebuddy','amp','shai','kiro-cli','agy','bob','droid','qodercli','generic')]
     [string]$AgentType
 )
 
@@ -58,7 +58,7 @@ $CODEBUDDY_FILE = Join-Path $REPO_ROOT 'CODEBUDDY.md'
 $QODER_FILE    = Join-Path $REPO_ROOT 'QODER.md'
 $AMP_FILE      = Join-Path $REPO_ROOT 'AGENTS.md'
 $SHAI_FILE     = Join-Path $REPO_ROOT 'SHAI.md'
-$Q_FILE        = Join-Path $REPO_ROOT 'AGENTS.md'
+$KIRO_FILE     = Join-Path $REPO_ROOT 'AGENTS.md'
 $AGY_FILE      = Join-Path $REPO_ROOT '.agent/rules/specify-rules.md'
 $BOB_FILE      = Join-Path $REPO_ROOT 'AGENTS.md'
 $DROID_FILE    = Join-Path $REPO_ROOT '.factory/rules/specify-rules.md'
@@ -101,6 +101,28 @@ function Write-Err {
         [string]$Message
     )
     Write-Host "ERROR: $Message" -ForegroundColor Red 
+}
+
+function Add-MdcFrontmatterIfNeeded {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$Content
+    )
+
+    if ($Content.StartsWith("---`n") -or $Content.StartsWith("---`r`n")) {
+        return $Content
+    }
+
+    $frontmatter = @"
+---
+description: Project Development Guidelines
+globs: ["**/*"]
+alwaysApply: true
+---
+
+"@
+
+    return $frontmatter + $Content
 }
 
 function Validate-Environment {
@@ -259,6 +281,10 @@ function New-AgentFile {
     # Convert literal \n sequences introduced by Escape to real newlines
     $content = $content -replace '\\n',[Environment]::NewLine
 
+    if ($TargetFile -match '\.mdc$') {
+        $content = Add-MdcFrontmatterIfNeeded -Content $content
+    }
+
     $parent = Split-Path -Parent $TargetFile
     if (-not (Test-Path $parent)) { New-Item -ItemType Directory -Path $parent | Out-Null }
     Set-Content -LiteralPath $TargetFile -Value $content -NoNewline -Encoding utf8
@@ -335,7 +361,12 @@ function Update-ExistingAgentFile {
         $newTechEntries | ForEach-Object { $output.Add($_) }
     }
 
-    Set-Content -LiteralPath $TargetFile -Value ($output -join [Environment]::NewLine) -Encoding utf8
+    $updatedContent = $output -join [Environment]::NewLine
+    if ($TargetFile -match '\.mdc$') {
+        $updatedContent = Add-MdcFrontmatterIfNeeded -Content $updatedContent
+    }
+
+    Set-Content -LiteralPath $TargetFile -Value $updatedContent -Encoding utf8
     return $true
 }
 
@@ -408,12 +439,12 @@ function Update-SpecificAgent {
         'qodercli' { Update-AgentFile -TargetFile $QODER_FILE    -AgentName 'Qoder CLI' }
         'amp'      { Update-AgentFile -TargetFile $AMP_FILE      -AgentName 'Amp' }
         'shai'     { Update-AgentFile -TargetFile $SHAI_FILE     -AgentName 'SHAI' }
-        'q'        { Update-AgentFile -TargetFile $Q_FILE        -AgentName 'Amazon Q Developer CLI' }
+        'kiro-cli' { Update-AgentFile -TargetFile $KIRO_FILE     -AgentName 'Kiro CLI' }
         'agy'      { Update-AgentFile -TargetFile $AGY_FILE      -AgentName 'Antigravity' }
         'bob'      { Update-AgentFile -TargetFile $BOB_FILE      -AgentName 'IBM Bob' }
         'droid'    { Update-AgentFile -TargetFile $DROID_FILE    -AgentName 'Factory Droid' }
         'generic'  { Write-Info 'Generic agent: no predefined context file. Use the agent-specific update script for your agent.' }
-        default { Write-Err "Unknown agent type '$Type'"; Write-Err 'Expected: claude|gemini|copilot|cursor-agent|qwen|opencode|codex|windsurf|kilocode|auggie|roo|codebuddy|amp|shai|q|agy|bob|droid|qodercli|generic'; return $false }
+        default { Write-Err "Unknown agent type '$Type'"; Write-Err 'Expected: claude|gemini|copilot|cursor-agent|qwen|opencode|codex|windsurf|kilocode|auggie|roo|codebuddy|amp|shai|kiro-cli|agy|bob|droid|qodercli|generic'; return $false }
     }
 }
 
@@ -433,7 +464,7 @@ function Update-AllExistingAgents {
     if (Test-Path $CODEBUDDY_FILE) { if (-not (Update-AgentFile -TargetFile $CODEBUDDY_FILE -AgentName 'CodeBuddy CLI')) { $ok = $false }; $found = $true }
     if (Test-Path $QODER_FILE)    { if (-not (Update-AgentFile -TargetFile $QODER_FILE    -AgentName 'Qoder CLI')) { $ok = $false }; $found = $true }
     if (Test-Path $SHAI_FILE)     { if (-not (Update-AgentFile -TargetFile $SHAI_FILE     -AgentName 'SHAI')) { $ok = $false }; $found = $true }
-    if (Test-Path $Q_FILE)        { if (-not (Update-AgentFile -TargetFile $Q_FILE        -AgentName 'Amazon Q Developer CLI')) { $ok = $false }; $found = $true }
+    if (Test-Path $KIRO_FILE)     { if (-not (Update-AgentFile -TargetFile $KIRO_FILE     -AgentName 'Kiro CLI')) { $ok = $false }; $found = $true }
     if (Test-Path $AGY_FILE)      { if (-not (Update-AgentFile -TargetFile $AGY_FILE      -AgentName 'Antigravity')) { $ok = $false }; $found = $true }
     if (Test-Path $BOB_FILE)      { if (-not (Update-AgentFile -TargetFile $BOB_FILE      -AgentName 'IBM Bob')) { $ok = $false }; $found = $true }
     if (Test-Path $DROID_FILE)    { if (-not (Update-AgentFile -TargetFile $DROID_FILE    -AgentName 'Factory Droid')) { $ok = $false }; $found = $true }
@@ -451,7 +482,7 @@ function Print-Summary {
     if ($NEW_FRAMEWORK) { Write-Host "  - Added framework: $NEW_FRAMEWORK" }
     if ($NEW_DB -and $NEW_DB -ne 'N/A') { Write-Host "  - Added database: $NEW_DB" }
     Write-Host ''
-    Write-Info 'Usage: ./update-agent-context.ps1 [-AgentType claude|gemini|copilot|cursor-agent|qwen|opencode|codex|windsurf|kilocode|auggie|roo|codebuddy|amp|shai|q|agy|bob|droid|qodercli|generic]'
+    Write-Info 'Usage: ./update-agent-context.ps1 [-AgentType claude|gemini|copilot|cursor-agent|qwen|opencode|codex|windsurf|kilocode|auggie|roo|codebuddy|amp|shai|kiro-cli|agy|bob|droid|qodercli|generic]'
 }
 
 function Main {

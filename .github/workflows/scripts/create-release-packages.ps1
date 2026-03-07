@@ -14,7 +14,7 @@
 
 .PARAMETER Agents
     Comma or space separated subset of agents to build (default: all)
-    Valid agents: claude, gemini, copilot, cursor-agent, qwen, opencode, codex, windsurf, kilocode, auggie, roo, codebuddy, qoder, amp, shai, q, agy, bob, droid, generic
+    Valid agents: claude, gemini, copilot, cursor-agent, qwen, opencode, codex, windsurf, kilocode, auggie, roo, codebuddy, qodercli, amp, shai, kiro-cli, agy, bob, droid, generic
 
 .PARAMETER Scripts
     Comma or space separated subset of script types to build (default: both)
@@ -368,9 +368,9 @@ function Build-Variant {
             $cmdDir = Join-Path $baseDir ".codebuddy/commands"
             Generate-Commands -Agent 'codebuddy' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
         }
-        'qoder' {
+        'qodercli' {
             $cmdDir = Join-Path $baseDir ".qoder/commands"
-            Generate-Commands -Agent 'qoder' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
+            Generate-Commands -Agent 'qodercli' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
         }
         'amp' {
             $cmdDir = Join-Path $baseDir ".agents/commands"
@@ -380,9 +380,9 @@ function Build-Variant {
             $cmdDir = Join-Path $baseDir ".shai/commands"
             Generate-Commands -Agent 'shai' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
         }
-        'q' {
-            $cmdDir = Join-Path $baseDir ".amazonq/prompts"
-            Generate-Commands -Agent 'q' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
+        'kiro-cli' {
+            $cmdDir = Join-Path $baseDir ".kiro/prompts"
+            Generate-Commands -Agent 'kiro-cli' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
         }
         'agy' {
             $cmdDir = Join-Path $baseDir ".agent/workflows"
@@ -435,7 +435,7 @@ function Build-Variant {
 }
 
 # Define all agents and scripts
-$AllAgents = @('claude', 'gemini', 'copilot', 'cursor-agent', 'qwen', 'opencode', 'codex', 'windsurf', 'kilocode', 'auggie', 'roo', 'codebuddy', 'qoder', 'amp', 'shai', 'q', 'agy', 'bob', 'droid', 'generic')
+$AllAgents = @('claude', 'gemini', 'copilot', 'cursor-agent', 'qwen', 'opencode', 'codex', 'windsurf', 'kilocode', 'auggie', 'roo', 'codebuddy', 'qodercli', 'amp', 'shai', 'kiro-cli', 'agy', 'bob', 'droid', 'generic')
 $AllScripts = @('sh', 'ps')
 
 function Normalize-List {

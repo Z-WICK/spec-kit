@@ -220,8 +220,8 @@ Want to see Spec Kit in action? Watch our [video overview](https://www.youtube.c
 
 | Agent                                                                                | Support | Notes                                                                                                                                     |
 | ------------------------------------------------------------------------------------ | ------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| [Qoder CLI](https://qoder.com/cli)                                                   | ✅      |                                                                                                                                           |
-| [Amazon Q Developer CLI](https://aws.amazon.com/developer/learning/q-developer-cli/) | ⚠️      | Amazon Q Developer CLI [does not support](https://github.com/aws/amazon-q-developer-cli/issues/3064) custom arguments for slash commands. |
+| [Qoder CLI](https://qoder.com/cli)                                                   | ✅      | Use `--ai qodercli` (alias: `--ai qoder`)                                                                                                |
+| [Kiro CLI](https://kiro.dev/docs/cli/)                                               | ✅      | Use `--ai kiro-cli` (alias: `--ai kiro`)                                                                                                 |
 | [Amp](https://ampcode.com/)                                                          | ✅      |                                                                                                                                           |
 | [Auggie CLI](https://docs.augmentcode.com/cli/overview)                              | ✅      |                                                                                                                                           |
 | [Claude Code](https://www.anthropic.com/claude-code)                                 | ✅      |                                                                                                                                           |
@@ -251,7 +251,7 @@ The `specify` command supports the following options:
 | Command | Description                                                                                                                                             |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `init`  | Initialize a new Specify project from the latest template                                                                                               |
-| `check` | Check for installed core tools and CLI-based AI agents                                                                                                  |
+| `check` | Check for installed core tools and supported CLI-based AI agents                                                                                         |
 | `lint-commands` | Validate enhanced command templates, gate scripts, and release mapping consistency                                                             |
 
 ### `specify init` Arguments & Options
@@ -259,7 +259,7 @@ The `specify` command supports the following options:
 | Argument/Option        | Type     | Description                                                                                                                                                                                  |
 | ---------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `<project-name>`       | Argument | Name for your new project directory (optional if using `--here`, or use `.` for current directory)                                                                                           |
-| `--ai`                 | Option   | AI assistant to use: `claude`, `gemini`, `copilot`, `cursor-agent`, `qwen`, `opencode`, `codex`, `windsurf`, `kilocode`, `auggie`, `roo`, `codebuddy`, `amp`, `shai`, `q`, `agy`, `bob`, `qoder`, `droid`, or `generic` (requires `--ai-commands-dir`) |
+| `--ai`                 | Option   | AI assistant to use: `claude`, `gemini`, `copilot`, `cursor-agent`, `qwen`, `opencode`, `codex`, `windsurf`, `kilocode`, `auggie`, `roo`, `codebuddy`, `amp`, `shai`, `kiro-cli` (`kiro` alias), `agy`, `bob`, `qodercli` (`qoder` alias), `droid`, or `generic` (requires `--ai-commands-dir`) |
 | `--ai-commands-dir`    | Option   | Directory for agent command files (required with `--ai generic`, e.g. `.myagent/commands/`)                                                                                                  |
 | `--script`             | Option   | Script variant to use: `sh` (bash/zsh) or `ps` (PowerShell)                                                                                                                                  |
 | `--ignore-agent-tools` | Flag     | Skip checks for AI agent tools like Claude Code                                                                                                                                              |
@@ -284,10 +284,13 @@ specify init my-project --ai claude
 specify init my-project --ai cursor-agent
 
 # Initialize with Qoder support
-specify init my-project --ai qoder
+specify init my-project --ai qodercli
 
 # Initialize with Windsurf support
 specify init my-project --ai windsurf
+
+# Initialize with Kiro CLI support
+specify init my-project --ai kiro-cli
 
 # Initialize with Amp support
 specify init my-project --ai amp
@@ -494,7 +497,7 @@ specify init --here --force --ai claude
 For Codex CLI, skills are generated as folders under `.agents/skills/` (for example: `.agents/skills/speckit-constitution/SKILL.md`).
 Codex scans `~/.agents/skills` by default, so copy or symlink generated skill folders there and restart the Codex session if they are not detected automatically.
 
-The CLI will check if you have Claude Code, Gemini CLI, Cursor CLI, Qwen CLI, opencode, Codex CLI, Qoder CLI, or Amazon Q Developer CLI installed. If you do not, or you prefer to get the templates without checking for the right tools, use `--ignore-agent-tools` with your command:
+The CLI will check if you have Claude Code, Gemini CLI, Cursor CLI, Qwen CLI, opencode, Codex CLI, Qoder CLI, or Kiro CLI installed. If you do not, or you prefer to get the templates without checking for the right tools, use `--ignore-agent-tools` with your command:
 
 ```bash
 specify init <project_name> --ai claude --ignore-agent-tools

@@ -7,6 +7,16 @@ All notable changes to the Specify CLI and templates are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.26] - 2026-03-07
+
+### Changed
+
+- **Merged upstream `main` updates into the Z-WICK fork**
+  - Adopted upstream `kiro-cli` support and removed the legacy `q` runtime key from shared agent metadata and packaging scripts.
+  - Canonicalized Qoder to the real executable key `qodercli` while keeping `qoder` as a compatibility alias in the CLI.
+  - Aligned Copilot extension command registration with `.agent.md` outputs and companion `.prompt.md` files, including cleanup on uninstall.
+  - Kept fork-specific Codex `.agents/skills` and Droid `.factory/skills` behaviors intact while reconciling upstream release and context-script changes.
+
 ## [0.1.8] - 2026-02-22
 
 ### Changed

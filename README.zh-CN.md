@@ -218,8 +218,8 @@ Phase 7  Report              fixbug (no sub-agent)
 
 | 代理                                                                                  | 支持状态 | 备注                                                                                                                                       |
 | ------------------------------------------------------------------------------------ | ------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| [Qoder CLI](https://qoder.com/cli)                                                   | ✅      |                                                                                                                                           |
-| [Amazon Q Developer CLI](https://aws.amazon.com/developer/learning/q-developer-cli/) | ⚠️      | Amazon Q Developer CLI [不支持](https://github.com/aws/amazon-q-developer-cli/issues/3064)斜杠命令的自定义参数。 |
+| [Qoder CLI](https://qoder.com/cli)                                                   | ✅      | 使用 `--ai qodercli`（兼容别名：`--ai qoder`）                                                                                           |
+| [Kiro CLI](https://kiro.dev/docs/cli/)                                               | ✅      | 使用 `--ai kiro-cli`（兼容别名：`--ai kiro`）                                                                                            |
 | [Amp](https://ampcode.com/)                                                          | ✅      |                                                                                                                                           |
 | [Auggie CLI](https://docs.augmentcode.com/cli/overview)                              | ✅      |                                                                                                                                           |
 | [Claude Code](https://www.anthropic.com/claude-code)                                 | ✅      |                                                                                                                                           |
@@ -247,14 +247,14 @@ Phase 7  Report              fixbug (no sub-agent)
 | 命令    | 描述                                                                                                                                             |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `init`  | 从最新模板初始化一个新的 Specify 项目                                                                                                |
-| `check` | 检查已安装的工具（`git`、`claude`、`gemini`、`code`/`code-insiders`、`cursor-agent`、`windsurf`、`qwen`、`opencode`、`codex`、`shai`、`qoder`） |
+| `check` | 检查已安装的工具（`git`、`claude`、`gemini`、`code`/`code-insiders`、`cursor-agent`、`windsurf`、`qwen`、`opencode`、`codex`、`shai`、`kiro-cli`、`qodercli`） |
 
 ### `specify init` 参数与选项
 
 | 参数/选项               | 类型     | 描述                                                                                                                                                                                  |
 | ---------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `<project-name>`       | 参数     | 新项目目录的名称（使用 `--here` 时可选，或使用 `.` 表示当前目录）                                                                                           |
-| `--ai`                 | 选项     | 使用的 AI 助手：`claude`、`gemini`、`copilot`、`cursor-agent`、`qwen`、`opencode`、`codex`、`windsurf`、`kilocode`、`auggie`、`roo`、`codebuddy`、`amp`、`shai`、`q`、`bob`、`qoder` 或 `droid` |
+| `--ai`                 | 选项     | 使用的 AI 助手：`claude`、`gemini`、`copilot`、`cursor-agent`、`qwen`、`opencode`、`codex`、`windsurf`、`kilocode`、`auggie`、`roo`、`codebuddy`、`amp`、`shai`、`kiro-cli`（别名：`kiro`）、`agy`、`bob`、`qodercli`（别名：`qoder`）或 `droid` |
 | `--script`             | 选项     | 脚本变体：`sh`（bash/zsh）或 `ps`（PowerShell）                                                                                                                  |
 | `--ignore-agent-tools` | 标志     | 跳过 AI 代理工具（如 Claude Code）的检查                                                                                                                              |
 | `--no-git`             | 标志     | 跳过 git 仓库初始化                                                                                                                                                           |
@@ -277,10 +277,13 @@ specify init my-project --ai claude
 specify init my-project --ai cursor-agent
 
 # Initialize with Qoder support
-specify init my-project --ai qoder
+specify init my-project --ai qodercli
 
 # Initialize with Windsurf support
 specify init my-project --ai windsurf
+
+# Initialize with Kiro CLI support
+specify init my-project --ai kiro-cli
 
 # Initialize with Amp support
 specify init my-project --ai amp
@@ -477,7 +480,7 @@ specify init --here --force --ai claude
 对于 Codex CLI，会在 `.agents/skills/` 下按目录生成技能（例如：`.agents/skills/speckit-constitution/SKILL.md`）。
 Codex 默认扫描 `~/.agents/skills`；如果没有自动识别，请将这些技能目录复制或软链接到该路径并重启 Codex 会话。
 
-The CLI will check if you have Claude Code, Gemini CLI, Cursor CLI, Qwen CLI, opencode, Codex CLI, Qoder CLI, or Amazon Q Developer CLI installed. If you do not, or you prefer to get the templates without checking for the right tools, use `--ignore-agent-tools` with your command:
+CLI 会检查你是否已安装 Claude Code、Gemini CLI、Cursor CLI、Qwen CLI、opencode、Codex CLI、Qoder CLI 或 Kiro CLI。如果没有安装，或者你希望跳过相关工具检查直接获取模板，可以在命令中添加 `--ignore-agent-tools`：
 
 ```bash
 specify init <project_name> --ai claude --ignore-agent-tools
