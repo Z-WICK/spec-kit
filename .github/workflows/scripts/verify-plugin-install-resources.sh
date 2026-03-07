@@ -4,7 +4,16 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 cd "$ROOT_DIR"
 
-VERSION="${1:-v0.0.0}"
+VERSION="${1:-v$(python3 - <<'PY'
+from pathlib import Path
+import re
+content = Path('pyproject.toml').read_text()
+match = re.search(r'^version\s*=\s*"([^"]+)"', content, re.MULTILINE)
+if not match:
+    raise SystemExit('Could not determine project version from pyproject.toml')
+print(match.group(1))
+PY
+)}"
 PLUGIN_RESOURCES_ROOT="$ROOT_DIR/plugins/spec-kit/skills/spec-kit-install/scripts/resources"
 GENERATED_ROOT="$ROOT_DIR/.genreleases"
 

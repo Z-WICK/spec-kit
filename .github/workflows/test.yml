@@ -58,7 +58,7 @@ jobs:
       - name: Verify plugin install resources
         run: |
           chmod +x .github/workflows/scripts/verify-plugin-install-resources.sh
-          .github/workflows/scripts/verify-plugin-install-resources.sh v0.0.0
+          .github/workflows/scripts/verify-plugin-install-resources.sh
 
   smoke-test-plugin-install-sh:
     runs-on: ubuntu-latest
