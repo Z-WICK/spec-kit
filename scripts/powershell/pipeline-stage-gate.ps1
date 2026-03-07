@@ -92,6 +92,14 @@ function Require-Dir {
     Add-Evidence $Path
 }
 
+function Get-TaskShards {
+    param([string]$BaseDir)
+
+    Get-ChildItem -Path $BaseDir -Filter 'tasks-*.md' -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -ne 'tasks-index.md' } |
+        Sort-Object -Property Name
+}
+
 function Test-TaskChecked {
     param([string]$BaseDir)
 
@@ -106,7 +114,7 @@ function Test-TaskChecked {
         }
     }
 
-    $shards = Get-ChildItem -Path $BaseDir -Filter 'tasks-*.md' -File -ErrorAction SilentlyContinue
+    $shards = Get-TaskShards -BaseDir $BaseDir
     foreach ($shard in $shards) {
         if (Select-String -Path $shard.FullName -Pattern $checkedPattern -Quiet) {
             Add-Evidence $shard.FullName
@@ -162,18 +170,7 @@ switch ($Stage) {
         Require-File -Path (Join-Path $FeatureDir 'research.md') -Label 'research.md'
     }
     '3.5' {
-        $preImpactPath = Join-Path $FeatureDir 'impact-pre-analysis.md'
-        if (Test-Path -LiteralPath $preImpactPath -PathType Leaf) {
-            Require-File -Path $preImpactPath -Label 'impact-pre-analysis.md'
-        } else {
-            $planPath = Join-Path $FeatureDir 'plan.md'
-            if ((Test-Path -LiteralPath $planPath -PathType Leaf) -and
-                (Select-String -Path $planPath -Pattern 'impact|risk|风险' -Quiet)) {
-                Add-Evidence $planPath
-            } else {
-                Emit-Fail 'stage 3.5 requires impact-pre-analysis.md or impact warnings in plan.md'
-            }
-        }
+        Require-File -Path (Join-Path $FeatureDir 'impact-pre-analysis.md') -Label 'impact-pre-analysis.md'
     }
     '4' {
         $tasksPath = Join-Path $FeatureDir 'tasks.md'
@@ -182,13 +179,13 @@ switch ($Stage) {
             Require-File -Path $tasksPath -Label 'tasks.md'
         } elseif (Test-Path -LiteralPath $tasksIndexPath -PathType Leaf) {
             Require-File -Path $tasksIndexPath -Label 'tasks-index.md'
-            $shards = Get-ChildItem -Path $FeatureDir -Filter 'tasks-*.md' -File -ErrorAction SilentlyContinue
+            $shards = Get-TaskShards -BaseDir $FeatureDir
             if (-not $shards) {
                 Emit-Fail 'tasks-index.md found but no tasks-<module>.md shards'
             }
-            Add-Evidence "$tasksIndexPath + tasks-*.md"
+            Add-Evidence "$tasksIndexPath + tasks-<module>.md"
         } else {
-            Emit-Fail 'stage 4 requires tasks.md or (tasks-index.md + tasks-*.md)'
+            Emit-Fail 'stage 4 requires tasks.md or (tasks-index.md + tasks-<module>.md)'
         }
     }
     '5' {

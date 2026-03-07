@@ -104,6 +104,10 @@ check_receipt() {
   fi
 }
 
+list_task_shards() {
+  find "$feature_dir" -maxdepth 1 -type f -name 'tasks-*.md' ! -name 'tasks-index.md' 2>/dev/null | sort
+}
+
 has_checked_tasks() {
   local found=false
   local task_file
@@ -119,7 +123,7 @@ has_checked_tasks() {
       found=true
       break
     fi
-  done < <(find "$feature_dir" -maxdepth 1 -type f -name 'tasks-*.md' 2>/dev/null | sort)
+  done < <(list_task_shards)
 
   [[ "$found" == true ]]
 }
@@ -194,25 +198,19 @@ case "$stage" in
     require_file "$feature_dir/research.md" "research.md"
     ;;
   3.5)
-    if [[ -f "$feature_dir/impact-pre-analysis.md" ]]; then
-      require_file "$feature_dir/impact-pre-analysis.md" "impact-pre-analysis.md"
-    elif [[ -f "$feature_dir/plan.md" ]] && grep -Eqi 'impact|risk|风险' "$feature_dir/plan.md"; then
-      add_evidence "$feature_dir/plan.md"
-    else
-      emit_fail "stage 3.5 requires impact-pre-analysis.md or impact warnings in plan.md"
-    fi
+    require_file "$feature_dir/impact-pre-analysis.md" "impact-pre-analysis.md"
     ;;
   4)
     if [[ -f "$feature_dir/tasks.md" ]]; then
       require_file "$feature_dir/tasks.md" "tasks.md"
     elif [[ -f "$feature_dir/tasks-index.md" ]]; then
       require_file "$feature_dir/tasks-index.md" "tasks-index.md"
-      if ! find "$feature_dir" -maxdepth 1 -type f -name 'tasks-*.md' | grep -q .; then
+      if ! list_task_shards | grep -q .; then
         emit_fail "tasks-index.md found but no tasks-<module>.md shards"
       fi
-      add_evidence "$feature_dir/tasks-index.md + tasks-*.md"
+      add_evidence "$feature_dir/tasks-index.md + tasks-<module>.md"
     else
-      emit_fail "stage 4 requires tasks.md or (tasks-index.md + tasks-*.md)"
+      emit_fail "stage 4 requires tasks.md or (tasks-index.md + tasks-<module>.md)"
     fi
     ;;
   5)

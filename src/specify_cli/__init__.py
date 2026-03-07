@@ -25,14 +25,16 @@ Or install globally:
 """
 
 import os
+import stat
 import subprocess
 import sys
 import zipfile
 import tempfile
 import shutil
 import json
+import posixpath
 import yaml
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Optional, Tuple
 
 import typer
@@ -702,6 +704,175 @@ def download_template_from_github(ai_assistant: str, download_dir: Path, *, scri
     }
     return zip_path, metadata
 
+MAX_ZIP_MEMBER_COUNT = 10000
+MAX_ZIP_MEMBER_SIZE = 100 * 1024 * 1024
+MAX_ZIP_TOTAL_SIZE = 500 * 1024 * 1024
+MAX_ZIP_COMPRESSION_RATIO = 1000
+
+
+def _ensure_within_destination(path: Path, destination: Path) -> None:
+    """Ensure a target path stays within the destination root."""
+    destination_resolved = destination.resolve()
+    resolved_path = path.resolve(strict=False)
+    if resolved_path != destination_resolved and destination_resolved not in resolved_path.parents:
+        raise ValueError(f"Path escapes destination: {path}")
+
+
+def _ensure_no_symlink_components(path: Path, destination: Path) -> None:
+    """Reject any existing symlink component between destination and path."""
+    destination_resolved = destination.resolve()
+    target_parent = path if path == destination_resolved else path.parent
+
+    try:
+        relative_parent = target_parent.relative_to(destination_resolved)
+    except ValueError as e:
+        raise ValueError(f"Path escapes destination: {path}") from e
+
+    current = destination_resolved
+    for part in relative_parent.parts:
+        current = current / part
+        if current.exists() and current.is_symlink():
+            raise ValueError(f"Path contains symlink component: {current}")
+
+
+def _validate_zip_members(zip_ref: zipfile.ZipFile, destination: Path) -> None:
+    """Validate ZIP members before extraction to prevent path traversal."""
+    destination_resolved = destination.resolve()
+    members = zip_ref.infolist()
+
+    if len(members) > MAX_ZIP_MEMBER_COUNT:
+        raise ValueError(f"ZIP archive has too many entries: {len(members)}")
+
+    total_uncompressed_size = 0
+    for member in members:
+        member_name = member.filename
+        if not member_name:
+            raise ValueError("ZIP archive contains an empty member name")
+
+        if member.file_size > MAX_ZIP_MEMBER_SIZE:
+            raise ValueError(f"ZIP archive member is too large: {member_name}")
+
+        total_uncompressed_size += member.file_size
+        if total_uncompressed_size > MAX_ZIP_TOTAL_SIZE:
+            raise ValueError("ZIP archive expands beyond the allowed size limit")
+
+        compressed_size = max(member.compress_size, 1)
+        if member.file_size > 0 and member.file_size / compressed_size > MAX_ZIP_COMPRESSION_RATIO:
+            raise ValueError(f"ZIP archive member has suspicious compression ratio: {member_name}")
+
+        normalized_name = posixpath.normpath(member_name)
+        member_path = PurePosixPath(normalized_name)
+        if member_path.is_absolute():
+            raise ValueError(f"ZIP archive contains absolute path: {member_name}")
+        if any(part == '..' for part in member_path.parts):
+            raise ValueError(f"ZIP archive contains unsafe path: {member_name}")
+        if stat.S_ISLNK(member.external_attr >> 16):
+            raise ValueError(f"ZIP archive contains symlink entry: {member_name}")
+
+        resolved_target = (destination_resolved / Path(*member_path.parts)).resolve()
+        if resolved_target != destination_resolved and destination_resolved not in resolved_target.parents:
+            raise ValueError(f"ZIP archive path escapes destination: {member_name}")
+
+
+def _normalize_project_relative_parts(raw_path: str) -> tuple[str, ...]:
+    """Normalize a user-provided project-relative path into safe path parts."""
+    relative_path = Path(raw_path)
+    if relative_path.is_absolute():
+        raise ValueError(f"Path must be relative to the project: {raw_path}")
+
+    parts = tuple(part for part in relative_path.parts if part not in ("", "."))
+    if not parts:
+        raise ValueError(f"Path must not be empty: {raw_path}")
+    if any(part == ".." for part in parts):
+        raise ValueError(f"Path must not escape the project: {raw_path}")
+    return parts
+
+
+
+def _resolve_project_relative_path(raw_path: str, project_path: Path) -> Path:
+    """Resolve a user-provided relative path and keep it inside the project."""
+    parts = _normalize_project_relative_parts(raw_path)
+    target_path = (project_path / Path(*parts)).resolve(strict=False)
+    _ensure_within_destination(target_path, project_path)
+    _ensure_no_symlink_components(target_path, project_path)
+    return target_path
+
+
+
+def _supports_secure_directory_move() -> bool:
+    """Return whether the platform supports the strict dir_fd-based move path."""
+    required_features = (
+        hasattr(os, "rename") and hasattr(os, "mkdir") and hasattr(os, "open") and
+        hasattr(os, "O_NOFOLLOW") and hasattr(os, "O_DIRECTORY")
+    )
+    if not required_features:
+        return False
+
+    dir_fd_support = getattr(os, "supports_dir_fd", ())
+    return os.rename in dir_fd_support and os.open in dir_fd_support and os.mkdir in dir_fd_support
+
+
+
+def _safe_move_directory_into_project(source_dir: Path, raw_target_path: str, project_path: Path) -> Path:
+    """Move a directory into the project using the strongest safe mechanism available."""
+    target_parts = _normalize_project_relative_parts(raw_target_path)
+    target_path = project_path / Path(*target_parts)
+
+    _ensure_within_destination(source_dir, project_path)
+    _ensure_no_symlink_components(source_dir, project_path)
+    if source_dir.is_symlink():
+        raise ValueError(f"Source path must not be a symlink: {source_dir}")
+
+    if not _supports_secure_directory_move():
+        raise ValueError(
+            "Secure directory move is not supported on this platform for --ai generic with --ai-commands-dir"
+        )
+
+    open_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+
+    root_fd = os.open(str(project_path.resolve()), open_flags)
+    current_fd = root_fd
+    source_parent_fd = None
+    source_dir_fd = None
+    try:
+        for part in target_parts[:-1]:
+            try:
+                os.mkdir(part, dir_fd=current_fd)
+            except FileExistsError:
+                pass
+
+            next_fd = os.open(part, open_flags, dir_fd=current_fd)
+            if current_fd != root_fd:
+                os.close(current_fd)
+            current_fd = next_fd
+
+        leaf_name = target_parts[-1]
+        try:
+            os.lstat(leaf_name, dir_fd=current_fd)
+            raise ValueError(f"Target path already exists: {target_path}")
+        except FileNotFoundError:
+            pass
+
+        source_parent_fd = os.open(str(source_dir.parent.resolve()), open_flags)
+        source_dir_fd = os.open(source_dir.name, open_flags, dir_fd=source_parent_fd)
+        os.close(source_dir_fd)
+        source_dir_fd = None
+        os.rename(source_dir.name, leaf_name, src_dir_fd=source_parent_fd, dst_dir_fd=current_fd)
+    finally:
+        if source_dir_fd is not None:
+            os.close(source_dir_fd)
+        if source_parent_fd is not None:
+            os.close(source_parent_fd)
+        if current_fd != root_fd:
+            os.close(current_fd)
+        os.close(root_fd)
+
+    resolved_target = target_path.resolve(strict=False)
+    _ensure_within_destination(resolved_target, project_path)
+    _ensure_no_symlink_components(resolved_target, project_path)
+    return resolved_target
+
+
 def download_and_extract_template(project_path: Path, ai_assistant: str, script_type: str, is_current_dir: bool = False, *, verbose: bool = True, tracker: StepTracker | None = None, client: httpx.Client = None, debug: bool = False, github_token: str = None) -> Path:
     """Download the latest release and extract it to create a new project.
     Returns project_path. Uses tracker if provided (with keys: fetch, download, extract, cleanup)
@@ -755,6 +926,7 @@ def download_and_extract_template(project_path: Path, ai_assistant: str, script_
             if is_current_dir:
                 with tempfile.TemporaryDirectory() as temp_dir:
                     temp_path = Path(temp_dir)
+                    _validate_zip_members(zip_ref, temp_path)
                     zip_ref.extractall(temp_path)
 
                     preserved_paths: list[str] = []
@@ -776,6 +948,7 @@ def download_and_extract_template(project_path: Path, ai_assistant: str, script_
 
                     for item in source_dir.iterdir():
                         dest_path = project_path / item.name
+                        _ensure_within_destination(dest_path, project_path)
                         if item.is_dir():
                             if dest_path.exists():
                                 if verbose and not tracker:
@@ -784,7 +957,9 @@ def download_and_extract_template(project_path: Path, ai_assistant: str, script_
                                     if sub_item.is_file():
                                         rel_path = sub_item.relative_to(item)
                                         dest_file = dest_path / rel_path
+                                        _ensure_within_destination(dest_file.parent, project_path)
                                         dest_file.parent.mkdir(parents=True, exist_ok=True)
+                                        _ensure_within_destination(dest_file, project_path)
                                         project_rel = dest_file.relative_to(project_path)
 
                                         if dest_file.exists() and should_preserve_existing_on_reinit(project_rel):
@@ -805,6 +980,7 @@ def download_and_extract_template(project_path: Path, ai_assistant: str, script_
                                 continue
                             if dest_path.exists() and verbose and not tracker:
                                 console.print(f"[yellow]Overwriting file:[/yellow] {item.name}")
+                            _ensure_within_destination(dest_path, project_path)
                             shutil.copy2(item, dest_path)
                     if verbose and not tracker:
                         if preserved_paths:
@@ -817,6 +993,7 @@ def download_and_extract_template(project_path: Path, ai_assistant: str, script_
                     else:
                         extract_detail = "merged"
             else:
+                _validate_zip_members(zip_ref, project_path)
                 zip_ref.extractall(project_path)
 
                 extracted_items = list(project_path.iterdir())
@@ -1386,10 +1563,20 @@ def init(
             # For generic agent, rename placeholder directory to user-specified path
             if selected_ai == "generic" and ai_commands_dir:
                 placeholder_dir = project_path / ".speckit" / "commands"
-                target_dir = project_path / ai_commands_dir
+                try:
+                    target_dir = _resolve_project_relative_path(ai_commands_dir, project_path)
+                except ValueError as e:
+                    tracker.error("final", str(e))
+                    raise typer.Exit(1)
+                if placeholder_dir.exists() and placeholder_dir.is_symlink():
+                    tracker.error("final", f"Source path must not be a symlink: {placeholder_dir}")
+                    raise typer.Exit(1)
                 if placeholder_dir.is_dir():
-                    target_dir.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.move(str(placeholder_dir), str(target_dir))
+                    try:
+                        target_dir = _safe_move_directory_into_project(placeholder_dir, ai_commands_dir, project_path)
+                    except ValueError as e:
+                        tracker.error("final", str(e))
+                        raise typer.Exit(1)
                     # Clean up empty .speckit dir if it's now empty
                     speckit_dir = project_path / ".speckit"
                     if speckit_dir.is_dir() and not any(speckit_dir.iterdir()):
