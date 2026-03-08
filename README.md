@@ -196,8 +196,8 @@ Stage 1   Specify + Worktree    Create isolated workspace, generate spec.md
 Stage 2   Clarify               Auto-resolve ambiguities in spec
 Stage 3   Plan                  Generate technical implementation plan
 Stage 3.5 Impact Pre-Analysis   Lightweight risk assessment before coding
-Stage 4   Tasks                 Generate executable task list (multi-module sharding)
           ── User Confirmation ──
+Stage 4   Tasks                 Generate executable task list (multi-module sharding)
 Stage 5   Implement             Dispatch coding workers by complexity (low/medium/high)
 Stage 5.5 Impact Analysis       Post-implementation risk analysis + knowledge feedback
 Stage 6   Code Review           Structured review with auto-fix for CRITICAL/HIGH issues

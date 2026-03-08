@@ -453,6 +453,36 @@ analysis in Stage 5.5.
 
 ---
 
+### Stage 3.5-4 Transition: User Confirmation
+
+After Stage 3.5 completes and the gate passes, **pause and show summary to the user**
+before generating tasks.
+
+```
+============================================================
+Planning complete (stages 0-3.5), artifacts generated in isolated workspace:
+  Workspace: <WORKTREE_ROOT>
+  Branch: <BRANCH_NAME>
+  Specs: <FEATURE_DIR>
+
+Generated files:
+  - spec.md (with clarifications)
+  - plan.md / research.md / data-model.md / contracts/ / quickstart.md
+  - impact-pre-analysis.md
+
+Proceed to task generation? (yes/no)
+  yes - Begin stage 4 task generation immediately
+  no  - Stop here; you can review artifacts first, then re-run
+        /speckit.pipeline to auto-resume from stage 4
+============================================================
+```
+
+**Wait for user reply**:
+- User replies yes/proceed/continue/start -> proceed to stage 4
+- User replies no/stop/wait/review -> stop, output final summary (without tasks/implementation)
+
+---
+
 ### Stage 4: Tasks
 
 ```
@@ -494,7 +524,7 @@ exists and each module in the manifest has a corresponding tasks-<module>.md sha
 
 ---
 
-### Stage 4-5 Transition: Sync Planning Docs to Main Repo + User Confirmation
+### Stage 4-5 Transition: Sync Planning Docs to Main Repo
 
 #### Sync Planning Documents
 
@@ -514,34 +544,8 @@ Copy-Item -Path <WORKTREE_ROOT>/specs/<BRANCH_NAME> -Destination <main-repo-root
 Sync scope is limited to planning artifacts (no source code): spec.md, plan.md, research.md,
 data-model.md, contracts/, quickstart.md, tasks.md (or shards), checklists/.
 
-#### User Confirmation
-
-After sync completes, **pause and show summary to user**:
-
-```
-============================================================
-Specification complete (stages 0-4), artifacts generated in isolated workspace:
-  Workspace: <WORKTREE_ROOT>
-  Branch: <BRANCH_NAME>
-  Specs: <FEATURE_DIR>
-  Synced to main repo: <main-repo>/specs/<BRANCH_NAME>/
-
-Generated files:
-  - spec.md (with clarifications)
-  - plan.md / research.md / data-model.md / contracts/ / quickstart.md
-  - tasks.md (N tasks total, M parallelizable)
-    or tasks-index.md + tasks-<module>.md shards (multi-module)
-
-Start implementation? (yes/no)
-  yes  - Begin stage 5 implementation immediately
-  no   - Stop here; you can review artifacts first, then re-run
-         /speckit.pipeline to auto-resume from stage 5
-============================================================
-```
-
-**Wait for user reply**:
-- User replies yes/proceed/continue/start -> proceed to stage 5
-- User replies no/stop/wait/review -> stop, output final summary (without implementation stage)
+After sync completes, proceed directly to Stage 5 (user confirmation was already collected
+after Stage 3.5).
 
 ---
 
