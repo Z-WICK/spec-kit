@@ -61,9 +61,36 @@ Spec-Driven Development **flips the script** on traditional software development
 
 ## ⚡ Get Started
 
-### 1. Install Specify CLI
+### 1. Install Specify CLI or Claude Code Plugin
 
-Choose your preferred installation method:
+Choose the installation path that matches how you want to use Spec Kit with Claude Code.
+
+#### Option A: Claude Code Plugin Marketplace
+
+This repository can also act as a Claude Code marketplace source.
+
+1. Add this repository as a marketplace source in Claude Code.
+2. Install the `spec-kit` plugin from that marketplace.
+3. Run the bundled `spec-kit-install` skill from the target project root.
+4. The skill copies the same Claude workflow assets that `specify init --ai claude` installs: `.claude/*`, `.specify/*`, command files, agents, templates, and scripts.
+
+The plugin is only an installation entrypoint. It does not introduce a second workflow model, and it does not auto-run initialization during plugin install. After the plugin is installed, use the bundled skill to materialize the assets into the current project.
+
+Skill entrypoint:
+
+```bash
+# macOS / Linux
+bash ${CLAUDE_SKILL_DIR}/scripts/install-spec-kit.sh
+
+# Windows PowerShell
+powershell -ExecutionPolicy Bypass -File "$env:CLAUDE_SKILL_DIR/scripts/install-spec-kit.ps1"
+```
+
+Re-running the install skill is safe. It preserves the same project knowledge paths as the CLI re-init flow, including `specs/`, `.specify/memory/`, `.specify/extensions/`, `.specify/.project`, and `.specify/pipeline-state*`.
+
+#### Option B: Specify CLI
+
+Choose your preferred CLI installation method:
 
 #### Option 1: Persistent Installation (Recommended)
 
@@ -110,6 +137,8 @@ uvx --from git+https://github.com/Z-WICK/spec-kit.git specify init <PROJECT_NAME
 - Cleaner shell configuration
 
 ### 2. Establish project principles
+
+If you installed through the Claude Code plugin path, run the `spec-kit-install` skill first so the project receives the same `.claude/` and `.specify/` assets that the CLI path would install.
 
 Launch your AI assistant in the project directory. The `/speckit.*` commands are available in the assistant.
 

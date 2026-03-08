@@ -1,0 +1,12 @@
+{
+  "name": "spec-kit-marketplace",
+  "owner": {
+    "name": "Z-WICK"
+  },
+  "plugins": [
+    {
+      "name": "spec-kit",
+      "source": "./plugins/spec-kit"
+    }
+  ]
+}

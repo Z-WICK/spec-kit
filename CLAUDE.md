@@ -45,6 +45,30 @@ cp -r .genreleases/sdd-copilot-package-sh/. /path/to/test-project/
 # 3. Open test project in your agent and verify
 ```
 
+### Claude Code Plugin Layout
+
+This repository now also contains a Claude Code marketplace/plugin entrypoint:
+
+- `.claude-plugin/marketplace.json` — marketplace source manifest for the repo
+- `plugins/spec-kit/.claude-plugin/plugin.json` — plugin manifest
+- `plugins/spec-kit/skills/spec-kit-install/` — install skill that copies bundled assets into the target project
+
+Important constraint: Claude Code plugin installation does not auto-run project initialization. The plugin is only a distribution/install entrypoint. Users must run the bundled `spec-kit-install` skill after installing the plugin.
+
+The install skill is intended to materialize the same Claude project assets produced by `specify init --ai claude`, including:
+
+- `.claude/commands/*`
+- `.claude/agents/*`
+- `.specify/*`
+
+The install scripts preserve the same re-init knowledge paths as the CLI flow:
+
+- `specs/`
+- `.specify/memory/`
+- `.specify/extensions/`
+- `.specify/.project`
+- `.specify/pipeline-state*`
+
 ## Architecture
 
 The entire CLI lives in a single file: `src/specify_cli/__init__.py` (~2000 lines). Key sections:
@@ -82,6 +106,10 @@ CI in `.github/workflows/release.yml` auto-creates releases when templates/scrip
 1. Determines next semver from git tags
 2. Generates template packages for each agent (both sh and ps1 variants)
 3. Creates GitHub release with all packages as assets
+
+The Claude Code plugin install skill reuses those generated Claude package artifacts as its bundled resources instead of maintaining a second installation pipeline.
+
+When templates, commands, agents, or `.specify/scripts/*` change, regenerate the Claude release artifacts first, then refresh `plugins/spec-kit/skills/spec-kit-install/scripts/resources/{sh,ps}` from the generated Claude packages so the plugin install path stays aligned with `specify init --ai claude`.
 
 ## Key Conventions
 
