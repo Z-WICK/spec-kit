@@ -15,7 +15,7 @@ c8285eb3b82aeb9dc5860c195e364dd03580909d274b798c4e6cf523f31326a6  ./.claude/comm
 0df01c5304d859d054a47ebf0c0c46a25cc2b4b42f4f718b0a9110b117e8387b  ./.claude/commands/speckit.init.md
 4ff0397143c03fe5731893a46d423700e6ed04449edc2dd93dad0f484dda6776  ./.claude/commands/speckit.issue.md
 0f8a4fe1a8a674bc5bb1171f1913aa4f8e8b91419503aff4120574cecc0b0239  ./.claude/commands/speckit.optimize-constitution.md
-686098f89e02116d91a1e1185b5d382d695cbbb263d9cb459b3568605781a6f4  ./.claude/commands/speckit.pipeline.md
+f8b02cd3d83abfef46f1fdb5665e152fafa1ef9c913328d388a2987e968224e6  ./.claude/commands/speckit.pipeline.md
 0f7fe0d4b7f62a1d645788c7bd0ee405f7ff68ca2bfff8e4c7d86ba3b1cfd7b9  ./.claude/commands/speckit.plan.md
 a3d7da60d33b6064039fa7c8a24f11a3b349fe678663671b1c6d8a7b60b9c72c  ./.claude/commands/speckit.specify.md
 671aa736cf8b6391bbdaaa6cc21dcb091c1cbfb127ecae142d07b26768969aa3  ./.claude/commands/speckit.tasks.md
@@ -30,7 +30,7 @@ bcb37804b0757c37799b65a9321c1d3fb7b7ddcab6703c55c5b9a142c9166bf1  ./.specify/scr
 f17e2c63b17bf4f96ec0613910601dd42a123e91cf2c58c38111eb0a65f4f410  ./.specify/scripts/powershell/common.ps1
 bd0a18ae8d49747085deaa137d17b46d530ef599bb7709ca2fccf6312fc1bf78  ./.specify/scripts/powershell/create-new-feature.ps1
 90d97268aaf9c48ae14f5e9b9ad90b32d2268bf9576a4f934a37464e9b26e4e0  ./.specify/scripts/powershell/find-placeholders.ps1
-32a1b3718818fc241261896664f9462dfc10328c3e6b36c1e2abf933e4d8fd11  ./.specify/scripts/powershell/pipeline-stage-gate.ps1
+3c512a4b818495a210549f3a2aeb5c9b9c1d411d17978727ae8ac80ad4e2b16c  ./.specify/scripts/powershell/pipeline-stage-gate.ps1
 dc6b9a03941c1e07bb895daa2c3435586532ed06a5760c08c81cde90a6e6620c  ./.specify/scripts/powershell/scan-alembic-revisions.ps1
 975feca75297ba9b2443d8847a22cc9456682009d0b426e7850f92155e559e23  ./.specify/scripts/powershell/scan-flyway-versions.ps1
 6ff38121d4ce3fca7de41dda9be27543bfc7bf8f63e11e6d2855fce1d91be30a  ./.specify/scripts/powershell/setup-plan.ps1

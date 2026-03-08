@@ -15,7 +15,7 @@ c8285eb3b82aeb9dc5860c195e364dd03580909d274b798c4e6cf523f31326a6  ./.claude/comm
 0df01c5304d859d054a47ebf0c0c46a25cc2b4b42f4f718b0a9110b117e8387b  ./.claude/commands/speckit.init.md
 4ff0397143c03fe5731893a46d423700e6ed04449edc2dd93dad0f484dda6776  ./.claude/commands/speckit.issue.md
 0f8a4fe1a8a674bc5bb1171f1913aa4f8e8b91419503aff4120574cecc0b0239  ./.claude/commands/speckit.optimize-constitution.md
-686098f89e02116d91a1e1185b5d382d695cbbb263d9cb459b3568605781a6f4  ./.claude/commands/speckit.pipeline.md
+f8b02cd3d83abfef46f1fdb5665e152fafa1ef9c913328d388a2987e968224e6  ./.claude/commands/speckit.pipeline.md
 0f7fe0d4b7f62a1d645788c7bd0ee405f7ff68ca2bfff8e4c7d86ba3b1cfd7b9  ./.claude/commands/speckit.plan.md
 a3d7da60d33b6064039fa7c8a24f11a3b349fe678663671b1c6d8a7b60b9c72c  ./.claude/commands/speckit.specify.md
 671aa736cf8b6391bbdaaa6cc21dcb091c1cbfb127ecae142d07b26768969aa3  ./.claude/commands/speckit.tasks.md
@@ -30,7 +30,7 @@ c662473e4c991c0de8e3bc211c1d72220e155470d41a32d777557e1e756b11ac  ./.specify/scr
 e58fe0b681121b172ddb79e68bec8171511430de71e5899c56ec4d77c256e1f3  ./.specify/scripts/bash/common.sh
 f471aed158c7e77a06eb5bef57679774b1ebd9b2c9819bc1df7a1f9465288aa1  ./.specify/scripts/bash/create-new-feature.sh
 ed7190422958b055f32a2b1466d7701acbff06a46c69f99155ede8002609e60c  ./.specify/scripts/bash/find-placeholders.sh
-d7e179a062e941bbb525f3638aeb37dc1807ecf41a1e1af4f915452a1e2612a9  ./.specify/scripts/bash/pipeline-stage-gate.sh
+b193bd2af6e51b237c02a9efce3616f5961cc46ef7359b5acae68a8a48bfb4af  ./.specify/scripts/bash/pipeline-stage-gate.sh
 a89fd06d63cf8da3f2a597f2e063a0b7c760317d8b592ced5e20b29f19df84d1  ./.specify/scripts/bash/scan-alembic-revisions.sh
 b63a7769209f381d058bdc20067d9ac2f47276f6318fae2e4e415265bfe472f8  ./.specify/scripts/bash/scan-flyway-versions.sh
 079dee34382af0ae320c8d97eee396ae0056ea0ff360e55a997adfddf81cdf9f  ./.specify/scripts/bash/setup-plan.sh

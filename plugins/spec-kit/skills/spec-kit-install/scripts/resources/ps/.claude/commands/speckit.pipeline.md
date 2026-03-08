@@ -274,7 +274,7 @@ Stage artifact validation (minimum checks):
 | 3 | `<FEATURE_DIR>/plan.md` and `<FEATURE_DIR>/research.md` exist |
 | 3.5 | `<FEATURE_DIR>/impact-pre-analysis.md` exists |
 | 4 | `tasks.md` or (`tasks-index.md` + shard files) exists |
-| 5 | `<FEATURE_DIR>/implementation-summary.md` exists and task files show `[x]` markers |
+| 5 | `<FEATURE_DIR>/implementation-summary.md` exists and all task checklists are completed (no `- [ ]` remaining) |
 | 5.5 | `<FEATURE_DIR>/impact-analysis.md` exists |
 | 6 | `<FEATURE_DIR>/code-review.md` exists and unresolved CRITICAL/HIGH count recorded |
 | 7 | `<FEATURE_DIR>/test-summary.md` exists and `${TEST_COMMAND}` pass recorded |
@@ -661,13 +661,16 @@ Minimum content:
 - Migration versions used (if any)
 - Remaining known risks
 
+Confirm all task checkboxes are completed (no `- [ ]` remaining) in
+`tasks.md`, `tasks-index.md`, and any `tasks-<module>.md` shards.
+
 Then run Stage 5 gate (Mandatory Stage Gate); only continue on pass.
 
 ---
 
 ### Stage 5.5: Impact Analysis (Full)
 
-After all implementation tasks complete and `${BUILD_COMMAND}` passes, run a full
+After all implementation tasks complete (all tasks checked) and `${BUILD_COMMAND}` passes, run a full
 impact analysis based on the actual code diff.
 
 ```

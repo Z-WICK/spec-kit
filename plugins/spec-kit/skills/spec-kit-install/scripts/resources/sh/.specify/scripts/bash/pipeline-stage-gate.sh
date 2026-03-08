@@ -40,7 +40,13 @@ add_evidence() {
 }
 
 json_escape() {
-  printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'
+  local value=$1
+  value=${value//\\/\\\\}
+  value=${value//\"/\\\"}
+  value=${value//$'\n'/\\n}
+  value=${value//$'\r'/\\r}
+  value=${value//$'\t'/\\t}
+  printf '%s' "$value"
 }
 
 emit_fail() {
@@ -95,37 +101,119 @@ check_receipt() {
   [[ -z "$receipt" ]] && return 0
   require_file "$receipt" "stage receipt"
 
-  if ! grep -Eq "\"stage\"[[:space:]]*:[[:space:]]*\"?$stage\"?" "$receipt"; then
+  local parsed_stage=""
+  local parsed_status=""
+  if command -v jq >/dev/null 2>&1; then
+    parsed_stage=$(jq -r 'if type == "object" and has("stage") then .stage else empty end' "$receipt") || \
+      emit_fail "receipt JSON parse failed: $receipt"
+    parsed_status=$(jq -r 'if type == "object" and has("status") then .status else empty end' "$receipt") || \
+      emit_fail "receipt JSON parse failed: $receipt"
+  else
+    local python_bin=""
+    if command -v python3 >/dev/null 2>&1; then
+      python_bin="python3"
+    elif command -v python >/dev/null 2>&1; then
+      python_bin="python"
+    fi
+    [[ -n "$python_bin" ]] || emit_fail "receipt parsing requires jq or python3/python: $receipt"
+    local receipt_output=""
+    if ! receipt_output=$(
+      "$python_bin" - <<'PY' "$receipt"
+import json
+import sys
+
+path = sys.argv[1]
+with open(path, "r", encoding="utf-8") as handle:
+    data = json.load(handle)
+if not isinstance(data, dict):
+    raise SystemExit(1)
+stage = data.get("stage")
+status = data.get("status")
+if not isinstance(stage, str) or not isinstance(status, str):
+    raise SystemExit(1)
+print(stage)
+print(status)
+PY
+    ); then
+      emit_fail "receipt JSON parse failed: $receipt"
+    fi
+    parsed_stage=$(printf '%s\n' "$receipt_output" | sed -n '1p')
+    parsed_status=$(printf '%s\n' "$receipt_output" | sed -n '2p')
+  fi
+
+  [[ -n "$parsed_stage" ]] || emit_fail "receipt missing stage: $receipt"
+  [[ -n "$parsed_status" ]] || emit_fail "receipt missing status: $receipt"
+
+  if [[ "$parsed_stage" != "$stage" ]]; then
     emit_fail "receipt stage mismatch: expected $stage in $receipt"
   fi
 
-  if ! grep -Eq "\"status\"[[:space:]]*:[[:space:]]*\"(completed|success|passed)\"" "$receipt"; then
-    emit_fail "receipt status must be completed/success/passed: $receipt"
-  fi
+  case "$parsed_status" in
+    completed|success|passed)
+      ;;
+    *)
+      emit_fail "receipt status must be completed/success/passed: $receipt"
+      ;;
+  esac
 }
 
 list_task_shards() {
   find "$feature_dir" -maxdepth 1 -type f -name 'tasks-*.md' ! -name 'tasks-index.md' 2>/dev/null | sort
 }
 
-has_checked_tasks() {
-  local found=false
-  local task_file
+list_task_files() {
+  if [[ -f "$feature_dir/tasks.md" ]]; then
+    printf '%s\n' "$feature_dir/tasks.md"
+  fi
+  if [[ -f "$feature_dir/tasks-index.md" ]]; then
+    printf '%s\n' "$feature_dir/tasks-index.md"
+  fi
+  list_task_shards
+}
 
-  if [[ -f "$feature_dir/tasks.md" ]] && grep -Eq '^[[:space:]]*-[[:space:]]*\[x\]' "$feature_dir/tasks.md"; then
-    add_evidence "$feature_dir/tasks.md"
-    found=true
+require_task_manifest() {
+  if [[ -f "$feature_dir/tasks.md" ]]; then
+    require_file "$feature_dir/tasks.md" "tasks.md"
+    return 0
   fi
 
-  while IFS= read -r task_file; do
-    if grep -Eq '^[[:space:]]*-[[:space:]]*\[x\]' "$task_file"; then
-      add_evidence "$task_file"
-      found=true
-      break
+  if [[ -f "$feature_dir/tasks-index.md" ]]; then
+    require_file "$feature_dir/tasks-index.md" "tasks-index.md"
+    if ! list_task_shards | grep -q .; then
+      emit_fail "tasks-index.md found but no tasks-<module>.md shards"
     fi
-  done < <(list_task_shards)
+    add_evidence "$feature_dir/tasks-index.md + tasks-<module>.md"
+    return 0
+  fi
 
-  [[ "$found" == true ]]
+  emit_fail "stage $stage requires tasks.md or (tasks-index.md + tasks-<module>.md)"
+}
+
+validate_tasks_completed() {
+  local task_line_pattern='^[[:space:]]*-[[:space:]]*\[[ xX]\]'
+  local unchecked_pattern='^[[:space:]]*-[[:space:]]*\[[[:space:]]\]'
+  local has_tasks=false
+  local task_file
+  local unchecked_files=()
+
+  while IFS= read -r task_file; do
+    [[ -n "$task_file" ]] || continue
+    add_evidence "$task_file"
+    if grep -Eq "$task_line_pattern" "$task_file"; then
+      has_tasks=true
+    fi
+    if grep -Eq "$unchecked_pattern" "$task_file"; then
+      unchecked_files+=("$task_file")
+    fi
+  done < <(list_task_files)
+
+  if [[ "$has_tasks" != true ]]; then
+    emit_fail "stage 5 requires tasks with checklist items"
+  fi
+
+  if [[ ${#unchecked_files[@]} -gt 0 ]]; then
+    emit_fail "stage 5 requires all tasks checked; unchecked tasks remain in: ${unchecked_files[*]}"
+  fi
 }
 
 while [[ $# -gt 0 ]]; do
@@ -185,6 +273,7 @@ case "$stage" in
     require_file "$feature_dir/spec.md" "spec.md"
     ;;
   2)
+    require_dir "$feature_dir" "feature directory"
     require_file "$feature_dir/spec.md" "spec.md"
     if ! grep -Eqi '(^##[[:space:]]+Clarifications)|clarification' "$feature_dir/spec.md"; then
       emit_fail "spec.md does not contain clarification markers"
@@ -194,30 +283,23 @@ case "$stage" in
     fi
     ;;
   3)
+    require_dir "$feature_dir" "feature directory"
     require_file "$feature_dir/plan.md" "plan.md"
     require_file "$feature_dir/research.md" "research.md"
     ;;
   3.5)
+    require_dir "$feature_dir" "feature directory"
     require_file "$feature_dir/impact-pre-analysis.md" "impact-pre-analysis.md"
     ;;
   4)
-    if [[ -f "$feature_dir/tasks.md" ]]; then
-      require_file "$feature_dir/tasks.md" "tasks.md"
-    elif [[ -f "$feature_dir/tasks-index.md" ]]; then
-      require_file "$feature_dir/tasks-index.md" "tasks-index.md"
-      if ! list_task_shards | grep -q .; then
-        emit_fail "tasks-index.md found but no tasks-<module>.md shards"
-      fi
-      add_evidence "$feature_dir/tasks-index.md + tasks-<module>.md"
-    else
-      emit_fail "stage 4 requires tasks.md or (tasks-index.md + tasks-<module>.md)"
-    fi
+    require_dir "$feature_dir" "feature directory"
+    require_task_manifest
     ;;
   5)
+    require_dir "$feature_dir" "feature directory"
     require_file "$feature_dir/implementation-summary.md" "implementation-summary.md"
-    if ! has_checked_tasks; then
-      emit_fail "stage 5 requires checked task markers ([x]) in tasks files"
-    fi
+    require_task_manifest
+    validate_tasks_completed
     if [[ -n "$base_branch" ]] && [[ -n "$worktree_root" ]] && command -v git >/dev/null 2>&1; then
       if git -C "$worktree_root" rev-parse --verify "$base_branch" >/dev/null 2>&1; then
         if git -C "$worktree_root" diff --quiet "$base_branch...HEAD"; then
@@ -228,15 +310,19 @@ case "$stage" in
     fi
     ;;
   5.5)
+    require_dir "$feature_dir" "feature directory"
     require_file "$feature_dir/impact-analysis.md" "impact-analysis.md"
     ;;
   6)
+    require_dir "$feature_dir" "feature directory"
     require_file "$feature_dir/code-review.md" "code-review.md"
     ;;
   7)
+    require_dir "$feature_dir" "feature directory"
     require_file "$feature_dir/test-summary.md" "test-summary.md"
     ;;
   8)
+    require_dir "$feature_dir" "feature directory"
     require_file "$feature_dir/merge-summary.md" "merge-summary.md"
     if [[ -n "$main_repo_root" ]] && [[ -n "$base_branch" ]] && command -v git >/dev/null 2>&1; then
       if git -C "$main_repo_root" rev-parse --verify "$base_branch" >/dev/null 2>&1; then
@@ -245,6 +331,7 @@ case "$stage" in
     fi
     ;;
   9)
+    require_dir "$feature_dir" "feature directory"
     if [[ -f "$feature_dir/deploy-healthcheck.md" ]]; then
       require_file "$feature_dir/deploy-healthcheck.md" "deploy-healthcheck.md"
     elif [[ -f "$feature_dir/deploy-skipped.md" ]]; then
