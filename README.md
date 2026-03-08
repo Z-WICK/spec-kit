@@ -88,6 +88,8 @@ powershell -ExecutionPolicy Bypass -File "$env:CLAUDE_SKILL_DIR/scripts/install-
 
 Re-running the install skill is safe. It preserves the same project knowledge paths as the CLI re-init flow, including `specs/`, `.specify/memory/`, `.specify/extensions/`, `.specify/.project`, and `.specify/pipeline-state*`.
 
+When the latest published Spec Kit release is newer than the project's `.specify/.version`, the bundled `SessionStart` hook shows a soft reminder to run `/speckit.update`.
+
 #### Option B: Specify CLI
 
 Choose your preferred CLI installation method:
