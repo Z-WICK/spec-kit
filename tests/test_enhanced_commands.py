@@ -59,6 +59,17 @@ def test_specify_template_validation_flow_does_not_loop():
     assert "proceed to step 6" not in specify_template
 
 
+def test_pipeline_template_includes_extension_hooks():
+    """Pipeline should expose extension hooks around tasks and implementation."""
+    pipeline_template = (REPO_ROOT / "templates" / "commands" / "pipeline.md").read_text(
+        encoding="utf-8"
+    )
+    assert "hooks.before_tasks" in pipeline_template
+    assert "hooks.after_tasks" in pipeline_template
+    assert "hooks.before_implement" in pipeline_template
+    assert "hooks.after_implement" in pipeline_template
+
+
 def test_update_agent_context_scripts_support_droid_agent():
     """Droid must be accepted by both bash and PowerShell context update scripts."""
     bash_script = (REPO_ROOT / "scripts" / "bash" / "update-agent-context.sh").read_text(

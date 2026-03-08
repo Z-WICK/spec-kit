@@ -485,6 +485,40 @@ Proceed to task generation? (yes/no)
 
 ### Stage 4: Tasks
 
+#### Pre-Execution Hooks (before tasks generation)
+
+**Check for extension hooks (before tasks generation)**:
+- Check if `.specify/extensions.yml` exists in the project root.
+- If it exists, read it and look for entries under the `hooks.before_tasks` key
+- If the YAML cannot be parsed or is invalid, skip hook checking silently and continue normally
+- Filter to only hooks where `enabled: true`
+- For each remaining hook, do **not** attempt to interpret or evaluate hook `condition` expressions:
+  - If the hook has no `condition` field, or it is null/empty, treat the hook as executable
+  - If the hook defines a non-empty `condition`, skip the hook and leave condition evaluation to the HookExecutor implementation
+- For each executable hook, output the following based on its `optional` flag:
+  - **Optional hook** (`optional: true`):
+    ```
+    ## Extension Hooks
+
+    **Optional Pre-Hook**: {extension}
+    Command: `/{command}`
+    Description: {description}
+
+    Prompt: {prompt}
+    To execute: `/{command}`
+    ```
+  - **Mandatory hook** (`optional: false`):
+    ```
+    ## Extension Hooks
+
+    **Automatic Pre-Hook**: {extension}
+    Executing: `/{command}`
+    EXECUTE_COMMAND: {command}
+    
+    Wait for the result of the hook command before proceeding to task generation.
+    ```
+- If no hooks are registered or `.specify/extensions.yml` does not exist, skip silently
+
 ```
 Task:
   subagent_type: spec-tasks-auto
@@ -516,6 +550,38 @@ Task:
       Mark cross-module dependencies explicitly:
         `- [ ] T-asset-003 [P] [US2] ... (depends: T-auth-001)`
 ```
+
+#### Post-Generation Hooks (after tasks generation)
+
+**Check for extension hooks (after tasks generation)**:
+- Check if `.specify/extensions.yml` exists in the project root.
+- If it exists, read it and look for entries under the `hooks.after_tasks` key
+- If the YAML cannot be parsed or is invalid, skip hook checking silently and continue normally
+- Filter to only hooks where `enabled: true`
+- For each remaining hook, do **not** attempt to interpret or evaluate hook `condition` expressions:
+  - If the hook has no `condition` field, or it is null/empty, treat the hook as executable
+  - If the hook defines a non-empty `condition`, skip the hook and leave condition evaluation to the HookExecutor implementation
+- For each executable hook, output the following based on its `optional` flag:
+  - **Optional hook** (`optional: true`):
+    ```
+    ## Extension Hooks
+
+    **Optional Hook**: {extension}
+    Command: `/{command}`
+    Description: {description}
+
+    Prompt: {prompt}
+    To execute: `/{command}`
+    ```
+  - **Mandatory hook** (`optional: false`):
+    ```
+    ## Extension Hooks
+
+    **Automatic Hook**: {extension}
+    Executing: `/{command}`
+    EXECUTE_COMMAND: {command}
+    ```
+- If no hooks are registered or `.specify/extensions.yml` does not exist, skip silently
 
 **Checkpoint**:
 - Confirm tasks output was generated. For multi-module: verify tasks-index.md
@@ -553,6 +619,40 @@ after Stage 3.5).
 
 This stage is NOT delegated to a single subagent. The main command parses tasks and
 dispatches coding workers (low/medium/high) directly based on task file count.
+
+#### Pre-Execution Hooks (before implementation)
+
+**Check for extension hooks (before implementation)**:
+- Check if `.specify/extensions.yml` exists in the project root.
+- If it exists, read it and look for entries under the `hooks.before_implement` key
+- If the YAML cannot be parsed or is invalid, skip hook checking silently and continue normally
+- Filter to only hooks where `enabled: true`
+- For each remaining hook, do **not** attempt to interpret or evaluate hook `condition` expressions:
+  - If the hook has no `condition` field, or it is null/empty, treat the hook as executable
+  - If the hook defines a non-empty `condition`, skip the hook and leave condition evaluation to the HookExecutor implementation
+- For each executable hook, output the following based on its `optional` flag:
+  - **Optional hook** (`optional: true`):
+    ```
+    ## Extension Hooks
+
+    **Optional Pre-Hook**: {extension}
+    Command: `/{command}`
+    Description: {description}
+
+    Prompt: {prompt}
+    To execute: `/{command}`
+    ```
+  - **Mandatory hook** (`optional: false`):
+    ```
+    ## Extension Hooks
+
+    **Automatic Pre-Hook**: {extension}
+    Executing: `/{command}`
+    EXECUTE_COMMAND: {command}
+    
+    Wait for the result of the hook command before proceeding to implementation.
+    ```
+- If no hooks are registered or `.specify/extensions.yml` does not exist, skip silently
 
 #### 5a. Parse and Split Tasks
 
@@ -669,6 +769,38 @@ Confirm all task checkboxes are completed (no `- [ ]` remaining) in
 `tasks.md`, `tasks-index.md`, and any `tasks-<module>.md` shards.
 
 Then run Stage 5 gate (Mandatory Stage Gate); only continue on pass.
+
+#### Post-Implementation Hooks (after implement)
+
+**Check for extension hooks (after implementation)**:
+- Check if `.specify/extensions.yml` exists in the project root.
+- If it exists, read it and look for entries under the `hooks.after_implement` key
+- If the YAML cannot be parsed or is invalid, skip hook checking silently and continue normally
+- Filter to only hooks where `enabled: true`
+- For each remaining hook, do **not** attempt to interpret or evaluate hook `condition` expressions:
+  - If the hook has no `condition` field, or it is null/empty, treat the hook as executable
+  - If the hook defines a non-empty `condition`, skip the hook and leave condition evaluation to the HookExecutor implementation
+- For each executable hook, output the following based on its `optional` flag:
+  - **Optional hook** (`optional: true`):
+    ```
+    ## Extension Hooks
+
+    **Optional Hook**: {extension}
+    Command: `/{command}`
+    Description: {description}
+
+    Prompt: {prompt}
+    To execute: `/{command}`
+    ```
+  - **Mandatory hook** (`optional: false`):
+    ```
+    ## Extension Hooks
+
+    **Automatic Hook**: {extension}
+    Executing: `/{command}`
+    EXECUTE_COMMAND: {command}
+    ```
+- If no hooks are registered or `.specify/extensions.yml` does not exist, skip silently
 
 ---
 
