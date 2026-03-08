@@ -1,0 +1,16 @@
+{
+  "description": "Spec Kit pipeline gate enforcement",
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/pipeline-gate-hook.sh",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

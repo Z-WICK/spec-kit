@@ -59,15 +59,15 @@ def test_specify_template_validation_flow_does_not_loop():
     assert "proceed to step 6" not in specify_template
 
 
-def test_pipeline_template_includes_extension_hooks():
-    """Pipeline should expose extension hooks around tasks and implementation."""
+def test_pipeline_template_excludes_extension_hooks():
+    """Pipeline template remains agent-agnostic; Claude hooks live in plugin config."""
     pipeline_template = (REPO_ROOT / "templates" / "commands" / "pipeline.md").read_text(
         encoding="utf-8"
     )
-    assert "hooks.before_tasks" in pipeline_template
-    assert "hooks.after_tasks" in pipeline_template
-    assert "hooks.before_implement" in pipeline_template
-    assert "hooks.after_implement" in pipeline_template
+    assert "hooks.before_tasks" not in pipeline_template
+    assert "hooks.after_tasks" not in pipeline_template
+    assert "hooks.before_implement" not in pipeline_template
+    assert "hooks.after_implement" not in pipeline_template
 
 
 def test_update_agent_context_scripts_support_droid_agent():
