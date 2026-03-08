@@ -70,6 +70,16 @@ def test_pipeline_template_excludes_extension_hooks():
     assert "hooks.after_implement" not in pipeline_template
 
 
+def test_pipeline_template_allows_flexible_input():
+    """Pipeline input parsing should accept common description aliases."""
+    pipeline_template = (REPO_ROOT / "templates" / "commands" / "pipeline.md").read_text(
+        encoding="utf-8"
+    )
+    assert "需求:" in pipeline_template
+    assert "Feature description" in pipeline_template
+    assert "描述:" in pipeline_template
+
+
 def test_update_agent_context_scripts_support_droid_agent():
     """Droid must be accepted by both bash and PowerShell context update scripts."""
     bash_script = (REPO_ROOT / "scripts" / "bash" / "update-agent-context.sh").read_text(

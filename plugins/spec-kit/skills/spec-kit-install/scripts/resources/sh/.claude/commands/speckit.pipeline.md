@@ -1,6 +1,6 @@
 ---
 description: 自动化规格流水线：读取外部需求文档，在隔离 worktree 中自主执行 specify → clarify → plan → tasks → implement
-argument-hint: "路径: /path/to/docs 描述: 功能描述"
+argument-hint: "描述/需求: 功能描述 (路径可选)"
 scripts:
   flyway:
     sh: .specify/scripts/bash/scan-flyway-versions.sh
@@ -22,10 +22,19 @@ $ARGUMENTS
 ## Execution
 
 Parse user input and extract:
-- **Doc path**: the path after "路径:"
-- **Feature description**: the text after "描述:"
+- **Doc path (optional)**: the path after any of these labels (case-insensitive):
+  `路径:`, `文档:`, `Docs:`, `Path:`
+- **Feature description (required)**: the text after any of these labels (case-insensitive):
+  `描述:`, `需求:`, `功能:`, `目标:`, `说明:`, `Description:`, `Feature:`
 
-If either is missing, ask the user to provide: `路径: /path/to/docs 描述: feature overview`
+If no labeled description is found, treat the entire input as the feature description.
+
+If the doc path is missing, later fall back to `.specify/.project` `DOC_PATH` if present.
+If the doc path is still missing or is one of: `无`, `none`, `n/a`, `N/A`, treat it as
+"no external docs".
+
+Only prompt the user if the **feature description** is still missing/empty:
+`描述: 写一个登录注册页面` or `需求: 写一个登录注册页面`.
 
 Get the main repo root (`git rev-parse --show-toplevel`).
 
@@ -303,8 +312,12 @@ Task:
   description: "Read requirements docs"
   prompt: |
     Doc path: <parsed path>
-    Read all requirements documents under this path and output a structured
-    requirements summary.
+    If doc path is empty/none, do NOT read files. Instead, write a structured
+    requirements summary based only on the feature description and clearly note
+    that no external docs were provided.
+
+    Otherwise, read all requirements documents under this path and output a
+    structured requirements summary.
 ```
 
 **Checkpoint**:

@@ -15,7 +15,7 @@ c8285eb3b82aeb9dc5860c195e364dd03580909d274b798c4e6cf523f31326a6  ./.claude/comm
 0df01c5304d859d054a47ebf0c0c46a25cc2b4b42f4f718b0a9110b117e8387b  ./.claude/commands/speckit.init.md
 4ff0397143c03fe5731893a46d423700e6ed04449edc2dd93dad0f484dda6776  ./.claude/commands/speckit.issue.md
 0f8a4fe1a8a674bc5bb1171f1913aa4f8e8b91419503aff4120574cecc0b0239  ./.claude/commands/speckit.optimize-constitution.md
-5fa046db1af42c99aeeef8b5b0b8b47286521a5b4421db21634ad1e215bf247a  ./.claude/commands/speckit.pipeline.md
+cbc4f33fa7e0dc3454251cb14a61f80aa0d4cb031e4e7e5443fee9d5cd753e0c  ./.claude/commands/speckit.pipeline.md
 0f7fe0d4b7f62a1d645788c7bd0ee405f7ff68ca2bfff8e4c7d86ba3b1cfd7b9  ./.claude/commands/speckit.plan.md
 a3d7da60d33b6064039fa7c8a24f11a3b349fe678663671b1c6d8a7b60b9c72c  ./.claude/commands/speckit.specify.md
 671aa736cf8b6391bbdaaa6cc21dcb091c1cbfb127ecae142d07b26768969aa3  ./.claude/commands/speckit.tasks.md
