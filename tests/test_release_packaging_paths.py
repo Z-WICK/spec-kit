@@ -137,6 +137,57 @@ def test_release_packages_codex_pipeline_gate_matches_source(tmp_path):
 
 
 @pytest.mark.skipif(shutil.which("bash") is None, reason="bash is required for release packaging tests")
+def test_release_packages_droid_pipeline_gate_matches_source(tmp_path):
+    """Droid packages should include the latest pipeline stage gate scripts."""
+    repo_root = Path(__file__).resolve().parents[1]
+    fixture_root = tmp_path / "fixture-repo-droid-gate"
+    fixture_root.mkdir()
+
+    for rel in (".github", "templates", "scripts", "memory"):
+        shutil.copytree(repo_root / rel, fixture_root / rel)
+
+    release_script = fixture_root / ".github" / "workflows" / "scripts" / "create-release-packages.sh"
+    env = os.environ.copy()
+    env["AGENTS"] = "droid"
+    env["SCRIPTS"] = "sh,ps"
+
+    result = subprocess.run(
+        ["bash", str(release_script), "v9.9.9"],
+        cwd=fixture_root,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
+
+    source_sh = (repo_root / "scripts" / "bash" / "pipeline-stage-gate.sh").read_text(encoding="utf-8")
+    source_ps = (repo_root / "scripts" / "powershell" / "pipeline-stage-gate.ps1").read_text(encoding="utf-8")
+
+    packaged_sh = (
+        fixture_root
+        / ".genreleases"
+        / "sdd-droid-package-sh"
+        / ".specify"
+        / "scripts"
+        / "bash"
+        / "pipeline-stage-gate.sh"
+    ).read_text(encoding="utf-8")
+    packaged_ps = (
+        fixture_root
+        / ".genreleases"
+        / "sdd-droid-package-ps"
+        / ".specify"
+        / "scripts"
+        / "powershell"
+        / "pipeline-stage-gate.ps1"
+    ).read_text(encoding="utf-8")
+
+    assert packaged_sh == source_sh
+    assert packaged_ps == source_ps
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is required for release packaging tests")
 def test_release_packages_droid_use_skills_with_legacy_commands_copy(tmp_path):
     """Droid packages should emit .factory/skills and mirror to .factory/commands."""
     repo_root = Path(__file__).resolve().parents[1]
