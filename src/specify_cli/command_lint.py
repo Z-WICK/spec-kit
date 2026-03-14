@@ -297,11 +297,24 @@ def _lint_release_scripts(repo_root: Path, result: LintResult) -> None:
             f"{ps_script}: $AllAgents mismatch. expected={sorted(expected_agents)} actual={sorted(ps_agents)}"
         )
 
+    special_sh_patterns = {
+        "kimi": [
+            re.compile(
+                rf"create_kimi_skills\s+\"\$base_dir/{re.escape(expected_by_agent['kimi'])}\""
+            )
+        ]
+    }
+
     for agent, command_dir in expected_by_agent.items():
-        sh_pattern = re.compile(
-            rf"generate_commands\s+{re.escape(agent)}\s+.*?\"\$base_dir/{re.escape(command_dir)}\""
+        sh_patterns = special_sh_patterns.get(
+            agent,
+            [
+                re.compile(
+                    rf"generate_commands\s+{re.escape(agent)}\s+.*?\"\$base_dir/{re.escape(command_dir)}\""
+                )
+            ],
         )
-        if not sh_pattern.search(sh_content):
+        if not any(pattern.search(sh_content) for pattern in sh_patterns):
             result.errors.append(
                 f"{sh_script}: agent '{agent}' is not mapped to '{command_dir}'"
             )

@@ -1,7 +1,7 @@
 [project]
 name = "specify-cli"
-version = "1.0.26"
-description = "Enhanced Specify CLI (Z-WICK fork). Spec-Driven Development toolkit with additional commands: init, pipeline, issue, fixbug."
+version = "1.0.27"
+description = "Enhanced Specify CLI (Z-WICK fork). Spec-Driven Development toolkit with fork-specific automation, packaging, and agent integrations."
 requires-python = ">=3.11"
 dependencies = [
     "typer",
@@ -12,6 +12,7 @@ dependencies = [
     "truststore>=0.10.4",
     "pyyaml>=6.0",
     "packaging>=23.0",
+    "pathspec>=0.12.0",
 ]
 
 [project.scripts]

@@ -8,19 +8,24 @@ without bloating the core framework.
 
 import json
 import hashlib
+import os
 import tempfile
 import zipfile
 import shutil
+import copy
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Dict, List, Any
+from typing import Optional, Dict, List, Any, Callable, Set
 from datetime import datetime, timezone
 import re
+
+import pathspec
 
 import yaml
 from packaging import version as pkg_version
 from packaging.specifiers import SpecifierSet, InvalidSpecifier
 
-from .agents import AGENT_COMMAND_CONFIGS, LEGACY_AGENT_ALIASES
+from .agents import AGENT_COMMAND_CONFIGS
 
 
 class ExtensionError(Exception):
@@ -36,6 +41,16 @@ class ValidationError(ExtensionError):
 class CompatibilityError(ExtensionError):
     """Raised when extension is incompatible with current environment."""
     pass
+
+
+@dataclass
+class CatalogEntry:
+    """Represents a single catalog entry in the catalog stack."""
+    url: str
+    name: str
+    priority: int
+    install_allowed: bool
+    description: str = ""
 
 
 class ExtensionManifest:
@@ -216,6 +231,54 @@ class ExtensionRegistry:
         }
         self._save()
 
+    def update(self, extension_id: str, metadata: dict):
+        """Update extension metadata in registry, merging with existing entry.
+
+        Merges the provided metadata with the existing entry, preserving any
+        fields not specified in the new metadata. The installed_at timestamp
+        is always preserved from the original entry.
+
+        Use this method instead of add() when updating existing extension
+        metadata (e.g., enabling/disabling) to preserve the original
+        installation timestamp and other existing fields.
+
+        Args:
+            extension_id: Extension ID
+            metadata: Extension metadata fields to update (merged with existing)
+
+        Raises:
+            KeyError: If extension is not installed
+        """
+        if extension_id not in self.data["extensions"]:
+            raise KeyError(f"Extension '{extension_id}' is not installed")
+        # Merge new metadata with existing, preserving original installed_at
+        existing = self.data["extensions"][extension_id]
+        # Merge: existing fields preserved, new fields override
+        merged = {**existing, **metadata}
+        # Always preserve original installed_at based on key existence, not truthiness,
+        # to handle cases where the field exists but may be falsy (legacy/corruption)
+        if "installed_at" in existing:
+            merged["installed_at"] = existing["installed_at"]
+        else:
+            # If not present in existing, explicitly remove from merged if caller provided it
+            merged.pop("installed_at", None)
+        self.data["extensions"][extension_id] = merged
+        self._save()
+
+    def restore(self, extension_id: str, metadata: dict):
+        """Restore extension metadata to registry without modifying timestamps.
+
+        Use this method for rollback scenarios where you have a complete backup
+        of the registry entry (including installed_at) and want to restore it
+        exactly as it was.
+
+        Args:
+            extension_id: Extension ID
+            metadata: Complete extension metadata including installed_at
+        """
+        self.data["extensions"][extension_id] = dict(metadata)
+        self._save()
+
     def remove(self, extension_id: str):
         """Remove extension from registry.
 
@@ -229,21 +292,28 @@ class ExtensionRegistry:
     def get(self, extension_id: str) -> Optional[dict]:
         """Get extension metadata from registry.
 
+        Returns a deep copy to prevent callers from accidentally mutating
+        nested internal registry state without going through the write path.
+
         Args:
             extension_id: Extension ID
 
         Returns:
-            Extension metadata or None if not found
+            Deep copy of extension metadata, or None if not found
         """
-        return self.data["extensions"].get(extension_id)
+        entry = self.data["extensions"].get(extension_id)
+        return copy.deepcopy(entry) if entry is not None else None
 
     def list(self) -> Dict[str, dict]:
         """Get all installed extensions.
 
+        Returns a deep copy of the extensions mapping to prevent callers
+        from accidentally mutating nested internal registry state.
+
         Returns:
-            Dictionary of extension_id -> metadata
+            Dictionary of extension_id -> metadata (deep copies)
         """
-        return self.data["extensions"]
+        return copy.deepcopy(self.data["extensions"])
 
     def is_installed(self, extension_id: str) -> bool:
         """Check if extension is installed.
@@ -269,6 +339,70 @@ class ExtensionManager:
         self.project_root = project_root
         self.extensions_dir = project_root / ".specify" / "extensions"
         self.registry = ExtensionRegistry(self.extensions_dir)
+
+    @staticmethod
+    def _load_extensionignore(source_dir: Path) -> Optional[Callable[[str, List[str]], Set[str]]]:
+        """Load .extensionignore and return an ignore function for shutil.copytree.
+
+        The .extensionignore file uses .gitignore-compatible patterns (one per line).
+        Lines starting with '#' are comments. Blank lines are ignored.
+        The .extensionignore file itself is always excluded.
+
+        Pattern semantics mirror .gitignore:
+        - '*' matches anything except '/'
+        - '**' matches zero or more directories
+        - '?' matches any single character except '/'
+        - Trailing '/' restricts a pattern to directories only
+        - Patterns with '/' (other than trailing) are anchored to the root
+        - '!' negates a previously excluded pattern
+
+        Args:
+            source_dir: Path to the extension source directory
+
+        Returns:
+            An ignore function compatible with shutil.copytree, or None
+            if no .extensionignore file exists.
+        """
+        ignore_file = source_dir / ".extensionignore"
+        if not ignore_file.exists():
+            return None
+
+        lines: List[str] = ignore_file.read_text().splitlines()
+
+        # Normalise backslashes in patterns so Windows-authored files work
+        normalised: List[str] = []
+        for line in lines:
+            stripped = line.strip()
+            if stripped and not stripped.startswith("#"):
+                normalised.append(stripped.replace("\\", "/"))
+            else:
+                # Preserve blanks/comments so pathspec line numbers stay stable
+                normalised.append(line)
+
+        # Always ignore the .extensionignore file itself
+        normalised.append(".extensionignore")
+
+        spec = pathspec.GitIgnoreSpec.from_lines(normalised)
+
+        def _ignore(directory: str, entries: List[str]) -> Set[str]:
+            ignored: Set[str] = set()
+            rel_dir = Path(directory).relative_to(source_dir)
+            for entry in entries:
+                rel_path = str(rel_dir / entry) if str(rel_dir) != "." else entry
+                # Normalise to forward slashes for consistent matching
+                rel_path_fwd = rel_path.replace("\\", "/")
+
+                entry_full = Path(directory) / entry
+                if entry_full.is_dir():
+                    # Append '/' so directory-only patterns (e.g. tests/) match
+                    if spec.match_file(rel_path_fwd + "/"):
+                        ignored.add(entry)
+                else:
+                    if spec.match_file(rel_path_fwd):
+                        ignored.add(entry)
+            return ignored
+
+        return _ignore
 
     def check_compatibility(
         self,
@@ -343,7 +477,8 @@ class ExtensionManager:
         if dest_dir.exists():
             shutil.rmtree(dest_dir)
 
-        shutil.copytree(source_dir, dest_dir)
+        ignore_fn = self._load_extensionignore(source_dir)
+        shutil.copytree(source_dir, dest_dir, ignore=ignore_fn)
 
         # Register commands with AI agents
         registered_commands = {}
@@ -445,30 +580,7 @@ class ExtensionManager:
         # Unregister commands from all AI agents
         if registered_commands:
             registrar = CommandRegistrar()
-            for agent_name, cmd_names in registered_commands.items():
-                resolved_agent = LEGACY_AGENT_ALIASES.get(agent_name, agent_name)
-                if resolved_agent not in registrar.AGENT_CONFIGS:
-                    continue
-
-                agent_config = registrar.AGENT_CONFIGS[resolved_agent]
-                commands_dir = self.project_root / agent_config["dir"]
-
-                for cmd_name in cmd_names:
-                    if resolved_agent == "codex":
-                        skill_name = CommandRegistrar.codex_skill_name(cmd_name)
-                        cmd_file = commands_dir / skill_name / "SKILL.md"
-                    else:
-                        cmd_file = commands_dir / f"{cmd_name}{agent_config['extension']}"
-                    if cmd_file.exists():
-                        cmd_file.unlink()
-                    if resolved_agent == "copilot":
-                        prompt_file = self.project_root / ".github" / "prompts" / f"{cmd_name}.prompt.md"
-                        if prompt_file.exists():
-                            prompt_file.unlink()
-                        if resolved_agent == "codex":
-                            skill_dir = cmd_file.parent
-                            if skill_dir.is_dir() and not any(skill_dir.iterdir()):
-                                skill_dir.rmdir()
+            registrar.unregister_commands(registered_commands, self.project_root)
 
         if keep_config:
             # Preserve config files, only remove non-config files
@@ -530,7 +642,7 @@ class ExtensionManager:
                 result.append({
                     "id": ext_id,
                     "name": manifest.name,
-                    "version": metadata["version"],
+                    "version": metadata.get("version", "unknown"),
                     "description": manifest.description,
                     "enabled": metadata.get("enabled", True),
                     "installed_at": metadata.get("installed_at"),
@@ -592,161 +704,47 @@ def version_satisfies(current: str, required: str) -> bool:
 
 
 class CommandRegistrar:
-    """Handles registration of extension commands with AI agents."""
+    """Handles registration of extension commands with AI agents.
 
-    # Agent configurations with directory, format, and argument placeholder
-    AGENT_CONFIGS = AGENT_COMMAND_CONFIGS
+    This is a backward-compatible wrapper around the shared CommandRegistrar
+    in agents.py. Extension-specific methods accept ExtensionManifest objects
+    and delegate to the generic API.
+    """
 
+    # Re-export AGENT_CONFIGS at class level for direct attribute access
+    from .agents import CommandRegistrar as _AgentRegistrar
+    AGENT_CONFIGS = _AgentRegistrar.AGENT_CONFIGS
+
+    def __init__(self):
+        from .agents import CommandRegistrar as _Registrar
+        self._registrar = _Registrar()
+
+    # Delegate static/utility methods
     @staticmethod
     def parse_frontmatter(content: str) -> tuple[dict, str]:
-        """Parse YAML frontmatter from Markdown content.
-
-        Args:
-            content: Markdown content with YAML frontmatter
-
-        Returns:
-            Tuple of (frontmatter_dict, body_content)
-        """
-        if not content.startswith("---"):
-            return {}, content
-
-        # Find second ---
-        end_marker = content.find("---", 3)
-        if end_marker == -1:
-            return {}, content
-
-        frontmatter_str = content[3:end_marker].strip()
-        body = content[end_marker + 3:].strip()
-
-        try:
-            frontmatter = yaml.safe_load(frontmatter_str) or {}
-        except yaml.YAMLError:
-            frontmatter = {}
-
-        return frontmatter, body
+        from .agents import CommandRegistrar as _Registrar
+        return _Registrar.parse_frontmatter(content)
 
     @staticmethod
     def render_frontmatter(fm: dict) -> str:
-        """Render frontmatter dictionary as YAML.
-
-        Args:
-            fm: Frontmatter dictionary
-
-        Returns:
-            YAML-formatted frontmatter with delimiters
-        """
-        if not fm:
-            return ""
-
-        yaml_str = yaml.dump(fm, default_flow_style=False, sort_keys=False)
-        return f"---\n{yaml_str}---\n"
+        from .agents import CommandRegistrar as _Registrar
+        return _Registrar.render_frontmatter(fm)
 
     @staticmethod
-    def codex_skill_name(command_name: str) -> str:
-        """Convert a command name to a Codex-compatible skill name."""
-        normalized = re.sub(r"[^a-zA-Z0-9_-]+", "-", command_name).strip("-").lower()
-        return normalized or "skill"
+    def _write_copilot_prompt(project_root, cmd_name: str) -> None:
+        from .agents import CommandRegistrar as _Registrar
+        _Registrar.write_copilot_prompt(project_root, cmd_name)
 
-    def _adjust_script_paths(self, frontmatter: dict) -> dict:
-        """Adjust script paths from extension-relative to repo-relative.
-
-        Args:
-            frontmatter: Frontmatter dictionary
-
-        Returns:
-            Modified frontmatter with adjusted paths
-        """
-        if "scripts" in frontmatter:
-            for key in frontmatter["scripts"]:
-                script_path = frontmatter["scripts"][key]
-                if script_path.startswith("../../scripts/"):
-                    frontmatter["scripts"][key] = f".specify/scripts/{script_path[14:]}"
-        return frontmatter
-
-    def _render_markdown_command(
-        self,
-        frontmatter: dict,
-        body: str,
-        ext_id: str
-    ) -> str:
-        """Render command in Markdown format.
-
-        Args:
-            frontmatter: Command frontmatter
-            body: Command body content
-            ext_id: Extension ID
-
-        Returns:
-            Formatted Markdown command file content
-        """
+    def _render_markdown_command(self, frontmatter, body, ext_id):
+        # Preserve extension-specific comment format for backward compatibility
         context_note = f"\n<!-- Extension: {ext_id} -->\n<!-- Config: .specify/extensions/{ext_id}/ -->\n"
-        return self.render_frontmatter(frontmatter) + "\n" + context_note + body
+        return self._registrar.render_frontmatter(frontmatter) + "\n" + context_note + body
 
-    def _render_codex_skill(
-        self,
-        skill_name: str,
-        description: str,
-        body: str,
-        ext_id: str,
-    ) -> str:
-        """Render a Codex SKILL.md payload with minimal frontmatter."""
-        skill_frontmatter = {
-            "name": skill_name,
-            "description": description or f"Skill for {skill_name}",
-        }
-        context_note = f"\n<!-- Extension: {ext_id} -->\n<!-- Config: .specify/extensions/{ext_id}/ -->\n"
-        return self.render_frontmatter(skill_frontmatter) + "\n" + context_note + body
-
-    def _render_toml_command(
-        self,
-        frontmatter: dict,
-        body: str,
-        ext_id: str
-    ) -> str:
-        """Render command in TOML format.
-
-        Args:
-            frontmatter: Command frontmatter
-            body: Command body content
-            ext_id: Extension ID
-
-        Returns:
-            Formatted TOML command file content
-        """
-        # TOML format for Gemini/Qwen
-        toml_lines = []
-
-        # Add description if present
-        if "description" in frontmatter:
-            # Escape quotes in description
-            desc = frontmatter["description"].replace('"', '\\"')
-            toml_lines.append(f'description = "{desc}"')
-            toml_lines.append("")
-
-        # Add extension context as comments
-        toml_lines.append(f"# Extension: {ext_id}")
-        toml_lines.append(f"# Config: .specify/extensions/{ext_id}/")
-        toml_lines.append("")
-
-        # Add prompt content
-        toml_lines.append('prompt = """')
-        toml_lines.append(body)
-        toml_lines.append('"""')
-
-        return "\n".join(toml_lines)
-
-    def _convert_argument_placeholder(self, content: str, from_placeholder: str, to_placeholder: str) -> str:
-        """Convert argument placeholder format.
-
-        Args:
-            content: Command content
-            from_placeholder: Source placeholder (e.g., "$ARGUMENTS")
-            to_placeholder: Target placeholder (e.g., "{{args}}")
-
-        Returns:
-            Content with converted placeholders
-        """
-        return content.replace(from_placeholder, to_placeholder)
+    def _render_toml_command(self, frontmatter, body, ext_id):
+        # Preserve extension-specific context comments for backward compatibility
+        base = self._registrar.render_toml_command(frontmatter, body, ext_id)
+        context_lines = f"# Extension: {ext_id}\n# Config: .specify/extensions/{ext_id}/\n"
+        return base.rstrip("\n") + "\n" + context_lines
 
     def register_commands_for_agent(
         self,
@@ -755,107 +753,14 @@ class CommandRegistrar:
         extension_dir: Path,
         project_root: Path
     ) -> List[str]:
-        """Register extension commands for a specific agent.
-
-        Args:
-            agent_name: Agent name (claude, gemini, copilot, etc.)
-            manifest: Extension manifest
-            extension_dir: Path to extension directory
-            project_root: Path to project root
-
-        Returns:
-            List of registered command names
-
-        Raises:
-            ExtensionError: If agent is not supported
-        """
+        """Register extension commands for a specific agent."""
         if agent_name not in self.AGENT_CONFIGS:
             raise ExtensionError(f"Unsupported agent: {agent_name}")
-
-        agent_config = self.AGENT_CONFIGS[agent_name]
-        commands_dir = project_root / agent_config["dir"]
-        commands_dir.mkdir(parents=True, exist_ok=True)
-
-        registered = []
-
-        for cmd_info in manifest.commands:
-            cmd_name = cmd_info["name"]
-            cmd_file = cmd_info["file"]
-
-            # Read source command file
-            source_file = extension_dir / cmd_file
-            if not source_file.exists():
-                continue
-
-            content = source_file.read_text()
-            frontmatter, body = self.parse_frontmatter(content)
-
-            # Adjust script paths
-            frontmatter = self._adjust_script_paths(frontmatter)
-
-            # Convert argument placeholders
-            body = self._convert_argument_placeholder(
-                body, "$ARGUMENTS", agent_config["args"]
-            )
-
-            # Render in agent-specific format
-            if agent_config["format"] == "markdown":
-                if agent_name == "codex":
-                    skill_name = self.codex_skill_name(cmd_name)
-                    output = self._render_codex_skill(
-                        skill_name,
-                        str(frontmatter.get("description", "")).strip(),
-                        body,
-                        manifest.id,
-                    )
-                else:
-                    output = self._render_markdown_command(frontmatter, body, manifest.id)
-            elif agent_config["format"] == "toml":
-                output = self._render_toml_command(frontmatter, body, manifest.id)
-            else:
-                raise ExtensionError(f"Unsupported format: {agent_config['format']}")
-
-            # Write command file
-            if agent_name == "codex":
-                dest_file = commands_dir / self.codex_skill_name(cmd_name) / "SKILL.md"
-                dest_file.parent.mkdir(parents=True, exist_ok=True)
-            else:
-                dest_file = commands_dir / f"{cmd_name}{agent_config['extension']}"
-            dest_file.write_text(output)
-
-            if agent_name == "copilot":
-                self._write_copilot_prompt(project_root, cmd_name)
-
-            registered.append(cmd_name)
-
-            # Register aliases
-            for alias in cmd_info.get("aliases", []):
-                if agent_name == "codex" and agent_config["format"] == "markdown":
-                    alias_file = commands_dir / self.codex_skill_name(alias) / "SKILL.md"
-                    alias_file.parent.mkdir(parents=True, exist_ok=True)
-                    alias_output = self._render_codex_skill(
-                        self.codex_skill_name(alias),
-                        str(frontmatter.get("description", "")).strip(),
-                        body,
-                        manifest.id,
-                    )
-                    alias_file.write_text(alias_output)
-                else:
-                    alias_file = commands_dir / f"{alias}{agent_config['extension']}"
-                    alias_file.write_text(output)
-                if agent_name == "copilot":
-                    self._write_copilot_prompt(project_root, alias)
-                registered.append(alias)
-
-        return registered
-
-    @staticmethod
-    def _write_copilot_prompt(project_root: Path, cmd_name: str) -> None:
-        """Generate a companion .prompt.md file for a Copilot agent command."""
-        prompts_dir = project_root / ".github" / "prompts"
-        prompts_dir.mkdir(parents=True, exist_ok=True)
-        prompt_file = prompts_dir / f"{cmd_name}.prompt.md"
-        prompt_file.write_text(f"---\nagent: {cmd_name}\n---\n")
+        context_note = f"\n<!-- Extension: {manifest.id} -->\n<!-- Config: .specify/extensions/{manifest.id}/ -->\n"
+        return self._registrar.register_commands(
+            agent_name, manifest.commands, manifest.id, extension_dir, project_root,
+            context_note=context_note
+        )
 
     def register_commands_for_all_agents(
         self,
@@ -863,35 +768,20 @@ class CommandRegistrar:
         extension_dir: Path,
         project_root: Path
     ) -> Dict[str, List[str]]:
-        """Register extension commands for all detected agents.
+        """Register extension commands for all detected agents."""
+        context_note = f"\n<!-- Extension: {manifest.id} -->\n<!-- Config: .specify/extensions/{manifest.id}/ -->\n"
+        return self._registrar.register_commands_for_all_agents(
+            manifest.commands, manifest.id, extension_dir, project_root,
+            context_note=context_note
+        )
 
-        Args:
-            manifest: Extension manifest
-            extension_dir: Path to extension directory
-            project_root: Path to project root
-
-        Returns:
-            Dictionary mapping agent names to list of registered commands
-        """
-        results = {}
-
-        # Detect which agents are present in the project
-        for agent_name, agent_config in self.AGENT_CONFIGS.items():
-            agent_dir = project_root / agent_config["dir"].split("/")[0]
-
-            # Register if agent directory exists
-            if agent_dir.exists():
-                try:
-                    registered = self.register_commands_for_agent(
-                        agent_name, manifest, extension_dir, project_root
-                    )
-                    if registered:
-                        results[agent_name] = registered
-                except ExtensionError:
-                    # Skip agent on error
-                    continue
-
-        return results
+    def unregister_commands(
+        self,
+        registered_commands: Dict[str, List[str]],
+        project_root: Path
+    ) -> None:
+        """Remove previously registered command files from agent directories."""
+        self._registrar.unregister_commands(registered_commands, project_root)
 
     def register_commands_for_claude(
         self,
@@ -899,16 +789,7 @@ class CommandRegistrar:
         extension_dir: Path,
         project_root: Path
     ) -> List[str]:
-        """Register extension commands for Claude Code agent.
-
-        Args:
-            manifest: Extension manifest
-            extension_dir: Path to extension directory
-            project_root: Path to project root
-
-        Returns:
-            List of registered command names
-        """
+        """Register extension commands for Claude Code agent."""
         return self.register_commands_for_agent("claude", manifest, extension_dir, project_root)
 
 
@@ -916,6 +797,7 @@ class ExtensionCatalog:
     """Manages extension catalog fetching, caching, and searching."""
 
     DEFAULT_CATALOG_URL = "https://raw.githubusercontent.com/github/spec-kit/main/extensions/catalog.json"
+    COMMUNITY_CATALOG_URL = "https://raw.githubusercontent.com/github/spec-kit/main/extensions/catalog.community.json"
     CACHE_DURATION = 3600  # 1 hour in seconds
 
     def __init__(self, project_root: Path):
@@ -930,43 +812,123 @@ class ExtensionCatalog:
         self.cache_file = self.cache_dir / "catalog.json"
         self.cache_metadata_file = self.cache_dir / "catalog-metadata.json"
 
-    def get_catalog_url(self) -> str:
-        """Get catalog URL from config or use default.
+    def _validate_catalog_url(self, url: str) -> None:
+        """Validate that a catalog URL uses HTTPS (localhost HTTP allowed).
 
-        Checks in order:
-        1. SPECKIT_CATALOG_URL environment variable
-        2. Default catalog URL
-
-        Returns:
-            URL to fetch catalog from
+        Args:
+            url: URL to validate
 
         Raises:
-            ValidationError: If custom URL is invalid (non-HTTPS)
+            ValidationError: If URL is invalid or uses non-HTTPS scheme
         """
-        import os
-        import sys
         from urllib.parse import urlparse
 
-        # Environment variable override (useful for testing)
+        parsed = urlparse(url)
+        is_localhost = parsed.hostname in ("localhost", "127.0.0.1", "::1")
+        if parsed.scheme != "https" and not (parsed.scheme == "http" and is_localhost):
+            raise ValidationError(
+                f"Catalog URL must use HTTPS (got {parsed.scheme}://). "
+                "HTTP is only allowed for localhost."
+            )
+        if not parsed.netloc:
+            raise ValidationError("Catalog URL must be a valid URL with a host.")
+
+    def _load_catalog_config(self, config_path: Path) -> Optional[List[CatalogEntry]]:
+        """Load catalog stack configuration from a YAML file.
+
+        Args:
+            config_path: Path to extension-catalogs.yml
+
+        Returns:
+            Ordered list of CatalogEntry objects, or None if file doesn't exist.
+
+        Raises:
+            ValidationError: If any catalog entry has an invalid URL,
+                the file cannot be parsed, a priority value is invalid,
+                or the file exists but contains no valid catalog entries
+                (fail-closed for security).
+        """
+        if not config_path.exists():
+            return None
+        try:
+            data = yaml.safe_load(config_path.read_text()) or {}
+        except (yaml.YAMLError, OSError) as e:
+            raise ValidationError(
+                f"Failed to read catalog config {config_path}: {e}"
+            )
+        catalogs_data = data.get("catalogs", [])
+        if not catalogs_data:
+            # File exists but has no catalogs key or empty list - fail closed
+            raise ValidationError(
+                f"Catalog config {config_path} exists but contains no 'catalogs' entries. "
+                f"Remove the file to use built-in defaults, or add valid catalog entries."
+            )
+        if not isinstance(catalogs_data, list):
+            raise ValidationError(
+                f"Invalid catalog config: 'catalogs' must be a list, got {type(catalogs_data).__name__}"
+            )
+        entries: List[CatalogEntry] = []
+        skipped_entries: List[int] = []
+        for idx, item in enumerate(catalogs_data):
+            if not isinstance(item, dict):
+                raise ValidationError(
+                    f"Invalid catalog entry at index {idx}: expected a mapping, got {type(item).__name__}"
+                )
+            url = str(item.get("url", "")).strip()
+            if not url:
+                skipped_entries.append(idx)
+                continue
+            self._validate_catalog_url(url)
+            try:
+                priority = int(item.get("priority", idx + 1))
+            except (TypeError, ValueError):
+                raise ValidationError(
+                    f"Invalid priority for catalog '{item.get('name', idx + 1)}': "
+                    f"expected integer, got {item.get('priority')!r}"
+                )
+            raw_install = item.get("install_allowed", False)
+            if isinstance(raw_install, str):
+                install_allowed = raw_install.strip().lower() in ("true", "yes", "1")
+            else:
+                install_allowed = bool(raw_install)
+            entries.append(CatalogEntry(
+                url=url,
+                name=str(item.get("name", f"catalog-{idx + 1}")),
+                priority=priority,
+                install_allowed=install_allowed,
+                description=str(item.get("description", "")),
+            ))
+        entries.sort(key=lambda e: e.priority)
+        if not entries:
+            # All entries were invalid (missing URLs) - fail closed for security
+            raise ValidationError(
+                f"Catalog config {config_path} contains {len(catalogs_data)} entries but none have valid URLs "
+                f"(entries at indices {skipped_entries} were skipped). "
+                f"Each catalog entry must have a 'url' field."
+            )
+        return entries
+
+    def get_active_catalogs(self) -> List[CatalogEntry]:
+        """Get the ordered list of active catalogs.
+
+        Resolution order:
+        1. SPECKIT_CATALOG_URL env var — single catalog replacing all defaults
+        2. Project-level .specify/extension-catalogs.yml
+        3. User-level ~/.specify/extension-catalogs.yml
+        4. Built-in default stack (default + community)
+
+        Returns:
+            List of CatalogEntry objects sorted by priority (ascending)
+
+        Raises:
+            ValidationError: If a catalog URL is invalid
+        """
+        import sys
+
+        # 1. SPECKIT_CATALOG_URL env var replaces all defaults for backward compat
         if env_value := os.environ.get("SPECKIT_CATALOG_URL"):
             catalog_url = env_value.strip()
-            parsed = urlparse(catalog_url)
-
-            # Require HTTPS for security (prevent man-in-the-middle attacks)
-            # Allow http://localhost for local development/testing
-            is_localhost = parsed.hostname in ("localhost", "127.0.0.1", "::1")
-            if parsed.scheme != "https" and not (parsed.scheme == "http" and is_localhost):
-                raise ValidationError(
-                    f"Invalid SPECKIT_CATALOG_URL: must use HTTPS (got {parsed.scheme}://). "
-                    "HTTP is only allowed for localhost."
-                )
-
-            if not parsed.netloc:
-                raise ValidationError(
-                    "Invalid SPECKIT_CATALOG_URL: must be a valid URL with a host."
-                )
-
-            # Warn users when using a non-default catalog (once per instance)
+            self._validate_catalog_url(catalog_url)
             if catalog_url != self.DEFAULT_CATALOG_URL:
                 if not getattr(self, "_non_default_catalog_warning_shown", False):
                     print(
@@ -975,11 +937,163 @@ class ExtensionCatalog:
                         file=sys.stderr,
                     )
                     self._non_default_catalog_warning_shown = True
+            return [CatalogEntry(url=catalog_url, name="custom", priority=1, install_allowed=True, description="Custom catalog via SPECKIT_CATALOG_URL")]
 
-            return catalog_url
+        # 2. Project-level config overrides all defaults
+        project_config_path = self.project_root / ".specify" / "extension-catalogs.yml"
+        catalogs = self._load_catalog_config(project_config_path)
+        if catalogs is not None:
+            return catalogs
 
-        # TODO: Support custom catalogs from .specify/extension-catalogs.yml
-        return self.DEFAULT_CATALOG_URL
+        # 3. User-level config
+        user_config_path = Path.home() / ".specify" / "extension-catalogs.yml"
+        catalogs = self._load_catalog_config(user_config_path)
+        if catalogs is not None:
+            return catalogs
+
+        # 4. Built-in default stack
+        return [
+            CatalogEntry(url=self.DEFAULT_CATALOG_URL, name="default", priority=1, install_allowed=True, description="Built-in catalog of installable extensions"),
+            CatalogEntry(url=self.COMMUNITY_CATALOG_URL, name="community", priority=2, install_allowed=False, description="Community-contributed extensions (discovery only)"),
+        ]
+
+    def get_catalog_url(self) -> str:
+        """Get the primary catalog URL.
+
+        Returns the URL of the highest-priority catalog. Kept for backward
+        compatibility. Use get_active_catalogs() for full multi-catalog support.
+
+        Returns:
+            URL of the primary catalog
+
+        Raises:
+            ValidationError: If a catalog URL is invalid
+        """
+        active = self.get_active_catalogs()
+        return active[0].url if active else self.DEFAULT_CATALOG_URL
+
+    def _fetch_single_catalog(self, entry: CatalogEntry, force_refresh: bool = False) -> Dict[str, Any]:
+        """Fetch a single catalog with per-URL caching.
+
+        For the DEFAULT_CATALOG_URL, uses legacy cache files (self.cache_file /
+        self.cache_metadata_file) for backward compatibility. For all other URLs,
+        uses URL-hash-based cache files in self.cache_dir.
+
+        Args:
+            entry: CatalogEntry describing the catalog to fetch
+            force_refresh: If True, bypass cache
+
+        Returns:
+            Catalog data dictionary
+
+        Raises:
+            ExtensionError: If catalog cannot be fetched or has invalid format
+        """
+        import urllib.request
+        import urllib.error
+
+        # Determine cache file paths (backward compat for default catalog)
+        if entry.url == self.DEFAULT_CATALOG_URL:
+            cache_file = self.cache_file
+            cache_meta_file = self.cache_metadata_file
+            is_valid = not force_refresh and self.is_cache_valid()
+        else:
+            url_hash = hashlib.sha256(entry.url.encode()).hexdigest()[:16]
+            cache_file = self.cache_dir / f"catalog-{url_hash}.json"
+            cache_meta_file = self.cache_dir / f"catalog-{url_hash}-metadata.json"
+            is_valid = False
+            if not force_refresh and cache_file.exists() and cache_meta_file.exists():
+                try:
+                    metadata = json.loads(cache_meta_file.read_text())
+                    cached_at = datetime.fromisoformat(metadata.get("cached_at", ""))
+                    if cached_at.tzinfo is None:
+                        cached_at = cached_at.replace(tzinfo=timezone.utc)
+                    age = (datetime.now(timezone.utc) - cached_at).total_seconds()
+                    is_valid = age < self.CACHE_DURATION
+                except (json.JSONDecodeError, ValueError, KeyError, TypeError):
+                    # If metadata is invalid or missing expected fields, treat cache as invalid
+                    pass
+
+        # Use cache if valid
+        if is_valid:
+            try:
+                return json.loads(cache_file.read_text())
+            except json.JSONDecodeError:
+                pass
+
+        # Fetch from network
+        try:
+            with urllib.request.urlopen(entry.url, timeout=10) as response:
+                catalog_data = json.loads(response.read())
+
+            if "schema_version" not in catalog_data or "extensions" not in catalog_data:
+                raise ExtensionError(f"Invalid catalog format from {entry.url}")
+
+            # Save to cache
+            self.cache_dir.mkdir(parents=True, exist_ok=True)
+            cache_file.write_text(json.dumps(catalog_data, indent=2))
+            cache_meta_file.write_text(json.dumps({
+                "cached_at": datetime.now(timezone.utc).isoformat(),
+                "catalog_url": entry.url,
+            }, indent=2))
+
+            return catalog_data
+
+        except urllib.error.URLError as e:
+            raise ExtensionError(f"Failed to fetch catalog from {entry.url}: {e}")
+        except json.JSONDecodeError as e:
+            raise ExtensionError(f"Invalid JSON in catalog from {entry.url}: {e}")
+
+    def _get_merged_extensions(self, force_refresh: bool = False) -> List[Dict[str, Any]]:
+        """Fetch and merge extensions from all active catalogs.
+
+        Higher-priority (lower priority number) catalogs win on conflicts
+        (same extension id in two catalogs). Each extension dict is annotated with:
+          - _catalog_name: name of the source catalog
+          - _install_allowed: whether installation is allowed from this catalog
+
+        Catalogs that fail to fetch are skipped. Raises ExtensionError only if
+        ALL catalogs fail.
+
+        Args:
+            force_refresh: If True, bypass all caches
+
+        Returns:
+            List of merged extension dicts
+
+        Raises:
+            ExtensionError: If all catalogs fail to fetch
+        """
+        import sys
+
+        active_catalogs = self.get_active_catalogs()
+        merged: Dict[str, Dict[str, Any]] = {}
+        any_success = False
+
+        for catalog_entry in active_catalogs:
+            try:
+                catalog_data = self._fetch_single_catalog(catalog_entry, force_refresh)
+                any_success = True
+            except ExtensionError as e:
+                print(
+                    f"Warning: Could not fetch catalog '{catalog_entry.name}': {e}",
+                    file=sys.stderr,
+                )
+                continue
+
+            for ext_id, ext_data in catalog_data.get("extensions", {}).items():
+                if ext_id not in merged:  # Higher-priority catalog wins
+                    merged[ext_id] = {
+                        **ext_data,
+                        "id": ext_id,
+                        "_catalog_name": catalog_entry.name,
+                        "_install_allowed": catalog_entry.install_allowed,
+                    }
+
+        if not any_success and active_catalogs:
+            raise ExtensionError("Failed to fetch any extension catalog")
+
+        return list(merged.values())
 
     def is_cache_valid(self) -> bool:
         """Check if cached catalog is still valid.
@@ -993,9 +1107,11 @@ class ExtensionCatalog:
         try:
             metadata = json.loads(self.cache_metadata_file.read_text())
             cached_at = datetime.fromisoformat(metadata.get("cached_at", ""))
+            if cached_at.tzinfo is None:
+                cached_at = cached_at.replace(tzinfo=timezone.utc)
             age_seconds = (datetime.now(timezone.utc) - cached_at).total_seconds()
             return age_seconds < self.CACHE_DURATION
-        except (json.JSONDecodeError, ValueError, KeyError):
+        except (json.JSONDecodeError, ValueError, KeyError, TypeError):
             return False
 
     def fetch_catalog(self, force_refresh: bool = False) -> Dict[str, Any]:
@@ -1056,7 +1172,7 @@ class ExtensionCatalog:
         author: Optional[str] = None,
         verified_only: bool = False,
     ) -> List[Dict[str, Any]]:
-        """Search catalog for extensions.
+        """Search catalog for extensions across all active catalogs.
 
         Args:
             query: Search query (searches name, description, tags)
@@ -1065,14 +1181,16 @@ class ExtensionCatalog:
             verified_only: If True, show only verified extensions
 
         Returns:
-            List of matching extension metadata
+            List of matching extension metadata, each annotated with
+            ``_catalog_name`` and ``_install_allowed`` from its source catalog.
         """
-        catalog = self.fetch_catalog()
-        extensions = catalog.get("extensions", {})
+        all_extensions = self._get_merged_extensions()
 
         results = []
 
-        for ext_id, ext_data in extensions.items():
+        for ext_data in all_extensions:
+            ext_id = ext_data["id"]
+
             # Apply filters
             if verified_only and not ext_data.get("verified", False):
                 continue
@@ -1098,25 +1216,26 @@ class ExtensionCatalog:
                 if query_lower not in searchable_text:
                     continue
 
-            results.append({"id": ext_id, **ext_data})
+            results.append(ext_data)
 
         return results
 
     def get_extension_info(self, extension_id: str) -> Optional[Dict[str, Any]]:
         """Get detailed information about a specific extension.
 
+        Searches all active catalogs in priority order.
+
         Args:
             extension_id: ID of the extension
 
         Returns:
-            Extension metadata or None if not found
+            Extension metadata (annotated with ``_catalog_name`` and
+            ``_install_allowed``) or None if not found.
         """
-        catalog = self.fetch_catalog()
-        extensions = catalog.get("extensions", {})
-
-        if extension_id in extensions:
-            return {"id": extension_id, **extensions[extension_id]}
-
+        all_extensions = self._get_merged_extensions()
+        for ext_data in all_extensions:
+            if ext_data["id"] == extension_id:
+                return ext_data
         return None
 
     def download_extension(self, extension_id: str, target_dir: Optional[Path] = None) -> Path:
@@ -1176,11 +1295,18 @@ class ExtensionCatalog:
             raise ExtensionError(f"Failed to save extension ZIP: {e}")
 
     def clear_cache(self):
-        """Clear the catalog cache."""
+        """Clear the catalog cache (both legacy and URL-hash-based files)."""
         if self.cache_file.exists():
             self.cache_file.unlink()
         if self.cache_metadata_file.exists():
             self.cache_metadata_file.unlink()
+        # Also clear any per-URL hash-based cache files
+        if self.cache_dir.exists():
+            for extra_cache in self.cache_dir.glob("catalog-*.json"):
+                if extra_cache != self.cache_file:
+                    extra_cache.unlink(missing_ok=True)
+            for extra_meta in self.cache_dir.glob("catalog-*-metadata.json"):
+                extra_meta.unlink(missing_ok=True)
 
 
 class ConfigManager:

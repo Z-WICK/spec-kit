@@ -41,6 +41,7 @@ This fork extends the upstream [github/spec-kit](https://github.com/github/spec-
 - [⚡ Get Started](#-get-started)
 - [🔗 Sub-Agent Architecture](#-sub-agent-architecture)
 - [📽️ Video Overview](#️-video-overview)
+- [🚶 Community Walkthroughs](#-community-walkthroughs)
 - [🤖 Supported AI Agents](#-supported-ai-agents)
 - [🔧 Specify CLI Reference](#-specify-cli-reference)
 - [📚 Core Philosophy](#-core-philosophy)
@@ -129,6 +130,12 @@ Run directly without installing:
 
 ```bash
 uvx --from git+https://github.com/Z-WICK/spec-kit.git specify init <PROJECT_NAME>
+uvx --from git+https://github.com/Z-WICK/spec-kit.git specify init <PROJECT_NAME>
+
+# Or initialize in an existing project
+uvx --from git+https://github.com/Z-WICK/spec-kit.git specify init . --ai claude
+# or
+uvx --from git+https://github.com/Z-WICK/spec-kit.git specify init --here --ai claude
 ```
 
 **Benefits of persistent installation:**
@@ -247,6 +254,18 @@ Want to see Spec Kit in action? Watch our [video overview](https://www.youtube.c
 
 [![Spec Kit video header](/media/spec-kit-video-header.jpg)](https://www.youtube.com/watch?v=a9eR1xsfvHg&pp=0gcJCckJAYcqIYzv)
 
+## 🚶 Community Walkthroughs
+
+See Spec-Driven Development in action across different scenarios with these community-contributed walkthroughs:
+
+- **[Greenfield .NET CLI tool](https://github.com/mnriem/spec-kit-dotnet-cli-demo)** — Builds a Timezone Utility as a .NET single-binary CLI tool from a blank directory, covering the full spec-kit workflow: constitution, specify, plan, tasks, and multi-pass implement using GitHub Copilot agents.
+
+- **[Greenfield Spring Boot + React platform](https://github.com/mnriem/spec-kit-spring-react-demo)** — Builds an LLM performance analytics platform (REST API, graphs, iteration tracking) from scratch using Spring Boot, embedded React, PostgreSQL, and Docker Compose, with a clarify step and a cross-artifact consistency analysis pass included.
+
+- **[Brownfield ASP.NET CMS extension](https://github.com/mnriem/spec-kit-aspnet-brownfield-demo)** — Extends an existing open-source .NET CMS (CarrotCakeCMS-Core, ~307,000 lines of C#, Razor, SQL, JavaScript, and config files) with two new features — cross-platform Docker Compose infrastructure and a token-authenticated headless REST API — demonstrating how spec-kit fits into existing codebases without prior specs or a constitution.
+
+- **[Brownfield Java runtime extension](https://github.com/mnriem/spec-kit-java-brownfield-demo)** — Extends an existing open-source Jakarta EE runtime (Piranha, ~420,000 lines of Java, XML, JSP, HTML, and config files across 180 Maven modules) with a password-protected Server Admin Console, demonstrating spec-kit on a large multi-module Java project with no prior specs or constitution.
+
 ## 🤖 Supported AI Agents
 
 | Agent                                                                                | Support | Notes                                                                                                                                     |
@@ -268,8 +287,14 @@ Want to see Spec Kit in action? Watch our [video overview](https://www.youtube.c
 | [Qwen Code](https://github.com/QwenLM/qwen-code)                                     | ✅      |                                                                                                                                           |
 | [Roo Code](https://roocode.com/)                                                     | ✅      |                                                                                                                                           |
 | [SHAI (OVHcloud)](https://github.com/ovh/shai)                                       | ✅      |                                                                                                                                           |
+| [Tabnine CLI](https://docs.tabnine.com/main/getting-started/tabnine-cli)             | ✅      |                                                                                                                                           |
+| [Mistral Vibe](https://github.com/mistralai/mistral-vibe)                            | ✅      |                                                                                                                                           |
+| [Kimi Code](https://code.kimi.com/)                                                  | ✅      |                                                                                                                                           |
 | [Windsurf](https://windsurf.com/)                                                    | ✅      |                                                                                                                                           |
 | [Antigravity (agy)](https://antigravity.google/)                                     | ✅      |                                                                                                                                           |
+| [Factory Droid](https://docs.factory.ai/cli/getting-started/quickstart)              | ✅      | Primary command path is `.factory/skills/` with legacy `.factory/commands/` compatibility; sub-agents inherit session model by default |
+| Generic                                                                              | ✅      | Bring your own agent — use `--ai generic --ai-commands-dir <path>` for unsupported agents                                               |
+| [Antigravity (agy)](https://antigravity.google/)                                     | ✅      | Prefer `--ai-skills`; explicit `.agent/commands` output is deprecated upstream                                                           |
 | [Factory Droid](https://docs.factory.ai/cli/getting-started/quickstart)              | ✅      | Primary command path is `.factory/skills/` with legacy `.factory/commands/` compatibility; sub-agents inherit session model by default |
 | Generic                                                                              | ✅      | Bring your own agent — use `--ai generic --ai-commands-dir <path>` for unsupported agents                                               |
 
@@ -284,13 +309,15 @@ The `specify` command supports the following options:
 | `init`  | Initialize a new Specify project from the latest template                                                                                               |
 | `check` | Check for installed core tools and supported CLI-based AI agents                                                                                         |
 | `lint-commands` | Validate enhanced command templates, gate scripts, and release mapping consistency                                                             |
+| `check` | Check for installed core tools and supported CLI-based AI agents                                                                                         |
+| `lint-commands` | Validate enhanced command templates, gate scripts, and release mapping consistency                                                             |
 
 ### `specify init` Arguments & Options
 
 | Argument/Option        | Type     | Description                                                                                                                                                                                  |
 | ---------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `<project-name>`       | Argument | Name for your new project directory (optional if using `--here`, or use `.` for current directory)                                                                                           |
-| `--ai`                 | Option   | AI assistant to use: `claude`, `gemini`, `copilot`, `cursor-agent`, `qwen`, `opencode`, `codex`, `windsurf`, `kilocode`, `auggie`, `roo`, `codebuddy`, `amp`, `shai`, `kiro-cli` (`kiro` alias), `agy`, `bob`, `qodercli` (`qoder` alias), `droid`, or `generic` (requires `--ai-commands-dir`) |
+| `--ai`                 | Option   | AI assistant to use: `claude`, `gemini`, `copilot`, `cursor-agent`, `qwen`, `opencode`, `codex`, `windsurf`, `kilocode`, `auggie`, `roo`, `codebuddy`, `amp`, `shai`, `tabnine`, `kiro-cli` (`kiro` alias), `agy`, `bob`, `droid`, `qodercli` (`qoder` alias), `vibe`, `kimi`, or `generic` (requires `--ai-commands-dir`) |
 | `--ai-commands-dir`    | Option   | Directory for agent command files (required with `--ai generic`, e.g. `.myagent/commands/`)                                                                                                  |
 | `--script`             | Option   | Script variant to use: `sh` (bash/zsh) or `ps` (PowerShell)                                                                                                                                  |
 | `--ignore-agent-tools` | Flag     | Skip checks for AI agent tools like Claude Code                                                                                                                                              |
@@ -329,6 +356,9 @@ specify init my-project --ai amp
 # Initialize with SHAI support
 specify init my-project --ai shai
 
+# Initialize with Mistral Vibe support
+specify init my-project --ai vibe
+
 # Initialize with IBM Bob support
 specify init my-project --ai bob
 
@@ -337,6 +367,9 @@ specify init my-project --ai droid
 
 # Initialize with Antigravity support
 specify init my-project --ai agy
+
+# Or use skills mode for Antigravity
+specify init my-project --ai agy --ai-skills
 
 # Initialize with an unsupported agent (generic / bring your own agent)
 specify init my-project --ai generic --ai-commands-dir .myagent/commands/
@@ -528,7 +561,7 @@ specify init --here --force --ai claude
 For Codex CLI, skills are generated as folders under `.agents/skills/` (for example: `.agents/skills/speckit-constitution/SKILL.md`).
 Codex scans `~/.agents/skills` by default, so copy or symlink generated skill folders there and restart the Codex session if they are not detected automatically.
 
-The CLI will check if you have Claude Code, Gemini CLI, Cursor CLI, Qwen CLI, opencode, Codex CLI, Qoder CLI, or Kiro CLI installed. If you do not, or you prefer to get the templates without checking for the right tools, use `--ignore-agent-tools` with your command:
+The CLI will check if you have Claude Code, Gemini CLI, Cursor CLI, Qwen CLI, opencode, Codex CLI, Qoder CLI, Tabnine CLI, Kiro CLI, Mistral Vibe, and other supported CLI-based agents installed. If you do not, or you prefer to get the templates without checking for the right tools, use `--ignore-agent-tools` with your command:
 
 ```bash
 specify init <project_name> --ai claude --ignore-agent-tools

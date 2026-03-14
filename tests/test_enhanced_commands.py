@@ -29,7 +29,7 @@ def test_enhanced_agent_directories_follow_conventions():
     assert AGENT_COMMAND_CONFIGS["auggie"]["dir"] == ".augment/rules"
     assert AGENT_COMMAND_CONFIGS["roo"]["dir"] == ".roo/rules"
     assert AGENT_COMMAND_CONFIGS["droid"]["dir"] == ".factory/skills"
-    assert AGENT_COMMAND_CONFIGS["agy"]["dir"] == ".agent/workflows"
+    assert AGENT_COMMAND_CONFIGS["agy"]["dir"] == ".agent/commands"
 
 
 def test_codex_init_guidance_uses_skills_workflow():
