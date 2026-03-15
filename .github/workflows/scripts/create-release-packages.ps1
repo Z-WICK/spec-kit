@@ -71,6 +71,16 @@ function Rewrite-Paths {
     return $Content
 }
 
+function Get-CommandTemplates {
+    $templates = @()
+    foreach ($templateRoot in @("templates/commands", "templates/fork-commands")) {
+        if (Test-Path $templateRoot) {
+            $templates += Get-ChildItem -Path (Join-Path $templateRoot "*.md") -File -ErrorAction SilentlyContinue
+        }
+    }
+    return $templates | Sort-Object FullName
+}
+
 function Generate-Commands {
     param(
         [string]$Agent,
@@ -82,7 +92,7 @@ function Generate-Commands {
 
     New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
 
-    $templates = Get-ChildItem -Path "templates/commands/*.md" -File -ErrorAction SilentlyContinue
+    $templates = Get-CommandTemplates
 
     foreach ($template in $templates) {
         $name = [System.IO.Path]::GetFileNameWithoutExtension($template.Name)
@@ -237,7 +247,7 @@ function New-KimiSkills {
         [string]$ScriptVariant
     )
 
-    $templates = Get-ChildItem -Path "templates/commands/*.md" -File -ErrorAction SilentlyContinue
+    $templates = Get-CommandTemplates
 
     foreach ($template in $templates) {
         $name = [System.IO.Path]::GetFileNameWithoutExtension($template.Name)
@@ -367,8 +377,10 @@ function Build-Variant {
 
         Get-ChildItem -Path "templates" -Recurse -File | Where-Object {
             $isCommandTemplate = $_.FullName -match 'templates[/\\]commands[/\\]'
+            $isForkCommandTemplate = $_.FullName -match 'templates[/\\]fork-commands[/\\]'
             $isAgentTemplate = $_.FullName -match 'templates[/\\]agents[/\\]'
             (-not $isCommandTemplate) -and
+            (-not $isForkCommandTemplate) -and
             ($_.Name -ne 'vscode-settings.json') -and
             ((-not $AgentRegistry[$Agent].ExcludeAgentTemplates) -or (-not $isAgentTemplate))
         } | ForEach-Object {

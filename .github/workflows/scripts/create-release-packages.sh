@@ -48,10 +48,18 @@ rewrite_paths() {
     -e 's@(^|[[:space:]]|`|"|\(|\)|\{|\}|\[|\]|:|=|,)templates/@\1.specify/templates/@g'
 }
 
+command_template_files() {
+  local template_dir
+  for template_dir in templates/commands templates/fork-commands; do
+    [[ -d "$template_dir" ]] || continue
+    find "$template_dir" -maxdepth 1 -type f -name '*.md' -print
+  done | LC_ALL=C sort
+}
+
 generate_commands() {
   local agent=$1 ext=$2 arg_format=$3 output_dir=$4 script_variant=$5
   mkdir -p "$output_dir"
-  for template in templates/commands/*.md; do
+  while IFS= read -r template; do
     [[ -f "$template" ]] || continue
     local name description script_command agent_script_command body frontmatter
     name=$(basename "$template" .md)
@@ -146,7 +154,7 @@ generate_commands() {
       agent.md)
         echo "$body" > "$output_dir/speckit.$name.$ext" ;;
     esac
-  done
+  done < <(command_template_files)
 }
 
 generate_copilot_prompts() {
@@ -175,7 +183,7 @@ create_kimi_skills() {
   local skills_dir="$1"
   local script_variant="$2"
 
-  for template in templates/commands/*.md; do
+  while IFS= read -r template; do
     [[ -f "$template" ]] || continue
     local name
     name=$(basename "$template" .md)
@@ -235,7 +243,7 @@ create_kimi_skills() {
       printf -- '---\n\n'
       printf '%s\n' "$template_body"
     } > "$skill_dir/SKILL.md"
-  done
+  done < <(command_template_files)
 }
 
 build_variant() {
@@ -276,6 +284,7 @@ build_variant() {
       done < <(
         find templates -type f \
           -not -path "templates/commands/*" \
+          -not -path "templates/fork-commands/*" \
           -not -path "templates/agents/*" \
           -not -name "vscode-settings.json" \
           -print0
@@ -289,6 +298,7 @@ build_variant() {
       done < <(
         find templates -type f \
           -not -path "templates/commands/*" \
+          -not -path "templates/fork-commands/*" \
           -not -name "vscode-settings.json" \
           -print0
       )

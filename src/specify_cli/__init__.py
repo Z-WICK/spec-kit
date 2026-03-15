@@ -62,6 +62,11 @@ from .agent_runtime import (
     save_init_options,
 )
 from .agents import AGENT_CONFIG, LEGACY_AGENT_ALIASES
+from .fork_customizations import (
+    build_agent_folder_security_notice,
+    build_enhancement_panel_lines,
+    build_next_steps_lines,
+)
 from .init_runtime import (
     build_init_tracker,
     install_requested_preset,
@@ -703,8 +708,7 @@ def init(
         agent_folder = ai_commands_dir if selected_ai == "generic" else agent_config["folder"]
         if agent_folder:
             security_notice = Panel(
-                f"Some agents may store credentials, auth tokens, or other identifying and private artifacts in the agent folder within your project.\n"
-                f"Consider adding [cyan]{agent_folder}[/cyan] (or parts of it) to [cyan].gitignore[/cyan] to prevent accidental credential leakage.",
+                build_agent_folder_security_notice(agent_folder),
                 title="[yellow]Agent Folder Security[/yellow]",
                 border_style="yellow",
                 padding=(1, 2)
@@ -712,48 +716,12 @@ def init(
             console.print()
             console.print(security_notice)
 
-    steps_lines = []
-    if not here:
-        steps_lines.append(f"1. Go to the project folder: [cyan]cd {project_name}[/cyan]")
-        step_num = 2
-    else:
-        steps_lines.append("1. You're already in the project directory!")
-        step_num = 2
-
-    if selected_ai == "codex":
-        steps_lines.append(f"{step_num}. Start using Codex skills:")
-        steps_lines.append("   [dim]Skills are generated at .agents/skills/<skill>/SKILL.md.[/dim]")
-        steps_lines.append("   [dim]Codex scans ~/.agents/skills; copy/symlink skill folders there if needed, then restart Codex.[/dim]")
-        steps_lines.append("   [dim]Legacy .codex/skills remains supported for compatibility.[/dim]")
-        steps_lines.append("   [dim]In Codex, run /skills and invoke skills as $speckit-...[/dim]")
-        command_prefix = "$speckit-"
-        command_suffix = ""
-    else:
-        steps_lines.append(f"{step_num}. Start using slash commands with your AI agent:")
-        command_prefix = "/speckit."
-        command_suffix = ""
-
-    steps_lines.append(f"   {step_num}.1 [cyan]{command_prefix}constitution[/]{command_suffix} - Establish project principles")
-    steps_lines.append(f"   {step_num}.2 [cyan]{command_prefix}specify[/]{command_suffix} - Create baseline specification")
-    steps_lines.append(f"   {step_num}.3 [cyan]{command_prefix}plan[/]{command_suffix} - Create implementation plan")
-    steps_lines.append(f"   {step_num}.4 [cyan]{command_prefix}tasks[/]{command_suffix} - Generate actionable tasks")
-    steps_lines.append(f"   {step_num}.5 [cyan]{command_prefix}implement[/]{command_suffix} - Execute implementation")
-
+    steps_lines = build_next_steps_lines(selected_ai, here, project_name)
     steps_panel = Panel("\n".join(steps_lines), title="Next Steps", border_style="cyan", padding=(1,2))
     console.print()
     console.print(steps_panel)
 
-    enhancement_prefix = "$speckit-" if selected_ai == "codex" else "/speckit."
-    enhancement_suffix = "" if selected_ai == "codex" else ""
-    enhancement_lines = [
-        "Enhanced commands [bright_black](Z-WICK fork)[/bright_black]",
-        "",
-        f"○ [cyan]{enhancement_prefix}init[/]{enhancement_suffix} - Smart project initialization with auto-detection of tech stack",
-        f"○ [cyan]{enhancement_prefix}pipeline[/]{enhancement_suffix} - Full automation pipeline from requirements to deployment",
-        f"○ [cyan]{enhancement_prefix}issue[/]{enhancement_suffix} - Create structured GitHub Issues (bug/feature/task)",
-        f"○ [cyan]{enhancement_prefix}fixbug[/]{enhancement_suffix} - Bug investigation & fix workflow with log analysis",
-        f"○ [cyan]{enhancement_prefix}optimize-constitution[/]{enhancement_suffix} - Append engineering efficiency principles to constitution"
-    ]
+    enhancement_lines = build_enhancement_panel_lines(selected_ai)
     enhancements_panel = Panel("\n".join(enhancement_lines), title="Enhancement Commands", border_style="cyan", padding=(1,2))
     console.print()
     console.print(enhancements_panel)

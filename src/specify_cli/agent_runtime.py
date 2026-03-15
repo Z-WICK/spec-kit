@@ -17,6 +17,11 @@ from .agents import (
     build_skill_name,
     get_agent_skills_dir_relative,
 )
+from .fork_customizations import (
+    command_template_source_label,
+    find_command_template,
+    iter_command_templates,
+)
 
 
 INIT_OPTIONS_FILE = ".specify/init-options.json"
@@ -74,30 +79,33 @@ def _get_skills_dir(project_path: Path, selected_ai: str) -> Path:
 
 
 def install_ai_skills(project_path: Path, selected_ai: str, tracker: Any | None = None, console: Any | None = None) -> bool:
-    """Install Prompt.MD files from templates/commands/ as agent skills."""
+    """Install Prompt.MD files from the packaged or repo fallback command templates as agent skills."""
     agent_config = AGENT_CONFIG.get(selected_ai, {})
     agent_folder = agent_config.get("folder", "")
     commands_subdir = agent_config.get("commands_subdir", "commands")
+    package_file = getattr(sys.modules.get("specify_cli"), "__file__", __file__)
+    script_dir = Path(package_file).resolve().parent.parent.parent
     if agent_folder:
         templates_dir = project_path / agent_folder.rstrip("/") / commands_subdir
     else:
         templates_dir = project_path / commands_subdir
 
     if not templates_dir.exists() or not any(templates_dir.glob("*.md")):
-        package_file = getattr(sys.modules.get("specify_cli"), "__file__", __file__)
-        script_dir = Path(package_file).resolve().parent.parent.parent
-        fallback_dir = script_dir / "templates" / "commands"
-        if fallback_dir.exists() and any(fallback_dir.glob("*.md")):
-            templates_dir = fallback_dir
+        fallback_templates = iter_command_templates(script_dir)
+    else:
+        fallback_templates = []
 
-    if not templates_dir.exists() or not any(templates_dir.glob("*.md")):
+    if not fallback_templates and (not templates_dir.exists() or not any(templates_dir.glob("*.md"))):
         if tracker:
             tracker.error("ai-skills", "command templates not found")
         elif console:
             console.print("[yellow]Warning: command templates not found, skipping skills installation[/yellow]")
         return False
 
-    command_files = sorted(templates_dir.glob("*.md"))
+    command_files = sorted(templates_dir.glob("*.md")) if templates_dir.exists() else []
+    if not command_files and fallback_templates:
+        command_files = fallback_templates
+
     if not command_files:
         if tracker:
             tracker.skip("ai-skills", "no command templates found")
@@ -149,13 +157,22 @@ def install_ai_skills(project_path: Path, selected_ai: str, tracker: Any | None 
             if source_name.startswith("speckit."):
                 source_name = source_name[len("speckit."):]
 
+            if command_file.is_relative_to(project_path):
+                source_template = find_command_template(script_dir, command_name)
+                if source_template is not None:
+                    source_label = command_template_source_label(script_dir, source_template)
+                else:
+                    source_label = f"templates/commands/{source_name}"
+            else:
+                source_label = command_template_source_label(script_dir, command_file)
+
             frontmatter_data = {
                 "name": skill_name,
                 "description": enhanced_desc,
                 "compatibility": "Requires spec-kit project structure with .specify/ directory",
                 "metadata": {
                     "author": "github-spec-kit",
-                    "source": f"templates/commands/{source_name}",
+                    "source": source_label,
                 },
             }
             frontmatter_text = yaml.safe_dump(frontmatter_data, sort_keys=False).strip()

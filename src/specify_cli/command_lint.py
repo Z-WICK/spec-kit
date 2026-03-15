@@ -15,6 +15,13 @@ from .agents import (
     AGENT_PACKAGING_CONFIGS,
     get_agent_skills_dir_relative,
 )
+from .fork_customizations import (
+    CORE_COMMAND_TEMPLATES_DIR,
+    FORK_COMMAND_NAMES,
+    FORK_COMMAND_TEMPLATES_DIR,
+    find_command_template,
+    iter_command_templates,
+)
 
 
 @dataclass
@@ -157,17 +164,26 @@ def _validate_script_section(
 
 
 def _lint_command_templates(repo_root: Path, result: LintResult) -> None:
-    templates_dir = repo_root / "templates" / "commands"
+    templates_dir = repo_root / CORE_COMMAND_TEMPLATES_DIR
     if not templates_dir.exists():
         result.errors.append(f"{templates_dir}: directory not found")
         return
 
-    template_files = sorted(templates_dir.glob("*.md"))
+    template_files = iter_command_templates(repo_root)
     if not template_files:
         result.errors.append(f"{templates_dir}: no command templates found")
         return
 
+    seen_template_names: dict[str, Path] = {}
     for template in template_files:
+        existing = seen_template_names.get(template.stem)
+        if existing is not None:
+            result.errors.append(
+                f"{template}: duplicate command template name '{template.stem}' also exists at {existing}"
+            )
+            continue
+        seen_template_names[template.stem] = template
+
         frontmatter, body = _parse_frontmatter(template, result)
         description = frontmatter.get("description")
         if not isinstance(description, str) or not description.strip():
@@ -237,7 +253,10 @@ def _lint_agent_templates(repo_root: Path, result: LintResult) -> None:
 def _lint_placeholder_scan_scripts(repo_root: Path, result: LintResult) -> None:
     bash_script = repo_root / "scripts" / "bash" / "find-placeholders.sh"
     ps_script = repo_root / "scripts" / "powershell" / "find-placeholders.ps1"
-    init_template = repo_root / "templates" / "commands" / "init.md"
+    init_template = find_command_template(repo_root, "init")
+    if init_template is None:
+        result.errors.append("fork init template: missing command template 'init.md'")
+        return
 
     bash_content = _read_checked_text(bash_script, result)
     ps_content = _read_checked_text(ps_script, result)
@@ -257,7 +276,7 @@ def _lint_placeholder_scan_scripts(repo_root: Path, result: LintResult) -> None:
     expected_invocation = '{SCRIPT} "<AGENT_DIR>"'
     if expected_invocation not in init_content:
         result.errors.append(
-            "templates/commands/init.md: must invoke placeholder scan as "
+            f"{init_template.relative_to(repo_root).as_posix()}: must invoke placeholder scan as "
             f"`{expected_invocation}`"
         )
 
@@ -438,16 +457,70 @@ def _lint_execution_contract(repo_root: Path, result: LintResult) -> None:
         result.errors.append(f"{contract}: missing shared execution contract")
         return
 
-    pipeline = _read_checked_text(repo_root / "templates" / "commands" / "pipeline.md", result)
-    fixbug = _read_checked_text(repo_root / "templates" / "commands" / "fixbug.md", result)
+    pipeline_template = find_command_template(repo_root, "pipeline")
+    fixbug_template = find_command_template(repo_root, "fixbug")
+    if pipeline_template is None:
+        result.errors.append("fork pipeline template: missing command template 'pipeline.md'")
+        return
+    if fixbug_template is None:
+        result.errors.append("fork fixbug template: missing command template 'fixbug.md'")
+        return
+
+    pipeline = _read_checked_text(pipeline_template, result)
+    fixbug = _read_checked_text(fixbug_template, result)
     if not pipeline or not fixbug:
         return
     contract_ref = ".specify/memory/execution-contract.md"
 
     if contract_ref not in pipeline:
-        result.errors.append("templates/commands/pipeline.md: missing shared execution contract reference")
+        result.errors.append(
+            f"{pipeline_template.relative_to(repo_root).as_posix()}: missing shared execution contract reference"
+        )
     if contract_ref not in fixbug:
-        result.errors.append("templates/commands/fixbug.md: missing shared execution contract reference")
+        result.errors.append(
+            f"{fixbug_template.relative_to(repo_root).as_posix()}: missing shared execution contract reference"
+        )
+
+
+def _lint_fork_customizations(repo_root: Path, result: LintResult) -> None:
+    core_dir = repo_root / CORE_COMMAND_TEMPLATES_DIR
+    fork_dir = repo_root / FORK_COMMAND_TEMPLATES_DIR
+
+    for command_name in FORK_COMMAND_NAMES:
+        core_path = core_dir / f"{command_name}.md"
+        fork_path = fork_dir / f"{command_name}.md"
+        if core_path.exists():
+            result.errors.append(
+                f"{core_path}: fork-only command template must not live in templates/commands"
+            )
+        if not fork_path.exists():
+            result.errors.append(f"{fork_path}: missing fork-only command template")
+
+    cli_path = repo_root / "src" / "specify_cli" / "__init__.py"
+    cli_content = _read_checked_text(cli_path, result)
+    if not cli_content:
+        return
+
+    required_tokens = (
+        "from .fork_customizations import",
+        "build_agent_folder_security_notice",
+        "build_next_steps_lines",
+        "build_enhancement_panel_lines",
+    )
+    for token in required_tokens:
+        if token not in cli_content:
+            result.errors.append(f"{cli_path}: missing fork customization hook '{token}'")
+
+    forbidden_markers = (
+        "Enhanced commands [bright_black](Z-WICK fork)[/bright_black]",
+        "Smart project initialization with auto-detection of tech stack",
+        "Legacy .codex/skills remains supported for compatibility.",
+    )
+    for marker in forbidden_markers:
+        if marker in cli_content:
+            result.errors.append(
+                f"{cli_path}: fork presentation text must be sourced from fork_customizations.py, found '{marker}'"
+            )
 
 
 def _lint_pipeline_gate_scripts(repo_root: Path, result: LintResult) -> None:
@@ -471,5 +544,6 @@ def lint_repository(repo_root: Path) -> LintResult:
     _lint_placeholder_scan_scripts(repo_root, result)
     _lint_pipeline_gate_scripts(repo_root, result)
     _lint_execution_contract(repo_root, result)
+    _lint_fork_customizations(repo_root, result)
     _lint_release_scripts(repo_root, result)
     return result

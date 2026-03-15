@@ -7,6 +7,7 @@ import yaml
 from specify_cli.agents import AGENT_CONFIG, AGENT_COMMAND_CONFIGS
 from specify_cli.command_lint import lint_repository
 from specify_cli.extensions import CommandRegistrar
+from specify_cli.fork_customizations import find_command_template
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -37,11 +38,11 @@ def test_codex_init_guidance_uses_skills_workflow():
     cli_source = (REPO_ROOT / "src" / "specify_cli" / "__init__.py").read_text(
         encoding="utf-8"
     )
-    assert ".agents/skills/<skill>/SKILL.md" in cli_source
-    assert "~/.agents/skills" in cli_source
-    assert "Legacy .codex/skills remains supported for compatibility." in cli_source
-    assert "run /skills and invoke skills as $speckit-..." in cli_source
-    assert 'enhancement_prefix = "$speckit-" if selected_ai == "codex"' in cli_source
+    assert "from .fork_customizations import" in cli_source
+    assert "build_next_steps_lines" in cli_source
+    assert "build_enhancement_panel_lines" in cli_source
+    assert "Legacy .codex/skills remains supported for compatibility." not in cli_source
+    assert 'enhancement_prefix = "$speckit-" if selected_ai == "codex"' not in cli_source
 
 
 def test_repository_command_lint_passes():
@@ -61,9 +62,7 @@ def test_specify_template_validation_flow_does_not_loop():
 
 def test_pipeline_template_excludes_extension_hooks():
     """Pipeline template remains agent-agnostic; Claude hooks live in plugin config."""
-    pipeline_template = (REPO_ROOT / "templates" / "commands" / "pipeline.md").read_text(
-        encoding="utf-8"
-    )
+    pipeline_template = find_command_template(REPO_ROOT, "pipeline").read_text(encoding="utf-8")
     assert "hooks.before_tasks" not in pipeline_template
     assert "hooks.after_tasks" not in pipeline_template
     assert "hooks.before_implement" not in pipeline_template
@@ -72,9 +71,7 @@ def test_pipeline_template_excludes_extension_hooks():
 
 def test_pipeline_template_allows_flexible_input():
     """Pipeline input parsing should accept common description aliases."""
-    pipeline_template = (REPO_ROOT / "templates" / "commands" / "pipeline.md").read_text(
-        encoding="utf-8"
-    )
+    pipeline_template = find_command_template(REPO_ROOT, "pipeline").read_text(encoding="utf-8")
     assert "需求:" in pipeline_template
     assert "Feature description" in pipeline_template
     assert "描述:" in pipeline_template
@@ -103,9 +100,7 @@ def test_find_placeholders_scripts_are_not_claude_hardcoded():
     ps_script = (
         REPO_ROOT / "scripts" / "powershell" / "find-placeholders.ps1"
     ).read_text(encoding="utf-8")
-    init_template = (REPO_ROOT / "templates" / "commands" / "init.md").read_text(
-        encoding="utf-8"
-    )
+    init_template = find_command_template(REPO_ROOT, "init").read_text(encoding="utf-8")
 
     assert ".claude" not in bash_script
     assert ".claude" not in ps_script

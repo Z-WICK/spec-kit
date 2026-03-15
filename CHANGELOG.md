@@ -7,6 +7,19 @@ All notable changes to the Specify CLI and templates are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.30] - 2026-03-15
+
+### Added
+
+- Added a fork customization layer for Z-WICK-specific post-init guidance and fork-only command registry.
+- Added merge-safety regression coverage to keep fork-only templates out of `templates/commands` and keep fork presentation text out of `specify_cli.__init__`.
+
+### Changed
+
+- Moved fork-only command templates (`init`, `pipeline`, `issue`, `fixbug`, `optimize-constitution`, `update`) into `templates/fork-commands` while preserving packaged command outputs.
+- Updated release packaging, AI skill fallback, and repository linting to consume both core and fork command template sources without re-mixing them.
+- Reduced future upstream conflict pressure in `specify_cli.__init__` by replacing embedded Z-WICK onboarding/panel text with data-driven fork customization hooks.
+
 ## [1.0.29] - 2026-03-15
 
 ### Added
