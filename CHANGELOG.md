@@ -7,6 +7,17 @@ All notable changes to the Specify CLI and templates are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.29] - 2026-03-15
+
+### Added
+
+- Added `init_runtime` regression coverage for raw option validation, target resolution, AI/script selection, tracker construction, and preset install routing.
+
+### Changed
+
+- Extracted `specify init` request validation, selection flow, tracker setup, generic command relocation, init option persistence, and preset installation into a dedicated runtime module.
+- Reduced direct fork ownership inside `specify_cli.__init__` again so future upstream merges should collide with fewer lines around `init`.
+
 ## [1.0.28] - 2026-03-15
 
 ### Added

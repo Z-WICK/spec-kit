@@ -62,10 +62,18 @@ from .agent_runtime import (
     save_init_options,
 )
 from .agents import AGENT_CONFIG, LEGACY_AGENT_ALIASES
+from .init_runtime import (
+    build_init_tracker,
+    install_requested_preset,
+    persist_init_options,
+    relocate_generic_commands_dir,
+    resolve_ai_selection,
+    resolve_project_target,
+    resolve_script_selection,
+    validate_raw_option_values,
+)
 from .template_runtime import (
     _github_auth_headers,
-    _resolve_project_relative_path,
-    _safe_move_directory_into_project,
     download_and_extract_template,
     ensure_constitution_from_template,
     ensure_executable_scripts,
@@ -496,98 +504,28 @@ def init(
 
     show_banner()
 
-    if ai_assistant and ai_assistant.startswith("-"):
-        console.print(f"[red]Error:[/red] Invalid value for --ai: '{ai_assistant}'")
-        console.print("[yellow]Hint:[/yellow] Did you forget to provide a value for --ai?")
-        console.print("[yellow]Rule:[/yellow] --ai requires a valid assistant name")
-        console.print("[yellow]Example:[/yellow] specify init --ai claude --here")
-        console.print(f"[yellow]Available agents:[/yellow] {', '.join(AGENT_CONFIG.keys())}")
-        raise typer.Exit(1)
-    if ai_commands_dir and ai_commands_dir.startswith("--"):
-        console.print(f"[red]Error:[/red] Invalid value for --ai-commands-dir: '{ai_commands_dir}'")
-        console.print("[yellow]Hint:[/yellow] Did you forget to provide a value for --ai-commands-dir?")
-        console.print("[yellow]Example:[/yellow] specify init --ai generic --ai-commands-dir .myagent/commands/")
-        raise typer.Exit(1)
-
-    if ai_assistant:
-        ai_assistant = AI_ASSISTANT_ALIASES.get(ai_assistant, ai_assistant)
-
-    if project_name == ".":
-        here = True
-        project_name = None  # Clear project_name to use existing validation logic
-
-    if here and project_name:
-        console.print("[red]Error:[/red] Cannot specify both project name and --here flag")
-        raise typer.Exit(1)
-
-    if not here and not project_name:
-        console.print("[red]Error:[/red] Must specify either a project name, use '.' for current directory, or use --here flag")
-        raise typer.Exit(1)
+    validate_raw_option_values(ai_assistant, ai_commands_dir, console, AGENT_CONFIG)
 
     if ai_skills and not ai_assistant:
         console.print("[red]Error:[/red] --ai-skills requires --ai to be specified")
         console.print("[yellow]Usage:[/yellow] specify init <project> --ai <agent> --ai-skills")
         raise typer.Exit(1)
 
-    if here:
-        project_name = Path.cwd().name
-        project_path = Path.cwd()
+    init_target = resolve_project_target(project_name, here, force, console, confirm=typer.confirm)
+    project_name = init_target.project_name
+    project_path = init_target.project_path
+    here = init_target.here
 
-        existing_items = list(project_path.iterdir())
-        if existing_items:
-            console.print(f"[yellow]Warning:[/yellow] Current directory is not empty ({len(existing_items)} items)")
-            console.print("[yellow]Template files will be merged with existing content and may overwrite existing files[/yellow]")
-            if force:
-                console.print("[cyan]--force supplied: skipping confirmation and proceeding with merge[/cyan]")
-            else:
-                response = typer.confirm("Do you want to continue?")
-                if not response:
-                    console.print("[yellow]Operation cancelled[/yellow]")
-                    raise typer.Exit(0)
-    else:
-        project_path = Path(project_name).resolve()
-        if project_path.exists():
-            error_panel = Panel(
-                f"Directory '[cyan]{project_name}[/cyan]' already exists\n"
-                "Please choose a different project name or remove the existing directory.",
-                title="[red]Directory Conflict[/red]",
-                border_style="red",
-                padding=(1, 2)
-            )
-            console.print()
-            console.print(error_panel)
-            raise typer.Exit(1)
-
-    if ai_assistant:
-        if ai_assistant not in AGENT_CONFIG:
-            console.print(f"[red]Error:[/red] Invalid AI assistant '{ai_assistant}'. Choose from: {', '.join(AGENT_CONFIG.keys())}")
-            raise typer.Exit(1)
-        selected_ai = ai_assistant
-    else:
-        # Create options dict for selection (agent_key: display_name)
-        ai_choices = {key: config["name"] for key, config in AGENT_CONFIG.items()}
-        selected_ai = select_with_arrows(
-            ai_choices, 
-            "Choose your AI assistant:", 
-            "copilot"
-        )
-
-    # [DEPRECATION NOTICE: Antigravity (agy)]
-    # As of Antigravity v1.20.5, traditional CLI "command" support was fully removed
-    # in favor of "Agent Skills" (SKILL.md files under <agent_folder>/skills/<skill_name>/).
-    # Because 'specify_cli' historically populated .agent/commands/, we now must explicitly
-    # enforce the `--ai-skills` flag for `agy` to ensure valid template generation.
-    ai_skills = resolve_ai_skills_mode(selected_ai, ai_assistant, ai_skills, console)
-
-    # Validate --ai-commands-dir usage
-    if selected_ai == "generic":
-        if not ai_commands_dir:
-            console.print("[red]Error:[/red] --ai-commands-dir is required when using --ai generic")
-            console.print("[dim]Example: specify init my-project --ai generic --ai-commands-dir .myagent/commands/[/dim]")
-            raise typer.Exit(1)
-    elif ai_commands_dir:
-        console.print(f"[red]Error:[/red] --ai-commands-dir can only be used with --ai generic (not '{selected_ai}')")
-        raise typer.Exit(1)
+    selected_ai, ai_skills = resolve_ai_selection(
+        ai_assistant,
+        ai_skills,
+        ai_commands_dir,
+        console,
+        AGENT_CONFIG,
+        aliases=AI_ASSISTANT_ALIASES,
+        select_fn=select_with_arrows,
+        resolve_ai_skills_mode_fn=resolve_ai_skills_mode,
+    )
 
     current_dir = Path.cwd()
 
@@ -627,50 +565,24 @@ def init(
                 console.print(error_panel)
                 raise typer.Exit(1)
 
-    if script_type:
-        if script_type not in SCRIPT_TYPE_CHOICES:
-            console.print(f"[red]Error:[/red] Invalid script type '{script_type}'. Choose from: {', '.join(SCRIPT_TYPE_CHOICES.keys())}")
-            raise typer.Exit(1)
-        selected_script = script_type
-    else:
-        default_script = "ps" if os.name == "nt" else "sh"
-
-        if sys.stdin.isatty():
-            selected_script = select_with_arrows(SCRIPT_TYPE_CHOICES, "Choose script type (or press Enter)", default_script)
-        else:
-            selected_script = default_script
+    selected_script = resolve_script_selection(
+        script_type,
+        SCRIPT_TYPE_CHOICES,
+        console,
+        select_fn=select_with_arrows,
+    )
 
     console.print(f"[cyan]Selected AI assistant:[/cyan] {selected_ai}")
     console.print(f"[cyan]Selected script type:[/cyan] {selected_script}")
 
-    tracker = StepTracker("Initialize Specify Project")
+    tracker = build_init_tracker(
+        selected_ai,
+        selected_script,
+        ai_skills,
+        tracker_cls=StepTracker,
+    )
 
     sys._specify_tracker_active = True
-
-    tracker.add("precheck", "Check required tools")
-    tracker.complete("precheck", "ok")
-    tracker.add("ai-select", "Select AI assistant")
-    tracker.complete("ai-select", f"{selected_ai}")
-    tracker.add("script-select", "Select script type")
-    tracker.complete("script-select", selected_script)
-    for key, label in [
-        ("fetch", "Fetch latest release"),
-        ("download", "Download template"),
-        ("extract", "Extract template"),
-        ("zip-list", "Archive contents"),
-        ("extracted-summary", "Extraction summary"),
-        ("chmod", "Ensure scripts executable"),
-        ("constitution", "Constitution setup"),
-    ]:
-        tracker.add(key, label)
-    if ai_skills:
-        tracker.add("ai-skills", "Install agent skills")
-    for key, label in [
-        ("cleanup", "Cleanup"),
-        ("git", "Initialize git repository"),
-        ("final", "Finalize")
-    ]:
-        tracker.add(key, label)
 
     # Track git error message outside Live context so it persists
     git_error_message = None
@@ -684,27 +596,7 @@ def init(
 
             download_and_extract_template(project_path, selected_ai, selected_script, here, verbose=False, tracker=tracker, client=local_client, debug=debug, github_token=github_token)
 
-            # For generic agent, rename placeholder directory to user-specified path
-            if selected_ai == "generic" and ai_commands_dir:
-                placeholder_dir = project_path / ".speckit" / "commands"
-                try:
-                    _resolve_project_relative_path(ai_commands_dir, project_path)
-                except ValueError as e:
-                    tracker.error("final", str(e))
-                    raise typer.Exit(1)
-                if placeholder_dir.exists() and placeholder_dir.is_symlink():
-                    tracker.error("final", f"Source path must not be a symlink: {placeholder_dir}")
-                    raise typer.Exit(1)
-                if placeholder_dir.is_dir():
-                    try:
-                        _safe_move_directory_into_project(placeholder_dir, ai_commands_dir, project_path)
-                    except ValueError as e:
-                        tracker.error("final", str(e))
-                        raise typer.Exit(1)
-                    # Clean up empty .speckit dir if it's now empty
-                    speckit_dir = project_path / ".speckit"
-                    if speckit_dir.is_dir() and not any(speckit_dir.iterdir()):
-                        speckit_dir.rmdir()
+            relocate_generic_commands_dir(project_path, selected_ai, ai_commands_dir, tracker)
 
             ensure_executable_scripts(project_path, tracker=tracker)
 
@@ -752,46 +644,19 @@ def init(
             # Persist the CLI options so later operations (e.g. preset add)
             # can adapt their behaviour without re-scanning the filesystem.
             # Must be saved BEFORE preset install so _get_skills_dir() works.
-            save_init_options(project_path, {
-                "ai": selected_ai,
-                "ai_skills": ai_skills,
-                "ai_commands_dir": ai_commands_dir,
-                "here": here,
-                "preset": preset,
-                "script": selected_script,
-                "speckit_version": get_speckit_version(),
-            })
-
-            # Install preset if specified
-            if preset:
-                try:
-                    from .presets import PresetManager, PresetCatalog, PresetError
-                    preset_manager = PresetManager(project_path)
-                    speckit_ver = get_speckit_version()
-
-                    # Try local directory first, then catalog
-                    local_path = Path(preset).resolve()
-                    if local_path.is_dir() and (local_path / "preset.yml").exists():
-                        preset_manager.install_from_directory(local_path, speckit_ver)
-                    else:
-                        preset_catalog = PresetCatalog(project_path)
-                        pack_info = preset_catalog.get_pack_info(preset)
-                        if not pack_info:
-                            console.print(f"[yellow]Warning:[/yellow] Preset '{preset}' not found in catalog. Skipping.")
-                        else:
-                            try:
-                                zip_path = preset_catalog.download_pack(preset)
-                                preset_manager.install_from_zip(zip_path, speckit_ver)
-                                # Clean up downloaded ZIP to avoid cache accumulation
-                                try:
-                                    zip_path.unlink(missing_ok=True)
-                                except OSError:
-                                    # Best-effort cleanup; failure to delete is non-fatal
-                                    pass
-                            except PresetError as preset_err:
-                                console.print(f"[yellow]Warning:[/yellow] Failed to install preset '{preset}': {preset_err}")
-                except Exception as preset_err:
-                    console.print(f"[yellow]Warning:[/yellow] Failed to install preset: {preset_err}")
+            speckit_version = get_speckit_version()
+            persist_init_options(
+                project_path,
+                selected_ai=selected_ai,
+                ai_skills=ai_skills,
+                ai_commands_dir=ai_commands_dir,
+                here=here,
+                preset=preset,
+                selected_script=selected_script,
+                speckit_version=speckit_version,
+                save_init_options_fn=save_init_options,
+            )
+            install_requested_preset(project_path, preset, speckit_version, console)
 
             tracker.complete("final", "project ready")
         except Exception as e:
