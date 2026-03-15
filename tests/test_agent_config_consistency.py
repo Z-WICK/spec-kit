@@ -1,13 +1,46 @@
 """Consistency checks for agent configuration across runtime and packaging scripts."""
 
-import re
 from pathlib import Path
 
 from specify_cli import AGENT_CONFIG, AI_ASSISTANT_ALIASES, AI_ASSISTANT_HELP
+from specify_cli.agents import (
+    AGENT_COMMAND_CONFIGS,
+    AGENT_CONTEXT_CONFIGS,
+    AGENT_PACKAGING_CONFIGS,
+    get_agent_skills_dir_relative,
+)
 from specify_cli.extensions import CommandRegistrar
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+def _load_agent_registry() -> dict[str, dict[str, str]]:
+    registry: dict[str, dict[str, str]] = {}
+    registry_file = REPO_ROOT / "scripts" / "agent-registry.txt"
+    for raw_line in registry_file.read_text(encoding="utf-8").splitlines():
+        if not raw_line or raw_line.startswith("#"):
+            continue
+        parts = raw_line.split("|")
+        registry[parts[0]] = {
+            "display_name": parts[1],
+            "command_dir": parts[2],
+            "command_format": parts[3],
+            "args_token": parts[4],
+            "extension": parts[5],
+            "skills_dir": parts[6],
+            "context_file": parts[7],
+            "context_name": parts[8],
+            "context_format": parts[9],
+            "package_strategy": parts[10],
+            "root_copy_source": parts[11],
+            "root_copy_dest": parts[12],
+            "copy_agent_templates_to": parts[13],
+            "legacy_mirror_dir": parts[14],
+            "exclude_agent_templates": parts[15],
+            "copy_vscode_settings": parts[16],
+        }
+    return registry
 
 
 class TestAgentConfigConsistency:
@@ -29,59 +62,72 @@ class TestAgentConfigConsistency:
         assert cfg["codex"]["dir"] == ".agents/skills"
         assert "q" not in cfg
 
-    def test_release_agent_lists_include_expected_union(self):
-        """Bash and PowerShell release scripts should agree on supported agents."""
+    def test_agent_registry_matches_runtime_metadata(self):
+        """Shared registry should stay aligned with runtime agent metadata."""
+        registry = _load_agent_registry()
+
+        assert set(registry) == set(AGENT_CONFIG)
+
+        args_token_map = {
+            "$ARGUMENTS": "markdown_args",
+            "{{args}}": "toml_args",
+        }
+
+        for agent, row in registry.items():
+            assert row["command_dir"] == AGENT_COMMAND_CONFIGS[agent]["dir"]
+            assert row["command_format"] == AGENT_COMMAND_CONFIGS[agent]["format"]
+            assert row["args_token"] == args_token_map[AGENT_COMMAND_CONFIGS[agent]["args"]]
+            assert row["extension"] == AGENT_COMMAND_CONFIGS[agent]["extension"]
+            assert row["skills_dir"] == get_agent_skills_dir_relative(agent)
+            assert row["context_file"] == AGENT_CONTEXT_CONFIGS[agent]["file"]
+            assert row["context_name"] == AGENT_CONTEXT_CONFIGS[agent]["name"]
+            assert row["context_format"] == AGENT_CONTEXT_CONFIGS[agent]["format"]
+            assert row["package_strategy"] == AGENT_PACKAGING_CONFIGS[agent]["strategy"]
+            assert row["root_copy_source"] == AGENT_PACKAGING_CONFIGS[agent]["root_copy_source"]
+            assert row["root_copy_dest"] == AGENT_PACKAGING_CONFIGS[agent]["root_copy_dest"]
+            assert row["copy_agent_templates_to"] == AGENT_PACKAGING_CONFIGS[agent]["copy_agent_templates_to"]
+            assert row["legacy_mirror_dir"] == AGENT_PACKAGING_CONFIGS[agent]["legacy_mirror_dir"]
+            assert row["exclude_agent_templates"] == ("1" if AGENT_PACKAGING_CONFIGS[agent]["exclude_agent_templates"] else "0")
+            assert row["copy_vscode_settings"] == ("1" if AGENT_PACKAGING_CONFIGS[agent]["copy_vscode_settings"] else "0")
+
+    def test_release_scripts_load_shared_registry(self):
+        """Bash and PowerShell release scripts should derive agents from the shared registry."""
         sh_text = (REPO_ROOT / ".github" / "workflows" / "scripts" / "create-release-packages.sh").read_text(encoding="utf-8")
         ps_text = (REPO_ROOT / ".github" / "workflows" / "scripts" / "create-release-packages.ps1").read_text(encoding="utf-8")
 
-        sh_match = re.search(r"ALL_AGENTS=\(([^)]*)\)", sh_text)
-        assert sh_match is not None
-        sh_agents = sh_match.group(1).split()
-
-        ps_match = re.search(r"\$AllAgents = @\(([^)]*)\)", ps_text)
-        assert ps_match is not None
-        ps_agents = re.findall(r"'([^']+)'", ps_match.group(1))
-
-        for agent in ("kiro-cli", "shai", "tabnine", "agy", "droid", "kimi"):
-            assert agent in sh_agents
-            assert agent in ps_agents
-
-        assert "q" not in sh_agents
-        assert "q" not in ps_agents
+        assert "agent-registry.sh" in sh_text
+        assert 'ALL_AGENTS=("${AGENT_REGISTRY_ORDER[@]}")' in sh_text
+        assert "agent-registry.ps1" in ps_text
+        assert "Get-AgentRegistry" in ps_text
 
     def test_release_scripts_use_expected_paths_for_agy_and_tabnine(self):
-        """Packaging scripts should emit current agent-specific directories."""
-        sh_text = (REPO_ROOT / ".github" / "workflows" / "scripts" / "create-release-packages.sh").read_text(encoding="utf-8")
-        ps_text = (REPO_ROOT / ".github" / "workflows" / "scripts" / "create-release-packages.ps1").read_text(encoding="utf-8")
+        """Registry should retain fork-specific packaging paths."""
+        registry = _load_agent_registry()
 
-        assert re.search(r"agy\)\s*\n.*?\.agent/commands", sh_text, re.S) is not None
-        assert re.search(r"'agy'\s*\{.*?\.agent/commands", ps_text, re.S) is not None
-        assert ".tabnine/agent/commands" in sh_text
-        assert ".tabnine/agent/commands" in ps_text
+        assert registry["agy"]["command_dir"] == ".agent/commands"
+        assert registry["tabnine"]["command_dir"] == ".tabnine/agent/commands"
+        assert registry["droid"]["legacy_mirror_dir"] == ".factory/commands"
+        assert registry["kimi"]["package_strategy"] == "kimi_skill_tree"
 
     def test_github_release_includes_new_agent_packages(self):
-        """GitHub release script should include all fork-supported extra packages."""
+        """GitHub release script should build assets from the shared registry."""
         gh_release_text = (REPO_ROOT / ".github" / "workflows" / "scripts" / "create-github-release.sh").read_text(encoding="utf-8")
 
-        for fragment in (
-            "spec-kit-template-kiro-cli-sh-",
-            "spec-kit-template-tabnine-sh-",
-            "spec-kit-template-droid-sh-",
-            "spec-kit-template-kimi-sh-",
-        ):
-            assert fragment in gh_release_text
-
-        assert "spec-kit-template-q-sh-" not in gh_release_text
-        assert "spec-kit-template-q-ps-" not in gh_release_text
+        assert "agent-registry.sh" in gh_release_text
+        assert 'for agent in "${AGENT_REGISTRY_ORDER[@]}"' in gh_release_text
+        assert 'spec-kit-template-${agent}-${variant}-${VERSION}.zip' in gh_release_text
 
     def test_agent_context_scripts_cover_supported_agents(self):
-        """Agent context update scripts should support current fork-only agents."""
+        """Context update scripts should derive supported agents from the shared registry."""
         bash_text = (REPO_ROOT / "scripts" / "bash" / "update-agent-context.sh").read_text(encoding="utf-8")
         pwsh_text = (REPO_ROOT / "scripts" / "powershell" / "update-agent-context.ps1").read_text(encoding="utf-8")
+        registry = _load_agent_registry()
 
         for token in ("kiro-cli", "tabnine", "kimi", "droid"):
-            assert token in bash_text
-            assert token in pwsh_text
+            assert token in registry
+
+        assert "agent-registry.sh" in bash_text
+        assert "agent-registry.ps1" in pwsh_text
 
         assert "Amazon Q Developer CLI" not in bash_text
         assert "Amazon Q Developer CLI" not in pwsh_text

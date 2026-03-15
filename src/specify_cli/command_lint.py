@@ -9,7 +9,12 @@ from typing import Any, Dict, List, Tuple
 
 import yaml
 
-from .agents import AGENT_COMMAND_CONFIGS
+from .agents import (
+    AGENT_COMMAND_CONFIGS,
+    AGENT_CONTEXT_CONFIGS,
+    AGENT_PACKAGING_CONFIGS,
+    get_agent_skills_dir_relative,
+)
 
 
 @dataclass
@@ -271,9 +276,55 @@ def _extract_ps_array(content: str, name: str) -> List[str]:
     return re.findall(r"'([^']+)'", match.group(1))
 
 
+def _parse_agent_registry(repo_root: Path, result: LintResult) -> Dict[str, Dict[str, str]]:
+    registry_path = repo_root / "scripts" / "agent-registry.txt"
+    content = _read_checked_text(registry_path, result)
+    if not content:
+        return {}
+
+    registry: Dict[str, Dict[str, str]] = {}
+    expected_columns = 17
+    column_names = (
+        "agent",
+        "display_name",
+        "command_dir",
+        "command_format",
+        "args_token",
+        "extension",
+        "skills_dir",
+        "context_file",
+        "context_name",
+        "context_format",
+        "package_strategy",
+        "root_copy_source",
+        "root_copy_dest",
+        "copy_agent_templates_to",
+        "legacy_mirror_dir",
+        "exclude_agent_templates",
+        "copy_vscode_settings",
+    )
+
+    for lineno, raw_line in enumerate(content.splitlines(), start=1):
+        if not raw_line or raw_line.startswith("#"):
+            continue
+        parts = raw_line.split("|")
+        if len(parts) != expected_columns:
+            result.errors.append(
+                f"{registry_path}:{lineno}: expected {expected_columns} fields, found {len(parts)}"
+            )
+            continue
+        row = dict(zip(column_names, parts))
+        agent = row.pop("agent")
+        registry[agent] = row
+
+    return registry
+
+
 def _lint_release_scripts(repo_root: Path, result: LintResult) -> None:
     expected_agents = list(AGENT_COMMAND_CONFIGS.keys())
-    expected_by_agent = {k: v["dir"] for k, v in AGENT_COMMAND_CONFIGS.items()}
+    registry = _parse_agent_registry(repo_root, result)
+    if not registry:
+        return
 
     sh_script = repo_root / ".github" / "workflows" / "scripts" / "create-release-packages.sh"
     ps_script = repo_root / ".github" / "workflows" / "scripts" / "create-release-packages.ps1"
@@ -285,55 +336,100 @@ def _lint_release_scripts(repo_root: Path, result: LintResult) -> None:
     if not sh_content or not ps_content or not release_content:
         return
 
-    sh_agents = _extract_shell_array(sh_content, "ALL_AGENTS")
-    ps_agents = _extract_ps_array(ps_content, "AllAgents")
-
-    if set(sh_agents) != set(expected_agents):
+    registry_agents = sorted(registry.keys())
+    if registry_agents != sorted(expected_agents):
         result.errors.append(
-            f"{sh_script}: ALL_AGENTS mismatch. expected={sorted(expected_agents)} actual={sorted(sh_agents)}"
-        )
-    if set(ps_agents) != set(expected_agents):
-        result.errors.append(
-            f"{ps_script}: $AllAgents mismatch. expected={sorted(expected_agents)} actual={sorted(ps_agents)}"
+            f"scripts/agent-registry.txt: agent set mismatch. expected={sorted(expected_agents)} actual={registry_agents}"
         )
 
-    special_sh_patterns = {
-        "kimi": [
-            re.compile(
-                rf"create_kimi_skills\s+\"\$base_dir/{re.escape(expected_by_agent['kimi'])}\""
-            )
-        ]
+    args_token_map = {
+        "$ARGUMENTS": "markdown_args",
+        "{{args}}": "toml_args",
     }
 
-    for agent, command_dir in expected_by_agent.items():
-        sh_patterns = special_sh_patterns.get(
-            agent,
-            [
-                re.compile(
-                    rf"generate_commands\s+{re.escape(agent)}\s+.*?\"\$base_dir/{re.escape(command_dir)}\""
-                )
-            ],
-        )
-        if not any(pattern.search(sh_content) for pattern in sh_patterns):
+    for agent, command_cfg in AGENT_COMMAND_CONFIGS.items():
+        row = registry.get(agent)
+        if row is None:
             result.errors.append(
-                f"{sh_script}: agent '{agent}' is not mapped to '{command_dir}'"
+                f"scripts/agent-registry.txt: missing agent '{agent}'"
+            )
+            continue
+
+        expected_context = AGENT_CONTEXT_CONFIGS[agent]
+        expected_packaging = AGENT_PACKAGING_CONFIGS[agent]
+
+        if row["command_dir"] != command_cfg["dir"]:
+            result.errors.append(
+                f"scripts/agent-registry.txt: agent '{agent}' command_dir mismatch. expected='{command_cfg['dir']}' actual='{row['command_dir']}'"
+            )
+        if row["command_format"] != command_cfg["format"]:
+            result.errors.append(
+                f"scripts/agent-registry.txt: agent '{agent}' command_format mismatch. expected='{command_cfg['format']}' actual='{row['command_format']}'"
+            )
+        if row["extension"] != command_cfg["extension"]:
+            result.errors.append(
+                f"scripts/agent-registry.txt: agent '{agent}' extension mismatch. expected='{command_cfg['extension']}' actual='{row['extension']}'"
+            )
+        if row["skills_dir"] != get_agent_skills_dir_relative(agent):
+            result.errors.append(
+                f"scripts/agent-registry.txt: agent '{agent}' skills_dir mismatch. expected='{get_agent_skills_dir_relative(agent)}' actual='{row['skills_dir']}'"
+            )
+        expected_args_token = args_token_map.get(command_cfg["args"], "")
+        if row["args_token"] != expected_args_token:
+            result.errors.append(
+                f"scripts/agent-registry.txt: agent '{agent}' args token mismatch. expected='{expected_args_token}' actual='{row['args_token']}'"
+            )
+        if row["context_file"] != expected_context["file"]:
+            result.errors.append(
+                f"scripts/agent-registry.txt: agent '{agent}' context_file mismatch. expected='{expected_context['file']}' actual='{row['context_file']}'"
+            )
+        if row["context_name"] != expected_context["name"]:
+            result.errors.append(
+                f"scripts/agent-registry.txt: agent '{agent}' context_name mismatch. expected='{expected_context['name']}' actual='{row['context_name']}'"
+            )
+        if row["context_format"] != expected_context["format"]:
+            result.errors.append(
+                f"scripts/agent-registry.txt: agent '{agent}' context_format mismatch. expected='{expected_context['format']}' actual='{row['context_format']}'"
+            )
+        if row["package_strategy"] != expected_packaging["strategy"]:
+            result.errors.append(
+                f"scripts/agent-registry.txt: agent '{agent}' package_strategy mismatch. expected='{expected_packaging['strategy']}' actual='{row['package_strategy']}'"
+            )
+        if row["root_copy_source"] != expected_packaging["root_copy_source"]:
+            result.errors.append(
+                f"scripts/agent-registry.txt: agent '{agent}' root_copy_source mismatch. expected='{expected_packaging['root_copy_source']}' actual='{row['root_copy_source']}'"
+            )
+        if row["root_copy_dest"] != expected_packaging["root_copy_dest"]:
+            result.errors.append(
+                f"scripts/agent-registry.txt: agent '{agent}' root_copy_dest mismatch. expected='{expected_packaging['root_copy_dest']}' actual='{row['root_copy_dest']}'"
+            )
+        if row["copy_agent_templates_to"] != expected_packaging["copy_agent_templates_to"]:
+            result.errors.append(
+                f"scripts/agent-registry.txt: agent '{agent}' copy_agent_templates_to mismatch. expected='{expected_packaging['copy_agent_templates_to']}' actual='{row['copy_agent_templates_to']}'"
+            )
+        if row["legacy_mirror_dir"] != expected_packaging["legacy_mirror_dir"]:
+            result.errors.append(
+                f"scripts/agent-registry.txt: agent '{agent}' legacy_mirror_dir mismatch. expected='{expected_packaging['legacy_mirror_dir']}' actual='{row['legacy_mirror_dir']}'"
+            )
+        if row["exclude_agent_templates"] != ("1" if expected_packaging["exclude_agent_templates"] else "0"):
+            result.errors.append(
+                f"scripts/agent-registry.txt: agent '{agent}' exclude_agent_templates mismatch"
+            )
+        if row["copy_vscode_settings"] != ("1" if expected_packaging["copy_vscode_settings"] else "0"):
+            result.errors.append(
+                f"scripts/agent-registry.txt: agent '{agent}' copy_vscode_settings mismatch"
             )
 
-        ps_pattern = re.compile(
-            rf"'{re.escape(agent)}'\s*\{{[\s\S]*?Join-Path \$baseDir \"{re.escape(command_dir)}\"",
-            flags=re.DOTALL,
-        )
-        if not ps_pattern.search(ps_content):
-            result.errors.append(
-                f"{ps_script}: agent '{agent}' is not mapped to '{command_dir}'"
-            )
-
-        for variant in ("sh", "ps"):
-            asset = f'spec-kit-template-{agent}-{variant}-"$VERSION".zip'
-            if asset not in release_content:
-                result.errors.append(
-                    f"{release_script}: missing release asset '{asset}'"
-                )
+    if "agent-registry.sh" not in sh_content:
+        result.errors.append(f"{sh_script}: must load scripts/bash/agent-registry.sh")
+    if "agent-registry.ps1" not in ps_content:
+        result.errors.append(f"{ps_script}: must load scripts/powershell/agent-registry.ps1")
+    if "agent-registry.sh" not in release_content:
+        result.errors.append(f"{release_script}: must load scripts/bash/agent-registry.sh")
+    if 'for agent in "${AGENT_REGISTRY_ORDER[@]}"' not in release_content:
+        result.errors.append(f"{release_script}: must iterate assets from AGENT_REGISTRY_ORDER")
+    if "Get-AgentRegistry" not in ps_content:
+        result.errors.append(f"{ps_script}: must derive agent list from Get-AgentRegistry")
 
 
 def _lint_execution_contract(repo_root: Path, result: LintResult) -> None:

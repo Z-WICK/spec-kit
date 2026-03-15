@@ -58,6 +58,10 @@ if (Test-Path $GenReleasesDir) {
 }
 New-Item -ItemType Directory -Path $GenReleasesDir -Force | Out-Null
 
+$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '../../..')).Path
+. (Join-Path $RepoRoot 'scripts/powershell/agent-registry.ps1')
+$AgentRegistry = Get-AgentRegistryMap
+
 function Rewrite-Paths {
     param([string]$Content)
 
@@ -366,7 +370,7 @@ function Build-Variant {
             $isAgentTemplate = $_.FullName -match 'templates[/\\]agents[/\\]'
             (-not $isCommandTemplate) -and
             ($_.Name -ne 'vscode-settings.json') -and
-            (($Agent -ne 'codex') -or (-not $isAgentTemplate))
+            ((-not $AgentRegistry[$Agent].ExcludeAgentTemplates) -or (-not $isAgentTemplate))
         } | ForEach-Object {
             $relativePath = $_.FullName.Substring((Resolve-Path "templates").Path.Length + 1)
             $destFile = Join-Path $templatesDestDir $relativePath
@@ -378,142 +382,70 @@ function Build-Variant {
     }
 
     # Generate agent-specific command files
-    switch ($Agent) {
-        'claude' {
-            $cmdDir = Join-Path $baseDir ".claude/commands"
-            Generate-Commands -Agent 'claude' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
-            # Copy agent definitions for Claude Code custom agents
-            if (Test-Path "templates/agents") {
-                $agentsDir = Join-Path $baseDir ".claude/agents"
-                New-Item -ItemType Directory -Path $agentsDir -Force | Out-Null
-                Get-ChildItem "templates/agents/*.md" | ForEach-Object {
-                    Copy-Item -Path $_.FullName -Destination $agentsDir
-                }
-                Write-Host "Copied agents -> .claude/agents"
-            }
-        }
-        'gemini' {
-            $cmdDir = Join-Path $baseDir ".gemini/commands"
-            Generate-Commands -Agent 'gemini' -Extension 'toml' -ArgFormat '{{args}}' -OutputDir $cmdDir -ScriptVariant $Script
-            if (Test-Path "agent_templates/gemini/GEMINI.md") {
-                Copy-Item -Path "agent_templates/gemini/GEMINI.md" -Destination (Join-Path $baseDir "GEMINI.md")
-            }
-        }
-        'copilot' {
-            $agentsDir = Join-Path $baseDir ".github/agents"
-            Generate-Commands -Agent 'copilot' -Extension 'agent.md' -ArgFormat '$ARGUMENTS' -OutputDir $agentsDir -ScriptVariant $Script
+    $agentConfig = $AgentRegistry[$Agent]
+    if ($null -eq $agentConfig) {
+        throw "Unsupported agent '$Agent'."
+    }
 
-            $promptsDir = Join-Path $baseDir ".github/prompts"
-            Generate-CopilotPrompts -AgentsDir $agentsDir -PromptsDir $promptsDir
+    $cmdDir = Join-Path $baseDir $agentConfig.CommandDir
+    New-Item -ItemType Directory -Path $cmdDir -Force | Out-Null
+    $argFormat = Resolve-AgentArgsToken -ArgsToken $agentConfig.ArgsToken
 
-            $vscodeDir = Join-Path $baseDir ".vscode"
-            New-Item -ItemType Directory -Path $vscodeDir -Force | Out-Null
-            if (Test-Path "templates/vscode-settings.json") {
-                Copy-Item -Path "templates/vscode-settings.json" -Destination (Join-Path $vscodeDir "settings.json")
-            }
-        }
-        'cursor-agent' {
-            $cmdDir = Join-Path $baseDir ".cursor/commands"
-            Generate-Commands -Agent 'cursor-agent' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
-        }
-        'qwen' {
-            $cmdDir = Join-Path $baseDir ".qwen/commands"
-            Generate-Commands -Agent 'qwen' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
-            if (Test-Path "agent_templates/qwen/QWEN.md") {
-                Copy-Item -Path "agent_templates/qwen/QWEN.md" -Destination (Join-Path $baseDir "QWEN.md")
-            }
-        }
-        'opencode' {
-            $cmdDir = Join-Path $baseDir ".opencode/command"
-            Generate-Commands -Agent 'opencode' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
-        }
-        'windsurf' {
-            $cmdDir = Join-Path $baseDir ".windsurf/workflows"
-            Generate-Commands -Agent 'windsurf' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
-        }
-        'codex' {
-            $cmdDir = Join-Path $baseDir ".agents/skills"
-            Generate-Commands -Agent 'codex' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
-        }
-        'kilocode' {
-            $cmdDir = Join-Path $baseDir ".kilocode/rules"
-            Generate-Commands -Agent 'kilocode' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
-        }
-        'auggie' {
-            $cmdDir = Join-Path $baseDir ".augment/rules"
-            Generate-Commands -Agent 'auggie' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
-        }
-        'roo' {
-            $cmdDir = Join-Path $baseDir ".roo/rules"
-            Generate-Commands -Agent 'roo' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
-        }
-        'codebuddy' {
-            $cmdDir = Join-Path $baseDir ".codebuddy/commands"
-            Generate-Commands -Agent 'codebuddy' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
-        }
-        'qodercli' {
-            $cmdDir = Join-Path $baseDir ".qoder/commands"
-            Generate-Commands -Agent 'qodercli' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
-        }
-        'amp' {
-            $cmdDir = Join-Path $baseDir ".agents/commands"
-            Generate-Commands -Agent 'amp' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
-        }
-        'bob' {
-            $cmdDir = Join-Path $baseDir ".bob/commands"
-            Generate-Commands -Agent 'bob' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
-        }
-        'droid' {
-            $cmdDir = Join-Path $baseDir ".factory/skills"
-            Generate-Commands -Agent 'droid' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
-            # Backward compatibility for legacy Droid command folder.
-            $legacyDroidDir = Join-Path $baseDir ".factory/commands"
-            New-Item -ItemType Directory -Path $legacyDroidDir -Force | Out-Null
-            Copy-Item -Path (Join-Path $cmdDir "*") -Destination $legacyDroidDir -Recurse -Force
-
-            if (Test-Path "templates/agents") {
-                $droidsDir = Join-Path $baseDir ".factory/droids"
-                New-Item -ItemType Directory -Path $droidsDir -Force | Out-Null
-                Get-ChildItem "templates/agents/*.md" | ForEach-Object {
-                    Copy-Item -Path $_.FullName -Destination $droidsDir
-                }
-                Write-Host "Copied agents -> .factory/droids"
-            }
-        }
-        'shai' {
-            $cmdDir = Join-Path $baseDir ".shai/commands"
-            Generate-Commands -Agent 'shai' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
-        }
-        'tabnine' {
-            $cmdDir = Join-Path $baseDir ".tabnine/agent/commands"
-            Generate-Commands -Agent 'tabnine' -Extension 'toml' -ArgFormat '{{args}}' -OutputDir $cmdDir -ScriptVariant $Script
-            $tabnineTemplate = Join-Path 'agent_templates' 'tabnine/TABNINE.md'
-            if (Test-Path $tabnineTemplate) { Copy-Item $tabnineTemplate (Join-Path $baseDir 'TABNINE.md') }
-        }
-        'kiro-cli' {
-            $cmdDir = Join-Path $baseDir ".kiro/prompts"
-            Generate-Commands -Agent 'kiro-cli' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
-        }
-        'agy' {
-            $cmdDir = Join-Path $baseDir ".agent/commands"
-            Generate-Commands -Agent 'agy' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
-        }
-        'vibe' {
-            $cmdDir = Join-Path $baseDir ".vibe/prompts"
-            Generate-Commands -Agent 'vibe' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
-        }
-        'kimi' {
-            $skillsDir = Join-Path $baseDir ".kimi/skills"
-            New-Item -ItemType Directory -Force -Path $skillsDir | Out-Null
-            New-KimiSkills -SkillsDir $skillsDir -ScriptVariant $Script
-        }
-        'generic' {
-            $cmdDir = Join-Path $baseDir ".speckit/commands"
-            Generate-Commands -Agent 'generic' -Extension 'md' -ArgFormat '$ARGUMENTS' -OutputDir $cmdDir -ScriptVariant $Script
+    switch ($agentConfig.PackageStrategy) {
+        'standard_commands' { }
+        'copilot_agent' { }
+        'codex_skill_tree' { }
+        'kimi_skill_tree' {
+            New-KimiSkills -SkillsDir $cmdDir -ScriptVariant $Script
         }
         default {
-            throw "Unsupported agent '$Agent'."
+            throw "Unsupported packaging strategy '$($agentConfig.PackageStrategy)' for agent '$Agent'."
         }
+    }
+
+    if ($agentConfig.PackageStrategy -ne 'kimi_skill_tree') {
+        $commandExtension = switch ($agentConfig.Extension) {
+            '.md' { 'md' }
+            '.toml' { 'toml' }
+            '.agent.md' { 'agent.md' }
+            '/SKILL.md' { 'md' }
+            default { throw "Unsupported command extension '$($agentConfig.Extension)' for agent '$Agent'." }
+        }
+        Generate-Commands -Agent $Agent -Extension $commandExtension -ArgFormat $argFormat -OutputDir $cmdDir -ScriptVariant $Script
+    }
+
+    if ($agentConfig.PackageStrategy -eq 'copilot_agent') {
+        $promptsDir = Join-Path $baseDir ".github/prompts"
+        Generate-CopilotPrompts -AgentsDir $cmdDir -PromptsDir $promptsDir
+    }
+
+    if ($agentConfig.CopyVscodeSettings) {
+        $vscodeDir = Join-Path $baseDir ".vscode"
+        New-Item -ItemType Directory -Path $vscodeDir -Force | Out-Null
+        if (Test-Path "templates/vscode-settings.json") {
+            Copy-Item -Path "templates/vscode-settings.json" -Destination (Join-Path $vscodeDir "settings.json")
+        }
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($agentConfig.RootCopySource) -and -not [string]::IsNullOrWhiteSpace($agentConfig.RootCopyDest)) {
+        if (Test-Path $agentConfig.RootCopySource) {
+            Copy-Item -Path $agentConfig.RootCopySource -Destination (Join-Path $baseDir $agentConfig.RootCopyDest)
+        }
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($agentConfig.CopyAgentTemplatesTo) -and (Test-Path "templates/agents")) {
+        $agentsDir = Join-Path $baseDir $agentConfig.CopyAgentTemplatesTo
+        New-Item -ItemType Directory -Path $agentsDir -Force | Out-Null
+        Get-ChildItem "templates/agents/*.md" | ForEach-Object {
+            Copy-Item -Path $_.FullName -Destination $agentsDir
+        }
+        Write-Host "Copied agents -> $($agentConfig.CopyAgentTemplatesTo)"
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($agentConfig.LegacyMirrorDir)) {
+        $legacyDir = Join-Path $baseDir $agentConfig.LegacyMirrorDir
+        New-Item -ItemType Directory -Path $legacyDir -Force | Out-Null
+        Copy-Item -Path (Join-Path $cmdDir "*") -Destination $legacyDir -Recurse -Force
     }
     # Generate .version and .file-hashes for update tracking
     Set-Content -Path (Join-Path $specDir ".version") -Value $Version -NoNewline
@@ -535,7 +467,7 @@ function Build-Variant {
 }
 
 # Define all agents and scripts
-$AllAgents = @('claude', 'gemini', 'copilot', 'cursor-agent', 'qwen', 'opencode', 'windsurf', 'codex', 'kilocode', 'auggie', 'roo', 'codebuddy', 'qodercli', 'amp', 'shai', 'tabnine', 'kiro-cli', 'agy', 'bob', 'droid', 'vibe', 'kimi', 'generic')
+$AllAgents = (Get-AgentRegistry | ForEach-Object { $_.Agent })
 $AllScripts = @('sh', 'ps')
 
 function Normalize-List {

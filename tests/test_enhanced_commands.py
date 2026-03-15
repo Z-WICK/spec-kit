@@ -85,14 +85,14 @@ def test_update_agent_context_scripts_support_droid_agent():
     bash_script = (REPO_ROOT / "scripts" / "bash" / "update-agent-context.sh").read_text(
         encoding="utf-8"
     )
+    registry = (REPO_ROOT / "scripts" / "agent-registry.txt").read_text(encoding="utf-8")
     ps_script = (
         REPO_ROOT / "scripts" / "powershell" / "update-agent-context.ps1"
     ).read_text(encoding="utf-8")
 
-    assert "droid)" in bash_script
-    assert "Factory Droid" in bash_script
-    assert "'droid'" in ps_script
-    assert "Factory Droid" in ps_script
+    assert "droid|Factory Droid|" in registry
+    assert "agent-registry.sh" in bash_script
+    assert "agent-registry.ps1" in ps_script
 
 
 def test_find_placeholders_scripts_are_not_claude_hardcoded():

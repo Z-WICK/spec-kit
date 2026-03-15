@@ -9,7 +9,10 @@ from typing import Any, Dict, List
 import yaml
 
 
-AGENT_METADATA: Dict[str, Dict[str, Any]] = {
+DEFAULT_SKILLS_DIR = ".agents/skills"
+
+
+BASE_AGENT_METADATA: Dict[str, Dict[str, Any]] = {
     "copilot": {
         "name": "GitHub Copilot",
         "folder": ".github/",
@@ -243,11 +246,205 @@ AGENT_METADATA: Dict[str, Dict[str, Any]] = {
 }
 
 
+LOCAL_AGENT_METADATA_OVERRIDES: Dict[str, Dict[str, Any]] = {
+    "copilot": {
+        "context_file": ".github/agents/copilot-instructions.md",
+        "context_name": "GitHub Copilot",
+        "packaging_strategy": "copilot_agent",
+        "copy_vscode_settings": True,
+    },
+    "claude": {
+        "context_file": "CLAUDE.md",
+        "context_name": "Claude Code",
+        "copy_agent_templates_to": ".claude/agents",
+    },
+    "gemini": {
+        "context_file": "GEMINI.md",
+        "context_name": "Gemini CLI",
+        "root_copy_source": "agent_templates/gemini/GEMINI.md",
+        "root_copy_dest": "GEMINI.md",
+    },
+    "cursor-agent": {
+        "context_file": ".cursor/rules/specify-rules.mdc",
+        "context_name": "Cursor IDE",
+        "context_format": "mdc",
+    },
+    "qwen": {
+        "context_file": "QWEN.md",
+        "context_name": "Qwen Code",
+        "root_copy_source": "agent_templates/qwen/QWEN.md",
+        "root_copy_dest": "QWEN.md",
+    },
+    "opencode": {
+        "context_file": "AGENTS.md",
+        "context_name": "opencode",
+    },
+    "codex": {
+        "skills_dir": ".agents/skills",
+        "skill_name_style": "hyphen",
+        "skill_file_mode": "normalized",
+        "context_file": "AGENTS.md",
+        "context_name": "Codex CLI",
+        "packaging_strategy": "codex_skill_tree",
+        "exclude_agent_templates": True,
+    },
+    "windsurf": {
+        "context_file": ".windsurf/rules/specify-rules.md",
+        "context_name": "Windsurf",
+    },
+    "kilocode": {
+        "context_file": ".kilocode/rules/specify-rules.md",
+        "context_name": "Kilo Code",
+    },
+    "auggie": {
+        "context_file": ".augment/rules/specify-rules.md",
+        "context_name": "Auggie CLI",
+    },
+    "roo": {
+        "context_file": ".roo/rules/specify-rules.md",
+        "context_name": "Roo Code",
+    },
+    "codebuddy": {
+        "context_file": "CODEBUDDY.md",
+        "context_name": "CodeBuddy CLI",
+    },
+    "qodercli": {
+        "context_file": "QODER.md",
+        "context_name": "Qoder CLI",
+    },
+    "amp": {
+        "context_file": "AGENTS.md",
+        "context_name": "Amp",
+    },
+    "shai": {
+        "context_file": "SHAI.md",
+        "context_name": "SHAI",
+    },
+    "tabnine": {
+        "context_file": "TABNINE.md",
+        "context_name": "Tabnine CLI",
+        "root_copy_source": "agent_templates/tabnine/TABNINE.md",
+        "root_copy_dest": "TABNINE.md",
+    },
+    "kiro-cli": {
+        "context_file": "AGENTS.md",
+        "context_name": "Kiro CLI",
+    },
+    "agy": {
+        "context_file": ".agent/rules/specify-rules.md",
+        "context_name": "Antigravity",
+    },
+    "bob": {
+        "context_file": "AGENTS.md",
+        "context_name": "IBM Bob",
+    },
+    "droid": {
+        "context_file": ".factory/rules/specify-rules.md",
+        "context_name": "Factory Droid",
+        "copy_agent_templates_to": ".factory/droids",
+        "legacy_mirror_dir": ".factory/commands",
+    },
+    "vibe": {
+        "context_file": ".vibe/agents/specify-agents.md",
+        "context_name": "Mistral Vibe",
+    },
+    "kimi": {
+        "skill_name_style": "dot",
+        "skill_file_mode": "literal",
+        "context_file": "KIMI.md",
+        "context_name": "Kimi Code",
+        "packaging_strategy": "kimi_skill_tree",
+    },
+    "generic": {
+        "context_name": "Generic",
+    },
+}
+
+
 LEGACY_AGENT_ALIASES: Dict[str, str] = {
     "cursor": "cursor-agent",
     "kiro": "kiro-cli",
     "qoder": "qodercli",
 }
+
+
+def _merge_agent_metadata(
+    base_metadata: Dict[str, Dict[str, Any]],
+    overlays: Dict[str, Dict[str, Any]],
+) -> Dict[str, Dict[str, Any]]:
+    merged: Dict[str, Dict[str, Any]] = {}
+    for agent, metadata in base_metadata.items():
+        merged[agent] = dict(metadata)
+        merged[agent].update(overlays.get(agent, {}))
+    return merged
+
+
+def _default_skills_dir(folder: str | None) -> str:
+    if folder:
+        return f"{folder.rstrip('/')}/skills"
+    return DEFAULT_SKILLS_DIR
+
+
+def _normalize_agent_metadata(
+    metadata: Dict[str, Dict[str, Any]]
+) -> Dict[str, Dict[str, Any]]:
+    normalized: Dict[str, Dict[str, Any]] = {}
+    for agent, config in metadata.items():
+        row = dict(config)
+        row.setdefault("skills_dir", _default_skills_dir(row.get("folder")))
+        row.setdefault("skill_name_style", "hyphen")
+        row.setdefault("skill_file_mode", "none")
+        row.setdefault("context_name", row["name"])
+        row.setdefault("context_file", "")
+        row.setdefault("context_format", "plain")
+        row.setdefault("packaging_strategy", "standard_commands")
+        row.setdefault("root_copy_source", "")
+        row.setdefault("root_copy_dest", "")
+        row.setdefault("copy_agent_templates_to", "")
+        row.setdefault("legacy_mirror_dir", "")
+        row.setdefault("exclude_agent_templates", False)
+        row.setdefault("copy_vscode_settings", False)
+        normalized[agent] = row
+    return normalized
+
+
+AGENT_METADATA: Dict[str, Dict[str, Any]] = _normalize_agent_metadata(
+    _merge_agent_metadata(BASE_AGENT_METADATA, LOCAL_AGENT_METADATA_OVERRIDES)
+)
+
+
+def resolve_agent_name(agent_name: str) -> str:
+    """Resolve a legacy alias to its canonical agent key."""
+    return LEGACY_AGENT_ALIASES.get(agent_name, agent_name)
+
+
+def get_agent_metadata(agent_name: str) -> Dict[str, Any]:
+    """Return canonical metadata for the given agent key or alias."""
+    return AGENT_METADATA[resolve_agent_name(agent_name)]
+
+
+def get_agent_skills_dir_relative(agent_name: str) -> str:
+    """Return the project-relative skills directory for the agent."""
+    resolved = resolve_agent_name(agent_name)
+    if resolved not in AGENT_METADATA:
+        return DEFAULT_SKILLS_DIR
+    return str(AGENT_METADATA[resolved]["skills_dir"])
+
+
+def get_agent_skill_name_style(agent_name: str) -> str:
+    """Return the skill naming style used by the agent."""
+    resolved = resolve_agent_name(agent_name)
+    if resolved not in AGENT_METADATA:
+        return "hyphen"
+    return str(AGENT_METADATA[resolved]["skill_name_style"])
+
+
+def build_skill_name(agent_name: str, command_name: str) -> str:
+    """Build the visible skill name for the given agent and command."""
+    style = get_agent_skill_name_style(agent_name)
+    if style == "dot":
+        return command_name if command_name.startswith("speckit.") else f"speckit.{command_name}"
+    return command_name if command_name.startswith("speckit-") else f"speckit-{command_name}"
 
 
 AGENT_CONFIG: Dict[str, Dict[str, Any]] = {
@@ -262,12 +459,42 @@ AGENT_CONFIG: Dict[str, Dict[str, Any]] = {
 }
 
 
-AGENT_COMMAND_CONFIGS: Dict[str, Dict[str, str]] = {
+AGENT_COMMAND_CONFIGS: Dict[str, Dict[str, Any]] = {
     key: {
         "dir": value["command_dir"],
         "format": value["command_format"],
         "args": value["args"],
         "extension": value["extension"],
+        "skill_name_style": value["skill_name_style"],
+        "skill_file_mode": value["skill_file_mode"],
+    }
+    for key, value in AGENT_METADATA.items()
+}
+
+
+AGENT_CONTEXT_CONFIGS: Dict[str, Dict[str, str]] = {
+    key: {
+        "file": str(value["context_file"]),
+        "name": str(value["context_name"]),
+        "format": str(value["context_format"]),
+    }
+    for key, value in AGENT_METADATA.items()
+}
+
+
+AGENT_PACKAGING_CONFIGS: Dict[str, Dict[str, Any]] = {
+    key: {
+        "dir": value["command_dir"],
+        "format": value["command_format"],
+        "args": value["args"],
+        "extension": value["extension"],
+        "strategy": value["packaging_strategy"],
+        "root_copy_source": str(value["root_copy_source"]),
+        "root_copy_dest": str(value["root_copy_dest"]),
+        "copy_agent_templates_to": str(value["copy_agent_templates_to"]),
+        "legacy_mirror_dir": str(value["legacy_mirror_dir"]),
+        "exclude_agent_templates": bool(value["exclude_agent_templates"]),
+        "copy_vscode_settings": bool(value["copy_vscode_settings"]),
     }
     for key, value in AGENT_METADATA.items()
 }
@@ -350,7 +577,7 @@ class CommandRegistrar:
 
     @staticmethod
     def codex_skill_name(command_name: str) -> str:
-        """Convert a command name to a Codex-compatible skill name."""
+        """Convert a command name to a normalized skill directory name."""
         normalized = re.sub(r"[^a-zA-Z0-9_-]+", "-", command_name).strip("-").lower()
         return normalized or "skill"
 
@@ -376,18 +603,23 @@ class CommandRegistrar:
         """Convert argument placeholder format."""
         return content.replace(from_placeholder, to_placeholder)
 
-    @staticmethod
-    def _resolve_agent_name(agent_name: str) -> str:
-        """Resolve a legacy alias to its canonical agent key."""
-        return LEGACY_AGENT_ALIASES.get(agent_name, agent_name)
-
     def _skill_file_path(self, agent_name: str, commands_dir: Path, command_name: str) -> Path | None:
         """Return the skill file path for skill-based agents."""
-        if agent_name == "codex":
+        agent_config = self.AGENT_CONFIGS[agent_name]
+        mode = agent_config.get("skill_file_mode", "none")
+        if mode == "normalized":
             return commands_dir / self.codex_skill_name(command_name) / "SKILL.md"
-        if agent_name == "kimi":
+        if mode == "literal":
             return commands_dir / command_name / "SKILL.md"
         return None
+
+    def _skill_output_name(self, agent_name: str, command_name: str) -> str:
+        """Return the skill name written into SKILL.md frontmatter."""
+        agent_config = self.AGENT_CONFIGS[agent_name]
+        mode = agent_config.get("skill_file_mode", "none")
+        if mode == "normalized":
+            return self.codex_skill_name(command_name)
+        return command_name
 
     def register_commands(
         self,
@@ -399,7 +631,7 @@ class CommandRegistrar:
         context_note: str | None = None,
     ) -> List[str]:
         """Register commands for a specific agent."""
-        resolved_agent = self._resolve_agent_name(agent_name)
+        resolved_agent = resolve_agent_name(agent_name)
         if resolved_agent not in self.AGENT_CONFIGS:
             raise ValueError(f"Unsupported agent: {agent_name}")
 
@@ -426,7 +658,7 @@ class CommandRegistrar:
             dest_file = self._skill_file_path(resolved_agent, commands_dir, cmd_name)
             if dest_file is not None:
                 output = self._render_skill_command(
-                    self.codex_skill_name(cmd_name) if resolved_agent == "codex" else cmd_name,
+                    self._skill_output_name(resolved_agent, cmd_name),
                     description,
                     body,
                     source_id,
@@ -453,7 +685,7 @@ class CommandRegistrar:
                 alias_file = self._skill_file_path(resolved_agent, commands_dir, alias)
                 if alias_file is not None:
                     alias_output = self._render_skill_command(
-                        self.codex_skill_name(alias) if resolved_agent == "codex" else alias,
+                        self._skill_output_name(resolved_agent, alias),
                         description,
                         body,
                         source_id,
@@ -517,7 +749,7 @@ class CommandRegistrar:
     def unregister_commands(self, registered_commands: Dict[str, List[str]], project_root: Path) -> None:
         """Remove previously registered command files from agent directories."""
         for agent_name, cmd_names in registered_commands.items():
-            resolved_agent = self._resolve_agent_name(agent_name)
+            resolved_agent = resolve_agent_name(agent_name)
             if resolved_agent not in self.AGENT_CONFIGS:
                 continue
 
@@ -532,7 +764,7 @@ class CommandRegistrar:
                 if cmd_file.exists():
                     cmd_file.unlink()
 
-                if resolved_agent in {"codex", "kimi"}:
+                if agent_config.get("skill_file_mode", "none") != "none":
                     skill_dir = cmd_file.parent
                     if skill_dir.is_dir() and not any(skill_dir.iterdir()):
                         skill_dir.rmdir()

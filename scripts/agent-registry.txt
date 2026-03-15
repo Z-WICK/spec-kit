@@ -1,0 +1,24 @@
+# agent|display_name|command_dir|command_format|args_token|extension|skills_dir|context_file|context_name|context_format|package_strategy|root_copy_source|root_copy_dest|agents_copy_dest|legacy_mirror_dir|exclude_agent_templates|copy_vscode_settings
+copilot|GitHub Copilot|.github/agents|markdown|markdown_args|.agent.md|.github/skills|.github/agents/copilot-instructions.md|GitHub Copilot|plain|copilot_agent|||||0|1
+claude|Claude Code|.claude/commands|markdown|markdown_args|.md|.claude/skills|CLAUDE.md|Claude Code|plain|standard_commands|||.claude/agents||0|0
+gemini|Gemini CLI|.gemini/commands|toml|toml_args|.toml|.gemini/skills|GEMINI.md|Gemini CLI|plain|standard_commands|agent_templates/gemini/GEMINI.md|GEMINI.md|||0|0
+cursor-agent|Cursor|.cursor/commands|markdown|markdown_args|.md|.cursor/skills|.cursor/rules/specify-rules.mdc|Cursor IDE|mdc|standard_commands|||||0|0
+qwen|Qwen Code|.qwen/commands|markdown|markdown_args|.md|.qwen/skills|QWEN.md|Qwen Code|plain|standard_commands|agent_templates/qwen/QWEN.md|QWEN.md|||0|0
+opencode|opencode|.opencode/command|markdown|markdown_args|.md|.opencode/skills|AGENTS.md|opencode|plain|standard_commands|||||0|0
+codex|Codex CLI|.agents/skills|markdown|markdown_args|/SKILL.md|.agents/skills|AGENTS.md|Codex CLI|plain|codex_skill_tree|||||1|0
+windsurf|Windsurf|.windsurf/workflows|markdown|markdown_args|.md|.windsurf/skills|.windsurf/rules/specify-rules.md|Windsurf|plain|standard_commands|||||0|0
+kilocode|Kilo Code|.kilocode/rules|markdown|markdown_args|.md|.kilocode/skills|.kilocode/rules/specify-rules.md|Kilo Code|plain|standard_commands|||||0|0
+auggie|Auggie CLI|.augment/rules|markdown|markdown_args|.md|.augment/skills|.augment/rules/specify-rules.md|Auggie CLI|plain|standard_commands|||||0|0
+roo|Roo Code|.roo/rules|markdown|markdown_args|.md|.roo/skills|.roo/rules/specify-rules.md|Roo Code|plain|standard_commands|||||0|0
+codebuddy|CodeBuddy|.codebuddy/commands|markdown|markdown_args|.md|.codebuddy/skills|CODEBUDDY.md|CodeBuddy CLI|plain|standard_commands|||||0|0
+qodercli|Qoder CLI|.qoder/commands|markdown|markdown_args|.md|.qoder/skills|QODER.md|Qoder CLI|plain|standard_commands|||||0|0
+amp|Amp|.agents/commands|markdown|markdown_args|.md|.agents/skills|AGENTS.md|Amp|plain|standard_commands|||||0|0
+shai|SHAI|.shai/commands|markdown|markdown_args|.md|.shai/skills|SHAI.md|SHAI|plain|standard_commands|||||0|0
+tabnine|Tabnine CLI|.tabnine/agent/commands|toml|toml_args|.toml|.tabnine/agent/skills|TABNINE.md|Tabnine CLI|plain|standard_commands|agent_templates/tabnine/TABNINE.md|TABNINE.md|||0|0
+kiro-cli|Kiro CLI|.kiro/prompts|markdown|markdown_args|.md|.kiro/skills|AGENTS.md|Kiro CLI|plain|standard_commands|||||0|0
+agy|Antigravity|.agent/commands|markdown|markdown_args|.md|.agent/skills|.agent/rules/specify-rules.md|Antigravity|plain|standard_commands|||||0|0
+bob|IBM Bob|.bob/commands|markdown|markdown_args|.md|.bob/skills|AGENTS.md|IBM Bob|plain|standard_commands|||||0|0
+droid|Factory Droid|.factory/skills|markdown|markdown_args|.md|.factory/skills|.factory/rules/specify-rules.md|Factory Droid|plain|standard_commands|||.factory/droids|.factory/commands|0|0
+vibe|Mistral Vibe|.vibe/prompts|markdown|markdown_args|.md|.vibe/skills|.vibe/agents/specify-agents.md|Mistral Vibe|plain|standard_commands|||||0|0
+kimi|Kimi Code|.kimi/skills|markdown|markdown_args|/SKILL.md|.kimi/skills|KIMI.md|Kimi Code|plain|kimi_skill_tree|||||0|0
+generic|Generic (bring your own agent)|.speckit/commands|markdown|markdown_args|.md|.agents/skills||Generic|plain|standard_commands|||||0|0

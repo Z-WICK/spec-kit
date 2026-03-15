@@ -30,6 +30,11 @@ GENRELEASES_DIR=".genreleases"
 mkdir -p "$GENRELEASES_DIR"
 rm -rf "$GENRELEASES_DIR"/* || true
 
+SCRIPT_DIR="$(CDPATH="" cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(CDPATH="" cd "$SCRIPT_DIR/../../.." && pwd)"
+source "$REPO_ROOT/scripts/bash/agent-registry.sh"
+load_agent_registry
+
 rewrite_paths() {
   sed -E \
     -e 's@(^|[[:space:]]|`|"|\(|\)|\{|\}|\[|\]|:|=|,)\./memory/@\1./.specify/memory/@g' \
@@ -262,7 +267,7 @@ build_variant() {
 
   if [[ -d templates ]]; then
     mkdir -p "$SPEC_DIR/templates"
-    if [[ $agent == "codex" ]]; then
+    if [[ $(agent_registry_field "$agent" "exclude_agent_templates") == "1" ]]; then
       while IFS= read -r -d '' template_file; do
         rel_path="${template_file#templates/}"
         target_path="$SPEC_DIR/templates/$rel_path"
@@ -295,106 +300,75 @@ build_variant() {
   #   * Markdown/prompt (claude, copilot, cursor-agent, opencode): $ARGUMENTS
   #   * TOML (gemini, qwen): {{args}}
   # This keeps formats readable without extra abstraction.
+  local command_dir
+  command_dir=$(agent_registry_field "$agent" "command_dir")
+  local args_value
+  args_value=$(agent_registry_args_value "$(agent_registry_field "$agent" "args_token")")
+  local strategy
+  strategy=$(agent_registry_field "$agent" "package_strategy")
+  local output_dir="$base_dir/$command_dir"
+  mkdir -p "$output_dir"
 
-  case $agent in
-    claude)
-      mkdir -p "$base_dir/.claude/commands"
-      generate_commands claude md "\$ARGUMENTS" "$base_dir/.claude/commands" "$script"
-      # Copy agent definitions for Claude Code custom agents
-      if [[ -d templates/agents ]]; then
-        mkdir -p "$base_dir/.claude/agents"
-        for agent_file in templates/agents/*.md; do
-          [[ -f "$agent_file" ]] || continue
-          cp "$agent_file" "$base_dir/.claude/agents/"
-        done
-        echo "Copied agents -> .claude/agents"
-      fi ;;
-    gemini)
-      mkdir -p "$base_dir/.gemini/commands"
-      generate_commands gemini toml "{{args}}" "$base_dir/.gemini/commands" "$script"
-      [[ -f agent_templates/gemini/GEMINI.md ]] && cp agent_templates/gemini/GEMINI.md "$base_dir/GEMINI.md" ;;
-    copilot)
-      mkdir -p "$base_dir/.github/agents"
-      generate_commands copilot agent.md "\$ARGUMENTS" "$base_dir/.github/agents" "$script"
-      generate_copilot_prompts "$base_dir/.github/agents" "$base_dir/.github/prompts"
-      mkdir -p "$base_dir/.vscode"
-      [[ -f templates/vscode-settings.json ]] && cp templates/vscode-settings.json "$base_dir/.vscode/settings.json"
+  case "$strategy" in
+    standard_commands|copilot_agent|codex_skill_tree)
+      local command_ext
+      local agent_extension
+      agent_extension=$(agent_registry_field "$agent" "extension")
+      case "$agent_extension" in
+        .md) command_ext="md" ;;
+        .toml) command_ext="toml" ;;
+        .agent.md) command_ext="agent.md" ;;
+        /SKILL.md) command_ext="md" ;;
+        *)
+          echo "Unsupported command extension '$agent_extension' for agent '$agent'" >&2
+          exit 1
+          ;;
+      esac
+      generate_commands "$agent" "$command_ext" "$args_value" "$output_dir" "$script"
       ;;
-    cursor-agent)
-      mkdir -p "$base_dir/.cursor/commands"
-      generate_commands cursor-agent md "\$ARGUMENTS" "$base_dir/.cursor/commands" "$script" ;;
-    qwen)
-      mkdir -p "$base_dir/.qwen/commands"
-      generate_commands qwen md "\$ARGUMENTS" "$base_dir/.qwen/commands" "$script"
-      [[ -f agent_templates/qwen/QWEN.md ]] && cp agent_templates/qwen/QWEN.md "$base_dir/QWEN.md" ;;
-    opencode)
-      mkdir -p "$base_dir/.opencode/command"
-      generate_commands opencode md "\$ARGUMENTS" "$base_dir/.opencode/command" "$script" ;;
-    windsurf)
-      mkdir -p "$base_dir/.windsurf/workflows"
-      generate_commands windsurf md "\$ARGUMENTS" "$base_dir/.windsurf/workflows" "$script" ;;
-    codex)
-      mkdir -p "$base_dir/.agents/skills"
-      generate_commands codex md "\$ARGUMENTS" "$base_dir/.agents/skills" "$script" ;;
-    kilocode)
-      mkdir -p "$base_dir/.kilocode/rules"
-      generate_commands kilocode md "\$ARGUMENTS" "$base_dir/.kilocode/rules" "$script" ;;
-    auggie)
-      mkdir -p "$base_dir/.augment/rules"
-      generate_commands auggie md "\$ARGUMENTS" "$base_dir/.augment/rules" "$script" ;;
-    roo)
-      mkdir -p "$base_dir/.roo/rules"
-      generate_commands roo md "\$ARGUMENTS" "$base_dir/.roo/rules" "$script" ;;
-    codebuddy)
-      mkdir -p "$base_dir/.codebuddy/commands"
-      generate_commands codebuddy md "\$ARGUMENTS" "$base_dir/.codebuddy/commands" "$script" ;;
-    qodercli)
-      mkdir -p "$base_dir/.qoder/commands"
-      generate_commands qodercli md "\$ARGUMENTS" "$base_dir/.qoder/commands" "$script" ;;
-    amp)
-      mkdir -p "$base_dir/.agents/commands"
-      generate_commands amp md "\$ARGUMENTS" "$base_dir/.agents/commands" "$script" ;;
-    shai)
-      mkdir -p "$base_dir/.shai/commands"
-      generate_commands shai md "\$ARGUMENTS" "$base_dir/.shai/commands" "$script" ;;
-    tabnine)
-      mkdir -p "$base_dir/.tabnine/agent/commands"
-      generate_commands tabnine toml "{{args}}" "$base_dir/.tabnine/agent/commands" "$script"
-      [[ -f agent_templates/tabnine/TABNINE.md ]] && cp agent_templates/tabnine/TABNINE.md "$base_dir/TABNINE.md" ;;
-    kiro-cli)
-      mkdir -p "$base_dir/.kiro/prompts"
-      generate_commands kiro-cli md "\$ARGUMENTS" "$base_dir/.kiro/prompts" "$script" ;;
-    agy)
-      mkdir -p "$base_dir/.agent/commands"
-      generate_commands agy md "\$ARGUMENTS" "$base_dir/.agent/commands" "$script" ;;
-    bob)
-      mkdir -p "$base_dir/.bob/commands"
-      generate_commands bob md "\$ARGUMENTS" "$base_dir/.bob/commands" "$script" ;;
-    droid)
-      mkdir -p "$base_dir/.factory/skills"
-      generate_commands droid md "\$ARGUMENTS" "$base_dir/.factory/skills" "$script"
-      # Backward compatibility for legacy Droid command folder.
-      mkdir -p "$base_dir/.factory/commands"
-      cp -R "$base_dir/.factory/skills/." "$base_dir/.factory/commands/"
-      # Copy agent definitions as Droid subagents
-      if [[ -d templates/agents ]]; then
-        mkdir -p "$base_dir/.factory/droids"
-        for agent_file in templates/agents/*.md; do
-          [[ -f "$agent_file" ]] || continue
-          cp "$agent_file" "$base_dir/.factory/droids/"
-        done
-        echo "Copied agents -> .factory/droids"
-      fi ;;
-    vibe)
-      mkdir -p "$base_dir/.vibe/prompts"
-      generate_commands vibe md "\$ARGUMENTS" "$base_dir/.vibe/prompts" "$script" ;;
-    kimi)
-      mkdir -p "$base_dir/.kimi/skills"
-      create_kimi_skills "$base_dir/.kimi/skills" "$script" ;;
-    generic)
-      mkdir -p "$base_dir/.speckit/commands"
-      generate_commands generic md "\$ARGUMENTS" "$base_dir/.speckit/commands" "$script" ;;
+    kimi_skill_tree)
+      create_kimi_skills "$output_dir" "$script"
+      ;;
+    *)
+      echo "Unsupported packaging strategy '$strategy' for agent '$agent'" >&2
+      exit 1
+      ;;
   esac
+
+  if [[ "$strategy" == "copilot_agent" ]]; then
+    generate_copilot_prompts "$output_dir" "$base_dir/.github/prompts"
+  fi
+
+  if [[ $(agent_registry_field "$agent" "copy_vscode_settings") == "1" ]]; then
+    mkdir -p "$base_dir/.vscode"
+    [[ -f templates/vscode-settings.json ]] && cp templates/vscode-settings.json "$base_dir/.vscode/settings.json"
+  fi
+
+  local root_copy_source root_copy_dest
+  root_copy_source=$(agent_registry_field "$agent" "root_copy_source")
+  root_copy_dest=$(agent_registry_field "$agent" "root_copy_dest")
+  if [[ -n $root_copy_source && -n $root_copy_dest ]]; then
+    [[ -f $root_copy_source ]] && cp "$root_copy_source" "$base_dir/$root_copy_dest"
+  fi
+
+  local copy_agent_templates_to
+  copy_agent_templates_to=$(agent_registry_field "$agent" "copy_agent_templates_to")
+  if [[ -n $copy_agent_templates_to && -d templates/agents ]]; then
+    mkdir -p "$base_dir/$copy_agent_templates_to"
+    for agent_file in templates/agents/*.md; do
+      [[ -f "$agent_file" ]] || continue
+      cp "$agent_file" "$base_dir/$copy_agent_templates_to/"
+    done
+    echo "Copied agents -> $copy_agent_templates_to"
+  fi
+
+  local legacy_mirror_dir
+  legacy_mirror_dir=$(agent_registry_field "$agent" "legacy_mirror_dir")
+  if [[ -n $legacy_mirror_dir ]]; then
+    mkdir -p "$base_dir/$legacy_mirror_dir"
+    cp -R "$output_dir/." "$base_dir/$legacy_mirror_dir/"
+  fi
+
   # Generate .version and .file-hashes for update tracking
   echo "$NEW_VERSION" > "$SPEC_DIR/.version"
   ( cd "$base_dir" && find . -type f ! -name '.file-hashes' -print0 | sort -z | xargs -0 shasum -a 256 > .specify/.file-hashes )
@@ -404,7 +378,7 @@ build_variant() {
 }
 
 # Determine agent list
-ALL_AGENTS=(claude gemini copilot cursor-agent qwen opencode windsurf codex kilocode auggie roo codebuddy qodercli amp shai tabnine kiro-cli agy bob droid vibe kimi generic)
+ALL_AGENTS=("${AGENT_REGISTRY_ORDER[@]}")
 ALL_SCRIPTS=(sh ps)
 
 norm_list() {

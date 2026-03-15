@@ -23,6 +23,8 @@ def test_update_agent_context_preserves_symlink_target(tmp_path):
     scripts_dir.mkdir(parents=True)
     shutil.copy2(repo_root / "scripts" / "bash" / "update-agent-context.sh", scripts_dir / "update-agent-context.sh")
     shutil.copy2(repo_root / "scripts" / "bash" / "common.sh", scripts_dir / "common.sh")
+    shutil.copy2(repo_root / "scripts" / "bash" / "agent-registry.sh", scripts_dir / "agent-registry.sh")
+    shutil.copy2(repo_root / "scripts" / "agent-registry.txt", repo / "scripts" / "agent-registry.txt")
     (scripts_dir / "update-agent-context.sh").chmod(0o755)
 
     (repo / ".specify" / "templates").mkdir(parents=True)

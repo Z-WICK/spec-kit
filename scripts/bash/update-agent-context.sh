@@ -51,39 +51,16 @@ set -o pipefail
 # Get script directory and load common functions
 SCRIPT_DIR="$(CDPATH="" cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
+source "$SCRIPT_DIR/agent-registry.sh"
 
 # Get all paths and variables from common functions
 _paths_output=$(get_feature_paths) || { echo "ERROR: Failed to resolve feature paths" >&2; exit 1; }
 eval "$_paths_output"
 unset _paths_output
+load_agent_registry
 
 NEW_PLAN="$IMPL_PLAN"  # Alias for compatibility with existing code
 AGENT_TYPE="${1:-}"
-
-# Agent-specific file paths  
-CLAUDE_FILE="$REPO_ROOT/CLAUDE.md"
-GEMINI_FILE="$REPO_ROOT/GEMINI.md"
-COPILOT_FILE="$REPO_ROOT/.github/agents/copilot-instructions.md"
-CURSOR_FILE="$REPO_ROOT/.cursor/rules/specify-rules.mdc"
-QWEN_FILE="$REPO_ROOT/QWEN.md"
-AGENTS_FILE="$REPO_ROOT/AGENTS.md"
-WINDSURF_FILE="$REPO_ROOT/.windsurf/rules/specify-rules.md"
-KILOCODE_FILE="$REPO_ROOT/.kilocode/rules/specify-rules.md"
-AUGGIE_FILE="$REPO_ROOT/.augment/rules/specify-rules.md"
-ROO_FILE="$REPO_ROOT/.roo/rules/specify-rules.md"
-CODEBUDDY_FILE="$REPO_ROOT/CODEBUDDY.md"
-QODER_FILE="$REPO_ROOT/QODER.md"
-# AMP, Kiro CLI, and IBM Bob all share AGENTS.md — use AGENTS_FILE to avoid
-# updating the same file multiple times.
-AMP_FILE="$AGENTS_FILE"
-SHAI_FILE="$REPO_ROOT/SHAI.md"
-TABNINE_FILE="$REPO_ROOT/TABNINE.md"
-KIRO_FILE="$AGENTS_FILE"
-AGY_FILE="$REPO_ROOT/.agent/rules/specify-rules.md"
-BOB_FILE="$AGENTS_FILE"
-VIBE_FILE="$REPO_ROOT/.vibe/agents/specify-agents.md"
-KIMI_FILE="$REPO_ROOT/KIMI.md"
-DROID_FILE="$REPO_ROOT/.factory/rules/specify-rules.md"
 
 # Template file
 TEMPLATE_FILE="$REPO_ROOT/.specify/templates/agent-file-template.md"
@@ -112,6 +89,23 @@ log_error() {
 
 log_warning() {
     echo "WARNING: $1" >&2
+}
+
+context_target_for_agent() {
+    local agent="$1"
+    local rel_path
+    rel_path=$(agent_registry_field "$agent" "context_file") || return 1
+    if [[ -z "$rel_path" ]]; then
+        return 1
+    fi
+    printf '%s/%s' "$REPO_ROOT" "$rel_path"
+}
+
+context_name_for_agent() {
+    local agent="$1"
+    local name
+    name=$(agent_registry_field "$agent" "context_name") || return 1
+    printf '%s' "${name:-$agent}"
 }
 
 ensure_mdc_frontmatter() {
@@ -647,136 +641,51 @@ update_agent_file() {
 
 update_specific_agent() {
     local agent_type="$1"
-    
-    case "$agent_type" in
-        claude)
-            update_agent_file "$CLAUDE_FILE" "Claude Code" || return 1
-            ;;
-        gemini)
-            update_agent_file "$GEMINI_FILE" "Gemini CLI" || return 1
-            ;;
-        copilot)
-            update_agent_file "$COPILOT_FILE" "GitHub Copilot" || return 1
-            ;;
-        cursor-agent)
-            update_agent_file "$CURSOR_FILE" "Cursor IDE" || return 1
-            ;;
-        qwen)
-            update_agent_file "$QWEN_FILE" "Qwen Code" || return 1
-            ;;
-        opencode)
-            update_agent_file "$AGENTS_FILE" "opencode" || return 1
-            ;;
-        codex)
-            update_agent_file "$AGENTS_FILE" "Codex CLI" || return 1
-            ;;
-        windsurf)
-            update_agent_file "$WINDSURF_FILE" "Windsurf" || return 1
-            ;;
-        kilocode)
-            update_agent_file "$KILOCODE_FILE" "Kilo Code" || return 1
-            ;;
-        auggie)
-            update_agent_file "$AUGGIE_FILE" "Auggie CLI" || return 1
-            ;;
-        roo)
-            update_agent_file "$ROO_FILE" "Roo Code" || return 1
-            ;;
-        codebuddy)
-            update_agent_file "$CODEBUDDY_FILE" "CodeBuddy CLI" || return 1
-            ;;
-        qodercli)
-            update_agent_file "$QODER_FILE" "Qoder CLI" || return 1
-            ;;
-        amp)
-            update_agent_file "$AMP_FILE" "Amp" || return 1
-            ;;
-        shai)
-            update_agent_file "$SHAI_FILE" "SHAI" || return 1
-            ;;
-        tabnine)
-            update_agent_file "$TABNINE_FILE" "Tabnine CLI" || return 1
-            ;;
-        kiro-cli)
-            update_agent_file "$KIRO_FILE" "Kiro CLI" || return 1
-            ;;
-        agy)
-            update_agent_file "$AGY_FILE" "Antigravity" || return 1
-            ;;
-        bob)
-            update_agent_file "$BOB_FILE" "IBM Bob" || return 1
-            ;;
-        vibe)
-            update_agent_file "$VIBE_FILE" "Mistral Vibe" || return 1
-            ;;
-        kimi)
-            update_agent_file "$KIMI_FILE" "Kimi Code" || return 1
-            ;;
-        droid)
-            update_agent_file "$DROID_FILE" "Factory Droid"
-            ;;
-        generic)
-            log_info "Generic agent: no predefined context file. Use the agent-specific update script for your agent."
-            ;;
-        *)
-            log_error "Unknown agent type '$agent_type'"
-            log_error "Expected: claude|gemini|copilot|cursor-agent|qwen|opencode|codex|windsurf|kilocode|auggie|roo|codebuddy|amp|shai|tabnine|kiro-cli|agy|bob|droid|vibe|qodercli|kimi|generic"
-            exit 1
-            ;;
-    esac
+
+    if ! agent_registry_has_agent "$agent_type"; then
+        log_error "Unknown agent type '$agent_type'"
+        log_error "Expected: ${AGENT_REGISTRY_ORDER[*]}"
+        exit 1
+    fi
+
+    local target_file
+    if ! target_file=$(context_target_for_agent "$agent_type"); then
+        log_info "Generic agent: no predefined context file. Use the agent-specific update script for your agent."
+        return 0
+    fi
+
+    update_agent_file "$target_file" "$(context_name_for_agent "$agent_type")" || return 1
 }
 
 update_all_existing_agents() {
     local found_agent=false
+    local target_file agent
     local _updated_paths=()
 
-    # Helper: skip non-existent files and files already updated (dedup by
-    # realpath so that variables pointing to the same file — e.g. AMP_FILE,
-    # KIRO_FILE, BOB_FILE all resolving to AGENTS_FILE — are only written once).
-    # Uses a linear array instead of associative array for bash 3.2 compatibility.
     update_if_new() {
         local file="$1" name="$2"
-        [[ -f "$file" ]] || return 0
+        [[ -f "$file" || -L "$file" ]] || return 0
         local real_path
         real_path=$(realpath "$file" 2>/dev/null || echo "$file")
         local p
-        if [[ ${#_updated_paths[@]} -gt 0 ]]; then
-            for p in "${_updated_paths[@]}"; do
-                [[ "$p" == "$real_path" ]] && return 0
-            done
-        fi
+        for p in "${_updated_paths[@]}"; do
+            [[ "$p" == "$real_path" ]] && return 0
+        done
         update_agent_file "$file" "$name" || return 1
         _updated_paths+=("$real_path")
         found_agent=true
     }
 
-    update_if_new "$CLAUDE_FILE" "Claude Code"
-    update_if_new "$GEMINI_FILE" "Gemini CLI"
-    update_if_new "$COPILOT_FILE" "GitHub Copilot"
-    update_if_new "$CURSOR_FILE" "Cursor IDE"
-    update_if_new "$QWEN_FILE" "Qwen Code"
-    update_if_new "$AGENTS_FILE" "Codex/opencode"
-    update_if_new "$AMP_FILE" "Amp"
-    update_if_new "$KIRO_FILE" "Kiro CLI"
-    update_if_new "$BOB_FILE" "IBM Bob"
-    update_if_new "$WINDSURF_FILE" "Windsurf"
-    update_if_new "$KILOCODE_FILE" "Kilo Code"
-    update_if_new "$AUGGIE_FILE" "Auggie CLI"
-    update_if_new "$ROO_FILE" "Roo Code"
-    update_if_new "$CODEBUDDY_FILE" "CodeBuddy CLI"
-    update_if_new "$SHAI_FILE" "SHAI"
-    update_if_new "$TABNINE_FILE" "Tabnine CLI"
-    update_if_new "$QODER_FILE" "Qoder CLI"
-    update_if_new "$AGY_FILE" "Antigravity"
-    update_if_new "$VIBE_FILE" "Mistral Vibe"
-    update_if_new "$KIMI_FILE" "Kimi Code"
+    for agent in "${AGENT_REGISTRY_ORDER[@]}"; do
+        if ! target_file=$(context_target_for_agent "$agent" 2>/dev/null); then
+            continue
+        fi
+        update_if_new "$target_file" "$(context_name_for_agent "$agent")" || return 1
+    done
 
-    update_if_new "$DROID_FILE" "Factory Droid"
-
-    # If no agent files exist, create a default Claude file
     if [[ "$found_agent" == false ]]; then
         log_info "No existing agent files found, creating default Claude file..."
-        update_agent_file "$CLAUDE_FILE" "Claude Code" || return 1
+        update_agent_file "$REPO_ROOT/CLAUDE.md" "Claude Code" || return 1
     fi
 }
 print_summary() {
@@ -796,7 +705,8 @@ print_summary() {
     fi
     
     echo
-    log_info "Usage: $0 [claude|gemini|copilot|cursor-agent|qwen|opencode|codex|windsurf|kilocode|auggie|roo|codebuddy|amp|shai|tabnine|kiro-cli|agy|bob|droid|vibe|qodercli|kimi|generic]"
+    log_info "Usage: $0 [agent_type]"
+    log_info "Agent types: ${AGENT_REGISTRY_ORDER[*]}"
 }
 
 #==============================================================================

@@ -439,7 +439,7 @@ class PresetManager:
             The skills directory ``Path``, or ``None`` if skills were not
             enabled or the init-options file is missing.
         """
-        from . import load_init_options, _get_skills_dir
+        from .agent_runtime import load_init_options, _get_skills_dir
 
         opts = load_init_options(self.project_root)
         if not opts.get("ai_skills"):
@@ -501,7 +501,7 @@ class PresetManager:
         if not skills_dir:
             return []
 
-        from . import SKILL_DESCRIPTIONS, load_init_options
+        from .agent_runtime import SKILL_DESCRIPTIONS, load_init_options
 
         opts = load_init_options(self.project_root)
         selected_ai = opts.get("ai", "")
@@ -595,7 +595,7 @@ class PresetManager:
         if not skills_dir:
             return
 
-        from . import SKILL_DESCRIPTIONS
+        from .agent_runtime import SKILL_DESCRIPTIONS
 
         # Locate core command templates from the project's installed templates
         core_templates_dir = self.project_root / ".specify" / "templates" / "commands"

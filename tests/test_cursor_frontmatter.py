@@ -98,6 +98,12 @@ class TestCursorFrontmatterIntegration:
             capture_output=True,
             check=True,
         )
+        subprocess.run(
+            ["git", "config", "commit.gpgsign", "false"],
+            cwd=str(repo),
+            capture_output=True,
+            check=True,
+        )
 
         # Create .specify dir with config
         specify_dir = repo / ".specify"

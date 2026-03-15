@@ -7,6 +7,18 @@ All notable changes to the Specify CLI and templates are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.28] - 2026-03-15
+
+### Added
+
+- Added a shared `template_runtime` module plus focused regression tests for ZIP validation, project-relative path safety, and re-init preservation rules.
+
+### Changed
+
+- Centralized fork-specific agent metadata, packaging rules, and context-update mappings into shared registries consumed by the CLI, release scripts, and lint checks.
+- Extracted AI skills/init-option handling and template download/extract/bootstrap logic out of `specify_cli.__init__` while preserving Codex, Droid, Antigravity, and Kimi fork behavior.
+- Slimmed `specify_cli.__init__` to orchestration code so future upstream merges touch fewer fork-owned lines.
+
 ## [1.0.27] - 2026-03-14
 
 ### Changed
