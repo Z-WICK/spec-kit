@@ -762,7 +762,6 @@ class CommandRegistrar:
             frontmatter, body = self.parse_frontmatter(content)
             frontmatter = self._adjust_script_paths(frontmatter)
             body = self._convert_argument_placeholder(body, "$ARGUMENTS", agent_config["args"])
-            description = str(frontmatter.get("description", "")).strip()
 
             dest_file = self._skill_file_path(resolved_agent, commands_dir, cmd_name)
             if dest_file is not None:

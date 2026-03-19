@@ -30,12 +30,12 @@
 #
 # 5. Multi-Agent Support
 #    - Handles agent-specific file paths and naming conventions
-#    - Supports: Claude, Gemini, Copilot, Cursor, Qwen, opencode, Codex, Windsurf, Kilo Code, Auggie CLI, Roo Code, CodeBuddy CLI, Qoder CLI, Amp, SHAI, Kiro CLI, Factory Droid, or Antigravity
+#    - Supports: Claude, Gemini, Copilot, Cursor, Qwen, opencode, Codex, Windsurf, Kilo Code, Auggie CLI, Roo Code, CodeBuddy CLI, Qoder CLI, Amp, SHAI, Tabnine CLI, Kiro CLI, Factory Droid, Mistral Vibe, Kimi Code, Trae, Pi Coding Agent, iFlow CLI, Antigravity, or Generic
 #    - Can update single agents or all existing agent files
 #    - Creates default Claude file if no agent files exist
 #
 # Usage: ./update-agent-context.sh [agent_type]
-# Agent types: claude|gemini|copilot|cursor-agent|qwen|opencode|codex|windsurf|kilocode|auggie|roo|codebuddy|amp|shai|kiro-cli|agy|bob|droid|qodercli
+# Agent types: claude|gemini|copilot|cursor-agent|qwen|opencode|codex|windsurf|kilocode|auggie|roo|codebuddy|amp|shai|tabnine|kiro-cli|agy|bob|droid|vibe|qodercli|kimi|trae|pi|iflow|generic
 # Leave empty to update all existing agent files
 
 set -e
@@ -51,32 +51,16 @@ set -o pipefail
 # Get script directory and load common functions
 SCRIPT_DIR="$(CDPATH="" cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
+source "$SCRIPT_DIR/agent-registry.sh"
 
 # Get all paths and variables from common functions
-eval $(get_feature_paths)
+_paths_output=$(get_feature_paths) || { echo "ERROR: Failed to resolve feature paths" >&2; exit 1; }
+eval "$_paths_output"
+unset _paths_output
+load_agent_registry
 
 NEW_PLAN="$IMPL_PLAN"  # Alias for compatibility with existing code
 AGENT_TYPE="${1:-}"
-
-# Agent-specific file paths  
-CLAUDE_FILE="$REPO_ROOT/CLAUDE.md"
-GEMINI_FILE="$REPO_ROOT/GEMINI.md"
-COPILOT_FILE="$REPO_ROOT/.github/agents/copilot-instructions.md"
-CURSOR_FILE="$REPO_ROOT/.cursor/rules/specify-rules.mdc"
-QWEN_FILE="$REPO_ROOT/QWEN.md"
-AGENTS_FILE="$REPO_ROOT/AGENTS.md"
-WINDSURF_FILE="$REPO_ROOT/.windsurf/rules/specify-rules.md"
-KILOCODE_FILE="$REPO_ROOT/.kilocode/rules/specify-rules.md"
-AUGGIE_FILE="$REPO_ROOT/.augment/rules/specify-rules.md"
-ROO_FILE="$REPO_ROOT/.roo/rules/specify-rules.md"
-CODEBUDDY_FILE="$REPO_ROOT/CODEBUDDY.md"
-QODER_FILE="$REPO_ROOT/QODER.md"
-AMP_FILE="$REPO_ROOT/AGENTS.md"
-SHAI_FILE="$REPO_ROOT/SHAI.md"
-KIRO_FILE="$REPO_ROOT/AGENTS.md"
-AGY_FILE="$REPO_ROOT/.agent/rules/specify-rules.md"
-BOB_FILE="$REPO_ROOT/AGENTS.md"
-DROID_FILE="$REPO_ROOT/.factory/rules/specify-rules.md"
 
 # Template file
 TEMPLATE_FILE="$REPO_ROOT/.specify/templates/agent-file-template.md"
@@ -107,6 +91,23 @@ log_warning() {
     echo "WARNING: $1" >&2
 }
 
+context_target_for_agent() {
+    local agent="$1"
+    local rel_path
+    rel_path=$(agent_registry_field "$agent" "context_file") || return 1
+    if [[ -z "$rel_path" ]]; then
+        return 1
+    fi
+    printf '%s/%s' "$REPO_ROOT" "$rel_path"
+}
+
+context_name_for_agent() {
+    local agent="$1"
+    local name
+    name=$(agent_registry_field "$agent" "context_name") || return 1
+    printf '%s' "${name:-$agent}"
+}
+
 ensure_mdc_frontmatter() {
     local file_path="$1"
 
@@ -133,6 +134,8 @@ EOF
 # Cleanup function for temporary files
 cleanup() {
     local exit_code=$?
+    # Disarm traps to prevent re-entrant loop
+    trap - EXIT INT TERM
     rm -f /tmp/agent_update_*_$$
     rm -f /tmp/manual_additions_$$
     exit $exit_code
@@ -375,7 +378,7 @@ create_new_agent_file() {
     # Convert \n sequences to actual newlines
     newline=$(printf '\n')
     sed -i.bak2 "s/\\\\n/${newline}/g" "$temp_file"
-    
+
     # Clean up backup files
     rm -f "$temp_file.bak" "$temp_file.bak2"
 
@@ -386,7 +389,6 @@ create_new_agent_file() {
             return 1
         fi
     fi
-    
     return 0
 }
 
@@ -496,7 +498,7 @@ update_existing_agent_file() {
         fi
         
         # Update timestamp
-        if [[ "$line" =~ \*\*Last\ updated\*\*:.*[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] ]]; then
+        if [[ "$line" =~ (\*\*)?Last\ updated(\*\*)?:.*[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] ]]; then
             echo "$line" | sed "s/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/$current_date/" >> "$temp_file"
         else
             echo "$line" >> "$temp_file"
@@ -531,14 +533,14 @@ update_existing_agent_file() {
             return 1
         fi
     fi
-    
+
     # Move temp file to target atomically
     if ! mv "$temp_file" "$target_file"; then
         log_error "Failed to update target file"
         rm -f "$temp_file"
         return 1
     fi
-    
+
     return 0
 }
 #==============================================================================
@@ -639,168 +641,51 @@ update_agent_file() {
 
 update_specific_agent() {
     local agent_type="$1"
-    
-    case "$agent_type" in
-        claude)
-            update_agent_file "$CLAUDE_FILE" "Claude Code"
-            ;;
-        gemini)
-            update_agent_file "$GEMINI_FILE" "Gemini CLI"
-            ;;
-        copilot)
-            update_agent_file "$COPILOT_FILE" "GitHub Copilot"
-            ;;
-        cursor-agent)
-            update_agent_file "$CURSOR_FILE" "Cursor IDE"
-            ;;
-        qwen)
-            update_agent_file "$QWEN_FILE" "Qwen Code"
-            ;;
-        opencode)
-            update_agent_file "$AGENTS_FILE" "opencode"
-            ;;
-        codex)
-            update_agent_file "$AGENTS_FILE" "Codex CLI"
-            ;;
-        windsurf)
-            update_agent_file "$WINDSURF_FILE" "Windsurf"
-            ;;
-        kilocode)
-            update_agent_file "$KILOCODE_FILE" "Kilo Code"
-            ;;
-        auggie)
-            update_agent_file "$AUGGIE_FILE" "Auggie CLI"
-            ;;
-        roo)
-            update_agent_file "$ROO_FILE" "Roo Code"
-            ;;
-        codebuddy)
-            update_agent_file "$CODEBUDDY_FILE" "CodeBuddy CLI"
-            ;;
-        qodercli)
-            update_agent_file "$QODER_FILE" "Qoder CLI"
-            ;;
-        amp)
-            update_agent_file "$AMP_FILE" "Amp"
-            ;;
-        shai)
-            update_agent_file "$SHAI_FILE" "SHAI"
-            ;;
-        kiro-cli)
-            update_agent_file "$KIRO_FILE" "Kiro CLI"
-            ;;
-        agy)
-            update_agent_file "$AGY_FILE" "Antigravity"
-            ;;
-        bob)
-            update_agent_file "$BOB_FILE" "IBM Bob"
-            ;;
-        droid)
-            update_agent_file "$DROID_FILE" "Factory Droid"
-            ;;
-        generic)
-            log_info "Generic agent: no predefined context file. Use the agent-specific update script for your agent."
-            ;;
-        *)
-            log_error "Unknown agent type '$agent_type'"
-            log_error "Expected: claude|gemini|copilot|cursor-agent|qwen|opencode|codex|windsurf|kilocode|auggie|roo|codebuddy|amp|shai|kiro-cli|agy|bob|droid|qodercli|generic"
-            exit 1
-            ;;
-    esac
+
+    if ! agent_registry_has_agent "$agent_type"; then
+        log_error "Unknown agent type '$agent_type'"
+        log_error "Expected: ${AGENT_REGISTRY_ORDER[*]}"
+        exit 1
+    fi
+
+    local target_file
+    if ! target_file=$(context_target_for_agent "$agent_type"); then
+        log_info "Generic agent: no predefined context file. Use the agent-specific update script for your agent."
+        return 0
+    fi
+
+    update_agent_file "$target_file" "$(context_name_for_agent "$agent_type")" || return 1
 }
 
 update_all_existing_agents() {
     local found_agent=false
-    
-    # Check each possible agent file and update if it exists
-    if [[ -f "$CLAUDE_FILE" ]]; then
-        update_agent_file "$CLAUDE_FILE" "Claude Code"
-        found_agent=true
-    fi
-    
-    if [[ -f "$GEMINI_FILE" ]]; then
-        update_agent_file "$GEMINI_FILE" "Gemini CLI"
-        found_agent=true
-    fi
-    
-    if [[ -f "$COPILOT_FILE" ]]; then
-        update_agent_file "$COPILOT_FILE" "GitHub Copilot"
-        found_agent=true
-    fi
-    
-    if [[ -f "$CURSOR_FILE" ]]; then
-        update_agent_file "$CURSOR_FILE" "Cursor IDE"
-        found_agent=true
-    fi
-    
-    if [[ -f "$QWEN_FILE" ]]; then
-        update_agent_file "$QWEN_FILE" "Qwen Code"
-        found_agent=true
-    fi
-    
-    if [[ -f "$AGENTS_FILE" ]]; then
-        update_agent_file "$AGENTS_FILE" "Codex/opencode"
-        found_agent=true
-    fi
-    
-    if [[ -f "$WINDSURF_FILE" ]]; then
-        update_agent_file "$WINDSURF_FILE" "Windsurf"
-        found_agent=true
-    fi
-    
-    if [[ -f "$KILOCODE_FILE" ]]; then
-        update_agent_file "$KILOCODE_FILE" "Kilo Code"
-        found_agent=true
-    fi
+    local target_file agent
+    local _updated_paths=()
 
-    if [[ -f "$AUGGIE_FILE" ]]; then
-        update_agent_file "$AUGGIE_FILE" "Auggie CLI"
+    update_if_new() {
+        local file="$1" name="$2"
+        [[ -f "$file" || -L "$file" ]] || return 0
+        local real_path
+        real_path=$(realpath "$file" 2>/dev/null || echo "$file")
+        local p
+        for p in "${_updated_paths[@]}"; do
+            [[ "$p" == "$real_path" ]] && return 0
+        done
+        update_agent_file "$file" "$name" || return 1
+        _updated_paths+=("$real_path")
         found_agent=true
-    fi
-    
-    if [[ -f "$ROO_FILE" ]]; then
-        update_agent_file "$ROO_FILE" "Roo Code"
-        found_agent=true
-    fi
+    }
 
-    if [[ -f "$CODEBUDDY_FILE" ]]; then
-        update_agent_file "$CODEBUDDY_FILE" "CodeBuddy CLI"
-        found_agent=true
-    fi
+    for agent in "${AGENT_REGISTRY_ORDER[@]}"; do
+        if ! target_file=$(context_target_for_agent "$agent" 2>/dev/null); then
+            continue
+        fi
+        update_if_new "$target_file" "$(context_name_for_agent "$agent")" || return 1
+    done
 
-    if [[ -f "$SHAI_FILE" ]]; then
-        update_agent_file "$SHAI_FILE" "SHAI"
-        found_agent=true
-    fi
-
-    if [[ -f "$QODER_FILE" ]]; then
-        update_agent_file "$QODER_FILE" "Qoder CLI"
-        found_agent=true
-    fi
-
-    if [[ -f "$KIRO_FILE" ]]; then
-        update_agent_file "$KIRO_FILE" "Kiro CLI"
-        found_agent=true
-    fi
-
-    if [[ -f "$AGY_FILE" ]]; then
-        update_agent_file "$AGY_FILE" "Antigravity"
-        found_agent=true
-    fi
-    if [[ -f "$BOB_FILE" ]]; then
-        update_agent_file "$BOB_FILE" "IBM Bob"
-        found_agent=true
-    fi
-
-    if [[ -f "$DROID_FILE" ]]; then
-        update_agent_file "$DROID_FILE" "Factory Droid"
-        found_agent=true
-    fi
-    
-    # If no agent files exist, create a default Claude file
     if [[ "$found_agent" == false ]]; then
         log_info "No existing agent files found, creating default Claude file..."
-        update_agent_file "$CLAUDE_FILE" "Claude Code"
+        update_agent_file "$REPO_ROOT/CLAUDE.md" "Claude Code" || return 1
     fi
 }
 print_summary() {
@@ -820,8 +705,8 @@ print_summary() {
     fi
     
     echo
-
-    log_info "Usage: $0 [claude|gemini|copilot|cursor-agent|qwen|opencode|codex|windsurf|kilocode|auggie|roo|codebuddy|amp|shai|kiro-cli|agy|bob|droid|qodercli]"
+    log_info "Usage: $0 [agent_type]"
+    log_info "Agent types: ${AGENT_REGISTRY_ORDER[*]}"
 }
 
 #==============================================================================

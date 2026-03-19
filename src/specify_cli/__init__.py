@@ -29,11 +29,10 @@ import os
 import subprocess
 import sys
 import zipfile
-import tempfile
 import shutil
 import yaml
 from pathlib import Path
-from typing import Any, Optional, Tuple
+from typing import Optional, Tuple
 
 import typer
 import httpx
@@ -48,17 +47,17 @@ from typer.core import TyperGroup
 
 # For cross-platform keyboard input
 import readchar
-from datetime import datetime, timezone
+from datetime import datetime
 
 from .agent_runtime import (
-    AGENT_SKILLS_DIR_OVERRIDES,
-    DEFAULT_SKILLS_DIR,
-    INIT_OPTIONS_FILE,
-    SKILL_DESCRIPTIONS,
-    _get_skills_dir,
+    AGENT_SKILLS_DIR_OVERRIDES as AGENT_SKILLS_DIR_OVERRIDES,
+    DEFAULT_SKILLS_DIR as DEFAULT_SKILLS_DIR,
+    INIT_OPTIONS_FILE as INIT_OPTIONS_FILE,
+    SKILL_DESCRIPTIONS as SKILL_DESCRIPTIONS,
+    _get_skills_dir as _get_skills_dir,
     cleanup_extracted_commands_after_skill_install,
     install_ai_skills,
-    load_init_options,
+    load_init_options as load_init_options,
     resolve_ai_skills_mode,
     save_init_options,
 )
@@ -83,8 +82,8 @@ from .template_runtime import (
     download_and_extract_template,
     ensure_constitution_from_template,
     ensure_executable_scripts,
-    handle_vscode_settings,
-    merge_json_files,
+    handle_vscode_settings as handle_vscode_settings,
+    merge_json_files as merge_json_files,
     ssl_context,
 )
 

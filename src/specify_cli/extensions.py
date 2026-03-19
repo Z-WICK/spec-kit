@@ -25,9 +25,6 @@ import yaml
 from packaging import version as pkg_version
 from packaging.specifiers import SpecifierSet, InvalidSpecifier
 
-from .agents import AGENT_COMMAND_CONFIGS
-
-
 class ExtensionError(Exception):
     """Base exception for extension-related errors."""
     pass
