@@ -46,9 +46,9 @@ Specify supports multiple AI agents by generating agent-specific command files a
 | **Factory Droid**          | `.factory/skills/`     | Markdown | `droid`         | Factory Droid CLI           |
 | **Tabnine CLI**            | `.tabnine/agent/commands/` | TOML | `tabnine`       | Tabnine CLI                 |
 | **Kimi Code**              | `.kimi/skills/`        | Markdown | `kimi`          | Kimi Code CLI (Moonshot AI) |
-| **Factory Droid**          | `.factory/skills/`     | Markdown | `droid`         | Factory Droid CLI           |
-| **Tabnine CLI**            | `.tabnine/agent/commands/` | TOML | `tabnine`       | Tabnine CLI                 |
-| **Kimi Code**              | `.kimi/skills/`        | Markdown | `kimi`          | Kimi Code CLI (Moonshot AI) |
+| **Trae**                   | `.trae/rules/`         | Markdown | N/A (IDE-based) | Trae IDE                    |
+| **Pi Coding Agent**        | `.pi/prompts/`         | Markdown | `pi`            | Pi terminal coding agent    |
+| **iFlow CLI**              | `.iflow/commands/`     | Markdown | `iflow`         | iFlow CLI                   |
 | **IBM Bob**                | `.bob/commands/`       | Markdown | N/A (IDE-based) | IBM Bob IDE                 |
 | **Generic**                | User-specified via `--ai-commands-dir` | Markdown | N/A | Bring your own agent        |
 
@@ -60,10 +60,10 @@ Follow these steps to add a new agent (using a hypothetical new agent as an exam
 
 **IMPORTANT**: Use the actual CLI tool name as the key, not a shortened version.
 
-Add the new agent to the `AGENT_CONFIG` dictionary in `src/specify_cli/__init__.py`. This is the **single source of truth** for all agent metadata:
+Add the new agent to the shared agent metadata in `src/specify_cli/agents.py`, then mirror it in `scripts/agent-registry.txt`. Together these are the **single source of truth** used by the CLI, packaging scripts, and context updaters:
 
 ```python
-AGENT_CONFIG = {
+BASE_AGENT_METADATA = {
     # ... existing agents ...
     "new-agent-cli": {  # Use the ACTUAL CLI tool name (what users type in terminal)
         "name": "New Agent Display Name",
@@ -88,7 +88,7 @@ This eliminates the need for special-case mappings throughout the codebase.
 - `folder`: Directory where agent-specific files are stored (relative to project root)
 - `commands_subdir`: Subdirectory name within the agent folder where command/prompt files are stored (default: `"commands"`)
   - Most agents use `"commands"` (e.g., `.claude/commands/`)
-  - Some agents use alternative names: `"agents"` (copilot), `"workflows"` (windsurf), `"rules"` (kilocode, auggie, roo), `"skills"` (codex, droid, kimi), `"prompts"` (kiro-cli, vibe), and `"command"` (opencode - singular)
+  - Some agents use alternative names: `"agents"` (copilot), `"workflows"` (windsurf), `"rules"` (kilocode, auggie, roo, trae), `"skills"` (codex, droid, kimi), `"prompts"` (kiro-cli, vibe, pi), and `"command"` (opencode - singular)
   - This field enables `--ai-skills` to locate command templates correctly for skill generation
 - `install_url`: Installation documentation URL (set to `None` for IDE-based agents)
 - `requires_cli`: Whether the agent requires a CLI tool check during initialization

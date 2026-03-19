@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import platform
 from pathlib import Path
 import re
 from typing import Any, Dict, List
@@ -233,6 +234,36 @@ BASE_AGENT_METADATA: Dict[str, Dict[str, Any]] = {
         "args": "$ARGUMENTS",
         "extension": "/SKILL.md",
     },
+    "trae": {
+        "name": "Trae",
+        "folder": ".trae/",
+        "install_url": None,
+        "requires_cli": False,
+        "command_dir": ".trae/rules",
+        "command_format": "markdown",
+        "args": "$ARGUMENTS",
+        "extension": ".md",
+    },
+    "pi": {
+        "name": "Pi Coding Agent",
+        "folder": ".pi/",
+        "install_url": "https://www.npmjs.com/package/@mariozechner/pi-coding-agent",
+        "requires_cli": True,
+        "command_dir": ".pi/prompts",
+        "command_format": "markdown",
+        "args": "$ARGUMENTS",
+        "extension": ".md",
+    },
+    "iflow": {
+        "name": "iFlow CLI",
+        "folder": ".iflow/",
+        "install_url": "https://docs.iflow.cn/en/cli/quickstart",
+        "requires_cli": True,
+        "command_dir": ".iflow/commands",
+        "command_format": "markdown",
+        "args": "$ARGUMENTS",
+        "extension": ".md",
+    },
     "generic": {
         "name": "Generic (bring your own agent)",
         "folder": None,
@@ -354,6 +385,18 @@ LOCAL_AGENT_METADATA_OVERRIDES: Dict[str, Dict[str, Any]] = {
         "context_file": "KIMI.md",
         "context_name": "Kimi Code",
         "packaging_strategy": "kimi_skill_tree",
+    },
+    "trae": {
+        "context_file": ".trae/rules/AGENTS.md",
+        "context_name": "Trae",
+    },
+    "pi": {
+        "context_file": "AGENTS.md",
+        "context_name": "Pi Coding Agent",
+    },
+    "iflow": {
+        "context_file": "IFLOW.md",
+        "context_name": "iFlow CLI",
     },
     "generic": {
         "context_name": "Generic",
@@ -536,15 +579,17 @@ class CommandRegistrar:
 
     def _adjust_script_paths(self, frontmatter: dict) -> dict:
         """Adjust script paths from extension-relative to repo-relative."""
-        if "scripts" not in frontmatter:
-            return frontmatter
-
         updated = dict(frontmatter)
-        updated_scripts = dict(updated["scripts"])
-        for key, script_path in updated_scripts.items():
-            if script_path.startswith("../../scripts/"):
-                updated_scripts[key] = f".specify/scripts/{script_path[14:]}"
-        updated["scripts"] = updated_scripts
+        for script_key in ("scripts", "agent_scripts"):
+            scripts = updated.get(script_key)
+            if not isinstance(scripts, dict):
+                continue
+
+            updated_scripts = dict(scripts)
+            for key, script_path in updated_scripts.items():
+                if isinstance(script_path, str) and script_path.startswith("../../scripts/"):
+                    updated_scripts[key] = f".specify/scripts/{script_path[14:]}"
+            updated[script_key] = updated_scripts
         return updated
 
     def render_markdown_command(
@@ -581,22 +626,86 @@ class CommandRegistrar:
         normalized = re.sub(r"[^a-zA-Z0-9_-]+", "-", command_name).strip("-").lower()
         return normalized or "skill"
 
-    def _render_skill_command(
+    def render_skill_command(
         self,
+        agent_name: str,
         skill_name: str,
-        description: str,
+        frontmatter: dict,
         body: str,
         source_id: str,
+        source_file: str,
+        project_root: Path,
         context_note: str | None = None,
     ) -> str:
-        """Render a skill payload with minimal frontmatter."""
-        if context_note is None:
-            context_note = f"\n<!-- Source: {source_id} -->\n"
+        """Render a skill payload with skills-oriented frontmatter."""
+        if not isinstance(frontmatter, dict):
+            frontmatter = {}
+
+        if agent_name == "codex":
+            body = self._resolve_codex_skill_placeholders(frontmatter, body, project_root)
+
+        description = str(frontmatter.get("description", "")).strip() or f"Skill for {skill_name}"
         skill_frontmatter = {
             "name": skill_name,
-            "description": description or f"Skill for {skill_name}",
+            "description": description,
+            "compatibility": "Requires spec-kit project structure with .specify/ directory",
+            "metadata": {
+                "author": "github-spec-kit",
+                "source": f"{source_id}:{source_file}",
+            },
         }
-        return self.render_frontmatter(skill_frontmatter) + "\n" + context_note + body
+        rendered = self.render_frontmatter(skill_frontmatter) + "\n"
+        if context_note:
+            rendered += context_note
+        return rendered + body
+
+    @staticmethod
+    def _resolve_codex_skill_placeholders(frontmatter: dict, body: str, project_root: Path) -> str:
+        """Resolve Codex placeholder commands using the selected script variant."""
+        try:
+            from .agent_runtime import load_init_options
+        except ImportError:
+            return body
+
+        scripts = frontmatter.get("scripts", {}) or {}
+        agent_scripts = frontmatter.get("agent_scripts", {}) or {}
+        if not isinstance(scripts, dict):
+            scripts = {}
+        if not isinstance(agent_scripts, dict):
+            agent_scripts = {}
+
+        script_variant = load_init_options(project_root).get("script")
+        if script_variant not in {"sh", "ps"}:
+            fallback_order: list[str] = []
+            default_variant = "ps" if platform.system().lower().startswith("win") else "sh"
+            secondary_variant = "sh" if default_variant == "ps" else "ps"
+
+            if default_variant in scripts or default_variant in agent_scripts:
+                fallback_order.append(default_variant)
+            if secondary_variant in scripts or secondary_variant in agent_scripts:
+                fallback_order.append(secondary_variant)
+
+            for key in scripts:
+                if key not in fallback_order:
+                    fallback_order.append(key)
+            for key in agent_scripts:
+                if key not in fallback_order:
+                    fallback_order.append(key)
+
+            script_variant = fallback_order[0] if fallback_order else None
+
+        script_command = scripts.get(script_variant) if script_variant else None
+        if script_command:
+            body = body.replace("{SCRIPT}", str(script_command).replace("{ARGS}", "$ARGUMENTS"))
+
+        agent_script_command = agent_scripts.get(script_variant) if script_variant else None
+        if agent_script_command:
+            body = body.replace(
+                "{AGENT_SCRIPT}",
+                str(agent_script_command).replace("{ARGS}", "$ARGUMENTS"),
+            )
+
+        return body.replace("{ARGS}", "$ARGUMENTS").replace("__AGENT__", "codex")
 
     @staticmethod
     def _convert_argument_placeholder(content: str, from_placeholder: str, to_placeholder: str) -> str:
@@ -657,11 +766,14 @@ class CommandRegistrar:
 
             dest_file = self._skill_file_path(resolved_agent, commands_dir, cmd_name)
             if dest_file is not None:
-                output = self._render_skill_command(
+                output = self.render_skill_command(
+                    resolved_agent,
                     self._skill_output_name(resolved_agent, cmd_name),
-                    description,
+                    frontmatter,
                     body,
                     source_id,
+                    cmd_file,
+                    project_root,
                     context_note=context_note,
                 )
             elif agent_config["format"] == "markdown":
@@ -684,11 +796,14 @@ class CommandRegistrar:
             for alias in cmd_info.get("aliases", []):
                 alias_file = self._skill_file_path(resolved_agent, commands_dir, alias)
                 if alias_file is not None:
-                    alias_output = self._render_skill_command(
+                    alias_output = self.render_skill_command(
+                        resolved_agent,
                         self._skill_output_name(resolved_agent, alias),
-                        description,
+                        frontmatter,
                         body,
                         source_id,
+                        cmd_file,
+                        project_root,
                         context_note=context_note,
                     )
                 else:

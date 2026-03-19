@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import json5
 import os
 import posixpath
 import shutil
@@ -10,7 +11,7 @@ import tempfile
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
-from typing import Protocol
+from typing import Any, Protocol
 
 import httpx
 import truststore
@@ -104,24 +105,59 @@ def _format_rate_limit_error(status_code: int, headers: httpx.Headers, url: str)
     return "\n".join(lines)
 
 
-def merge_json_files(existing_path: Path, new_content: dict, verbose: bool = False) -> dict:
-    """Merge new JSON content into existing JSON file."""
-    try:
-        with open(existing_path, "r", encoding="utf-8") as f:
-            existing_content = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return new_content
+def merge_json_files(existing_path: Path, new_content: dict, verbose: bool = False) -> dict | None:
+    """Politely deep-merge JSON settings without clobbering user values."""
+    if not isinstance(new_content, dict):
+        if verbose:
+            console.print(
+                f"[yellow]Warning: Template JSON for {existing_path.name} is not an object. Skipping merge.[/yellow]"
+            )
+        return None
 
-    def deep_merge(base: dict, update: dict) -> dict:
-        result = base.copy()
+    existing_content = None
+    exists = existing_path.exists()
+
+    if exists:
+        try:
+            with open(existing_path, "r", encoding="utf-8") as f:
+                existing_content = json5.load(f)
+        except FileNotFoundError:
+            exists = False
+        except Exception as exc:
+            if verbose:
+                console.print(
+                    f"[yellow]Warning: Could not read or parse existing JSON in {existing_path.name} ({exc}).[/yellow]"
+                )
+            return None
+
+        if not isinstance(existing_content, dict):
+            if verbose:
+                console.print(
+                    f"[yellow]Warning: Existing JSON in {existing_path.name} is not an object. Skipping merge to avoid data loss.[/yellow]"
+                )
+            return None
+
+    def polite_deep_merge(base: dict[str, object], update: dict[str, object]) -> dict[str, object]:
+        result = dict(base)
         for key, value in update.items():
-            if key in result and isinstance(result[key], dict) and isinstance(value, dict):
-                result[key] = deep_merge(result[key], value)
-            else:
+            if key not in result:
+                result[key] = value
+            elif isinstance(result[key], dict) and isinstance(value, dict):
+                result[key] = polite_deep_merge(result[key], value)
+            elif isinstance(result[key], list) and isinstance(value, list):
+                continue
+            elif type(result[key]) is type(value):
                 result[key] = value
         return result
 
-    merged = deep_merge(existing_content, new_content)
+    if not exists:
+        return dict(new_content)
+
+    merged = polite_deep_merge(existing_content, new_content)
+    if merged == existing_content:
+        if verbose:
+            console.print(f"[dim]No changes needed for {existing_path.name}; preserving existing file.[/dim]")
+        return None
 
     if verbose:
         console.print(f"[cyan]Merged JSON file:[/cyan] {existing_path.name}")
@@ -142,23 +178,60 @@ def handle_vscode_settings(
         if verbose and not tracker:
             console.print(f"[{color}]{message}[/] {rel_path}")
 
+    def atomic_write_json(target_file: Path, payload: dict[str, Any]) -> None:
+        """Atomically write JSON while preserving existing mode bits when possible."""
+        temp_path: Path | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                dir=target_file.parent,
+                prefix=f"{target_file.name}.",
+                suffix=".tmp",
+                delete=False,
+            ) as handle:
+                temp_path = Path(handle.name)
+                json.dump(payload, handle, indent=4)
+                handle.write("\n")
+
+            if target_file.exists():
+                try:
+                    existing_stat = target_file.stat()
+                    os.chmod(temp_path, stat.S_IMODE(existing_stat.st_mode))
+                    if hasattr(os, "chown"):
+                        try:
+                            os.chown(temp_path, existing_stat.st_uid, existing_stat.st_gid)
+                        except PermissionError:
+                            pass
+                except OSError:
+                    pass
+
+            os.replace(temp_path, target_file)
+        except Exception:
+            if temp_path and temp_path.exists():
+                temp_path.unlink()
+            raise
+
     try:
         with open(sub_item, "r", encoding="utf-8") as f:
-            new_settings = json.load(f)
+            new_settings = json5.load(f)
 
         if dest_file.exists():
             merged = merge_json_files(dest_file, new_settings, verbose=verbose and not tracker)
-            with open(dest_file, "w", encoding="utf-8") as f:
-                json.dump(merged, f, indent=4)
-                f.write("\n")
-            log("Merged:", "green")
+            if merged is not None:
+                atomic_write_json(dest_file, merged)
+                log("Merged:", "green")
+                log("Note: comments/trailing commas are normalized when rewritten", "yellow")
+            else:
+                log("Skipped merge (preserved existing settings)", "yellow")
         else:
             shutil.copy2(sub_item, dest_file)
             log("Copied (no existing settings.json):", "blue")
 
     except Exception as e:
-        log(f"Warning: Could not merge, copying instead: {e}", "yellow")
-        shutil.copy2(sub_item, dest_file)
+        log(f"Warning: Could not merge settings: {e}", "yellow")
+        if not dest_file.exists():
+            shutil.copy2(sub_item, dest_file)
 
 
 def should_preserve_existing_on_reinit(project_relative_path: Path) -> bool:

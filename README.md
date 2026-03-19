@@ -149,7 +149,7 @@ uvx --from git+https://github.com/Z-WICK/spec-kit.git specify init --here --ai c
 
 If you installed through the Claude Code plugin path, run the `spec-kit-install` skill first so the project receives the same `.claude/` and `.specify/` assets that the CLI path would install.
 
-Launch your AI assistant in the project directory. The `/speckit.*` commands are available in the assistant.
+Launch your AI assistant in the project directory. Most agents expose `/speckit.*` slash commands; Codex uses `$speckit-*` after `/skills`, and Kimi uses `/skill:speckit.*`.
 
 Use the **`/speckit.constitution`** command to create your project's governing principles and development guidelines that will guide all subsequent development.
 
@@ -290,10 +290,10 @@ See Spec-Driven Development in action across different scenarios with these comm
 | [Tabnine CLI](https://docs.tabnine.com/main/getting-started/tabnine-cli)             | ✅      |                                                                                                                                           |
 | [Mistral Vibe](https://github.com/mistralai/mistral-vibe)                            | ✅      |                                                                                                                                           |
 | [Kimi Code](https://code.kimi.com/)                                                  | ✅      |                                                                                                                                           |
+| [Trae](https://www.trae.ai/)                                                         | ✅      | IDE-based rules live under `.trae/rules/`.                                                                                               |
+| [Pi Coding Agent](https://pi.dev)                                                    | ✅      | Use `--ai pi`; prompts live under `.pi/prompts/`.                                                                                        |
+| [iFlow CLI](https://docs.iflow.cn/en/cli/quickstart)                                 | ✅      | Use `--ai iflow`.                                                                                                                        |
 | [Windsurf](https://windsurf.com/)                                                    | ✅      |                                                                                                                                           |
-| [Antigravity (agy)](https://antigravity.google/)                                     | ✅      |                                                                                                                                           |
-| [Factory Droid](https://docs.factory.ai/cli/getting-started/quickstart)              | ✅      | Primary command path is `.factory/skills/` with legacy `.factory/commands/` compatibility; sub-agents inherit session model by default |
-| Generic                                                                              | ✅      | Bring your own agent — use `--ai generic --ai-commands-dir <path>` for unsupported agents                                               |
 | [Antigravity (agy)](https://antigravity.google/)                                     | ✅      | Prefer `--ai-skills`; explicit `.agent/commands` output is deprecated upstream                                                           |
 | [Factory Droid](https://docs.factory.ai/cli/getting-started/quickstart)              | ✅      | Primary command path is `.factory/skills/` with legacy `.factory/commands/` compatibility; sub-agents inherit session model by default |
 | Generic                                                                              | ✅      | Bring your own agent — use `--ai generic --ai-commands-dir <path>` for unsupported agents                                               |
@@ -309,15 +309,13 @@ The `specify` command supports the following options:
 | `init`  | Initialize a new Specify project from the latest template                                                                                               |
 | `check` | Check for installed core tools and supported CLI-based AI agents                                                                                         |
 | `lint-commands` | Validate enhanced command templates, gate scripts, and release mapping consistency                                                             |
-| `check` | Check for installed core tools and supported CLI-based AI agents                                                                                         |
-| `lint-commands` | Validate enhanced command templates, gate scripts, and release mapping consistency                                                             |
 
 ### `specify init` Arguments & Options
 
 | Argument/Option        | Type     | Description                                                                                                                                                                                  |
 | ---------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `<project-name>`       | Argument | Name for your new project directory (optional if using `--here`, or use `.` for current directory)                                                                                           |
-| `--ai`                 | Option   | AI assistant to use: `claude`, `gemini`, `copilot`, `cursor-agent`, `qwen`, `opencode`, `codex`, `windsurf`, `kilocode`, `auggie`, `roo`, `codebuddy`, `amp`, `shai`, `tabnine`, `kiro-cli` (`kiro` alias), `agy`, `bob`, `droid`, `qodercli` (`qoder` alias), `vibe`, `kimi`, or `generic` (requires `--ai-commands-dir`) |
+| `--ai`                 | Option   | AI assistant to use (see `src/specify_cli/agents.py` for the canonical list). Common options include `claude`, `gemini`, `copilot`, `cursor-agent`, `qwen`, `opencode`, `codex`, `windsurf`, `kilocode`, `auggie`, `roo`, `codebuddy`, `amp`, `shai`, `tabnine`, `kiro-cli` (`kiro` alias), `agy`, `bob`, `droid`, `qodercli` (`qoder` alias), `vibe`, `kimi`, `trae`, `pi`, `iflow`, or `generic` (requires `--ai-commands-dir`) |
 | `--ai-commands-dir`    | Option   | Directory for agent command files (required with `--ai generic`, e.g. `.myagent/commands/`)                                                                                                  |
 | `--script`             | Option   | Script variant to use: `sh` (bash/zsh) or `ps` (PowerShell)                                                                                                                                  |
 | `--ignore-agent-tools` | Flag     | Skip checks for AI agent tools like Claude Code                                                                                                                                              |
@@ -364,6 +362,18 @@ specify init my-project --ai bob
 
 # Initialize with Factory Droid support
 specify init my-project --ai droid
+
+# Initialize with Trae support
+specify init my-project --ai trae
+
+# Initialize with Pi Coding Agent support
+specify init my-project --ai pi
+
+# Initialize with iFlow CLI support
+specify init my-project --ai iflow
+
+# Initialize with Codex native skills
+specify init my-project --ai codex --ai-skills
 
 # Initialize with Antigravity support
 specify init my-project --ai agy
@@ -545,11 +555,11 @@ specify init <project_name> --ai copilot
 
 # Or in current directory:
 specify init . --ai claude
-specify init . --ai codex
+specify init . --ai codex --ai-skills
 
 # or use --here flag
 specify init --here --ai claude
-specify init --here --ai codex
+specify init --here --ai codex --ai-skills
 
 # Force merge into a non-empty current directory
 specify init . --force --ai claude
@@ -558,10 +568,9 @@ specify init . --force --ai claude
 specify init --here --force --ai claude
 ```
 
-For Codex CLI, skills are generated as folders under `.agents/skills/` (for example: `.agents/skills/speckit-constitution/SKILL.md`).
-Codex scans `~/.agents/skills` by default, so copy or symlink generated skill folders there and restart the Codex session if they are not detected automatically.
+For Codex CLI, skills are generated as folders under `.agents/skills/` (for example: `.agents/skills/speckit-constitution/SKILL.md`). Kimi uses `.kimi/skills/` with `/skill:speckit.*` invocation.
 
-The CLI will check if you have Claude Code, Gemini CLI, Cursor CLI, Qwen CLI, opencode, Codex CLI, Qoder CLI, Tabnine CLI, Kiro CLI, Mistral Vibe, and other supported CLI-based agents installed. If you do not, or you prefer to get the templates without checking for the right tools, use `--ignore-agent-tools` with your command:
+The CLI will check if you have Claude Code, Gemini CLI, Cursor CLI, Qwen CLI, opencode, Codex CLI, Qoder CLI, Tabnine CLI, Kiro CLI, Pi, iFlow, Mistral Vibe, and other supported CLI-based agents installed. If you do not, or you prefer to get the templates without checking for the right tools, use `--ignore-agent-tools` with your command:
 
 ```bash
 specify init <project_name> --ai claude --ignore-agent-tools

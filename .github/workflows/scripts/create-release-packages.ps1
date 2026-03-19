@@ -14,7 +14,7 @@
 
 .PARAMETER Agents
     Comma or space separated subset of agents to build (default: all)
-    Valid agents: claude, gemini, copilot, cursor-agent, qwen, opencode, windsurf, codex, kilocode, auggie, roo, codebuddy, qodercli, amp, shai, tabnine, kiro-cli, agy, bob, droid, vibe, kimi, generic
+    Valid agents: claude, gemini, copilot, cursor-agent, qwen, opencode, windsurf, codex, kilocode, auggie, roo, codebuddy, qodercli, amp, shai, tabnine, kiro-cli, agy, bob, droid, vibe, kimi, trae, pi, iflow, generic
 
 .PARAMETER Scripts
     Comma or space separated subset of script types to build (default: both)

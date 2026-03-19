@@ -21,4 +21,7 @@ bob|IBM Bob|.bob/commands|markdown|markdown_args|.md|.bob/skills|AGENTS.md|IBM B
 droid|Factory Droid|.factory/skills|markdown|markdown_args|.md|.factory/skills|.factory/rules/specify-rules.md|Factory Droid|plain|standard_commands|||.factory/droids|.factory/commands|0|0
 vibe|Mistral Vibe|.vibe/prompts|markdown|markdown_args|.md|.vibe/skills|.vibe/agents/specify-agents.md|Mistral Vibe|plain|standard_commands|||||0|0
 kimi|Kimi Code|.kimi/skills|markdown|markdown_args|/SKILL.md|.kimi/skills|KIMI.md|Kimi Code|plain|kimi_skill_tree|||||0|0
+trae|Trae|.trae/rules|markdown|markdown_args|.md|.trae/skills|.trae/rules/AGENTS.md|Trae|plain|standard_commands|||||0|0
+pi|Pi Coding Agent|.pi/prompts|markdown|markdown_args|.md|.pi/skills|AGENTS.md|Pi Coding Agent|plain|standard_commands|||||0|0
+iflow|iFlow CLI|.iflow/commands|markdown|markdown_args|.md|.iflow/skills|IFLOW.md|iFlow CLI|plain|standard_commands|||||0|0
 generic|Generic (bring your own agent)|.speckit/commands|markdown|markdown_args|.md|.agents/skills||Generic|plain|standard_commands|||||0|0

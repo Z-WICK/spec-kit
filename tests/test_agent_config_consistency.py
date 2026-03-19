@@ -170,3 +170,30 @@ class TestAgentConfigConsistency:
 
         assert cfg["kimi"]["dir"] == ".kimi/skills"
         assert cfg["kimi"]["extension"] == "/SKILL.md"
+
+    def test_runtime_config_includes_trae_pi_and_iflow(self):
+        """Runtime config should expose newly merged upstream agents."""
+        assert AGENT_CONFIG["trae"]["folder"] == ".trae/"
+        assert AGENT_CONFIG["trae"]["commands_subdir"] == "rules"
+        assert AGENT_CONFIG["trae"]["requires_cli"] is False
+
+        assert AGENT_CONFIG["pi"]["folder"] == ".pi/"
+        assert AGENT_CONFIG["pi"]["commands_subdir"] == "prompts"
+        assert AGENT_CONFIG["pi"]["requires_cli"] is True
+
+        assert AGENT_CONFIG["iflow"]["folder"] == ".iflow/"
+        assert AGENT_CONFIG["iflow"]["commands_subdir"] == "commands"
+        assert AGENT_CONFIG["iflow"]["requires_cli"] is True
+
+    def test_extension_registrar_includes_trae_pi_and_iflow(self):
+        """Registrar should expose the merged upstream agent command layouts."""
+        cfg = CommandRegistrar.AGENT_CONFIGS
+
+        assert cfg["trae"]["dir"] == ".trae/rules"
+        assert cfg["trae"]["extension"] == ".md"
+
+        assert cfg["pi"]["dir"] == ".pi/prompts"
+        assert cfg["pi"]["extension"] == ".md"
+
+        assert cfg["iflow"]["dir"] == ".iflow/commands"
+        assert cfg["iflow"]["extension"] == ".md"

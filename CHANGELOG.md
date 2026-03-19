@@ -7,6 +7,14 @@ All notable changes to the Specify CLI and templates are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- Integrated upstream `main` through the 0.3.2 line while preserving the fork's shared agent registry and fork-only command pipeline.
+- Added shared metadata, packaging, and context support for Trae, Pi Coding Agent, and iFlow CLI.
+- Adopted upstream Codex native-skills migration behavior and JSON/JSONC settings merge coverage without regressing fork-specific layouts.
+
 ## [1.0.30] - 2026-03-15
 
 ### Added

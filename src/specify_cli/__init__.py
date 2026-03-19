@@ -7,6 +7,7 @@
 #     "platformdirs",
 #     "readchar",
 #     "httpx",
+#     "json5",
 # ]
 # ///
 """
@@ -82,6 +83,8 @@ from .template_runtime import (
     download_and_extract_template,
     ensure_constitution_from_template,
     ensure_executable_scripts,
+    handle_vscode_settings,
+    merge_json_files,
     ssl_context,
 )
 
@@ -115,6 +118,12 @@ def _build_ai_assistant_help() -> str:
 
 
 AI_ASSISTANT_HELP = _build_ai_assistant_help()
+
+
+def _has_bundled_codex_skills(project_path: Path) -> bool:
+    """Return True when the extracted template already contains Spec Kit Codex skills."""
+    skills_dir = project_path / ".agents" / "skills"
+    return any(skills_dir.glob("speckit-*/SKILL.md"))
 
 SCRIPT_TYPE_CHOICES = {"sh": "POSIX Shell (bash/zsh)", "ps": "PowerShell"}
 
@@ -608,27 +617,37 @@ def init(
             ensure_constitution_from_template(project_path, tracker=tracker)
 
             if ai_skills:
-                skills_ok = install_ai_skills(
-                    project_path,
-                    selected_ai,
-                    tracker=tracker,
-                    console=console,
-                )
-
-                # When --ai-skills is used on a NEW project and skills were
-                # successfully installed, remove the command files that the
-                # template archive just created.  Skills replace commands, so
-                # keeping both would be confusing.  For --here on an existing
-                # repo we leave pre-existing commands untouched to avoid a
-                # breaking change.  We only delete AFTER skills succeed so the
-                # project always has at least one of {commands, skills}.
-                if skills_ok:
-                    cleanup_extracted_commands_after_skill_install(
+                if selected_ai == "codex":
+                    if not _has_bundled_codex_skills(project_path):
+                        expected_dir = project_path / ".agents" / "skills"
+                        raise RuntimeError(
+                            f"Expected bundled agent skills in {expected_dir.relative_to(project_path)}, "
+                            "but none were found. Re-run with an up-to-date template."
+                        )
+                    tracker.start("ai-skills")
+                    tracker.complete("ai-skills", "bundled skills → .agents/skills")
+                else:
+                    skills_ok = install_ai_skills(
                         project_path,
                         selected_ai,
-                        keep_existing_commands=here,
+                        tracker=tracker,
                         console=console,
                     )
+
+                    # When --ai-skills is used on a NEW project and skills were
+                    # successfully installed, remove the command files that the
+                    # template archive just created.  Skills replace commands, so
+                    # keeping both would be confusing.  For --here on an existing
+                    # repo we leave pre-existing commands untouched to avoid a
+                    # breaking change.  We only delete AFTER skills succeed so the
+                    # project always has at least one of {commands, skills}.
+                    if skills_ok:
+                        cleanup_extracted_commands_after_skill_install(
+                            project_path,
+                            selected_ai,
+                            keep_existing_commands=here,
+                            console=console,
+                        )
 
             if not no_git:
                 tracker.start("git")
@@ -1236,6 +1255,125 @@ def preset_info(
     console.print("\n  [yellow]Status: not installed[/yellow]")
     console.print(f"  Install with: [cyan]specify preset add {pack_id}[/cyan]")
     console.print()
+
+
+@preset_app.command("set-priority")
+def preset_set_priority(
+    pack_id: str = typer.Argument(help="Preset ID"),
+    priority: int = typer.Argument(help="New priority (lower = higher precedence)"),
+):
+    """Set the resolution priority of an installed preset."""
+    from .extensions import normalize_priority
+    from .presets import PresetManager
+
+    project_root = Path.cwd()
+
+    specify_dir = project_root / ".specify"
+    if not specify_dir.exists():
+        console.print("[red]Error:[/red] Not a spec-kit project (no .specify/ directory)")
+        console.print("Run this command from a spec-kit project root")
+        raise typer.Exit(1)
+
+    if priority < 1:
+        console.print("[red]Error:[/red] Priority must be a positive integer (1 or higher)")
+        raise typer.Exit(1)
+
+    manager = PresetManager(project_root)
+
+    if not manager.registry.is_installed(pack_id):
+        console.print(f"[red]Error:[/red] Preset '{pack_id}' is not installed")
+        raise typer.Exit(1)
+
+    metadata = manager.registry.get(pack_id)
+    if metadata is None or not isinstance(metadata, dict):
+        console.print(f"[red]Error:[/red] Preset '{pack_id}' not found in registry (corrupted state)")
+        raise typer.Exit(1)
+
+    raw_priority = metadata.get("priority")
+    if isinstance(raw_priority, int) and raw_priority == priority:
+        console.print(f"[yellow]Preset '{pack_id}' already has priority {priority}[/yellow]")
+        raise typer.Exit(0)
+
+    old_priority = normalize_priority(raw_priority)
+    manager.registry.update(pack_id, {"priority": priority})
+
+    console.print(f"[green]✓[/green] Preset '{pack_id}' priority changed: {old_priority} → {priority}")
+    console.print("\n[dim]Lower priority = higher precedence in template resolution[/dim]")
+
+
+@preset_app.command("enable")
+def preset_enable(
+    pack_id: str = typer.Argument(help="Preset ID to enable"),
+):
+    """Enable a disabled preset."""
+    from .presets import PresetManager
+
+    project_root = Path.cwd()
+
+    specify_dir = project_root / ".specify"
+    if not specify_dir.exists():
+        console.print("[red]Error:[/red] Not a spec-kit project (no .specify/ directory)")
+        console.print("Run this command from a spec-kit project root")
+        raise typer.Exit(1)
+
+    manager = PresetManager(project_root)
+
+    if not manager.registry.is_installed(pack_id):
+        console.print(f"[red]Error:[/red] Preset '{pack_id}' is not installed")
+        raise typer.Exit(1)
+
+    metadata = manager.registry.get(pack_id)
+    if metadata is None or not isinstance(metadata, dict):
+        console.print(f"[red]Error:[/red] Preset '{pack_id}' not found in registry (corrupted state)")
+        raise typer.Exit(1)
+
+    if metadata.get("enabled", True):
+        console.print(f"[yellow]Preset '{pack_id}' is already enabled[/yellow]")
+        raise typer.Exit(0)
+
+    manager.registry.update(pack_id, {"enabled": True})
+
+    console.print(f"[green]✓[/green] Preset '{pack_id}' enabled")
+    console.print("\nTemplates from this preset will now be included in resolution.")
+    console.print("[dim]Note: Previously registered commands/skills remain active.[/dim]")
+
+
+@preset_app.command("disable")
+def preset_disable(
+    pack_id: str = typer.Argument(help="Preset ID to disable"),
+):
+    """Disable a preset without removing it."""
+    from .presets import PresetManager
+
+    project_root = Path.cwd()
+
+    specify_dir = project_root / ".specify"
+    if not specify_dir.exists():
+        console.print("[red]Error:[/red] Not a spec-kit project (no .specify/ directory)")
+        console.print("Run this command from a spec-kit project root")
+        raise typer.Exit(1)
+
+    manager = PresetManager(project_root)
+
+    if not manager.registry.is_installed(pack_id):
+        console.print(f"[red]Error:[/red] Preset '{pack_id}' is not installed")
+        raise typer.Exit(1)
+
+    metadata = manager.registry.get(pack_id)
+    if metadata is None or not isinstance(metadata, dict):
+        console.print(f"[red]Error:[/red] Preset '{pack_id}' not found in registry (corrupted state)")
+        raise typer.Exit(1)
+
+    if not metadata.get("enabled", True):
+        console.print(f"[yellow]Preset '{pack_id}' is already disabled[/yellow]")
+        raise typer.Exit(0)
+
+    manager.registry.update(pack_id, {"enabled": False})
+
+    console.print(f"[green]✓[/green] Preset '{pack_id}' disabled")
+    console.print("\nTemplates from this preset will be skipped during resolution.")
+    console.print("[dim]Note: Previously registered commands/skills remain active until preset removal.[/dim]")
+    console.print(f"To re-enable: specify preset enable {pack_id}")
 
 
 # ===== Preset Catalog Commands =====

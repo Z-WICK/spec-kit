@@ -88,12 +88,16 @@ def build_next_steps_lines(selected_ai: str, here: bool, project_name: str) -> l
         step_num = 2
 
     if selected_ai == "codex":
-        lines.append(f"{step_num}. Start using Codex skills:")
+        lines.append(f"{step_num}. Start using skills with Codex:")
         lines.append("   [dim]Skills are generated at .agents/skills/<skill>/SKILL.md.[/dim]")
-        lines.append("   [dim]Codex scans ~/.agents/skills; copy/symlink skill folders there if needed, then restart Codex.[/dim]")
         lines.append("   [dim]Legacy .codex/skills remains supported for compatibility.[/dim]")
         lines.append("   [dim]In Codex, run /skills and invoke skills as $speckit-...[/dim]")
         command_prefix = "$speckit-"
+    elif selected_ai == "kimi":
+        lines.append(f"{step_num}. Start using skills with Kimi Code:")
+        lines.append("   [dim]Skills are generated at .kimi/skills/<skill>/SKILL.md.[/dim]")
+        lines.append("   [dim]In Kimi, invoke skills as /skill:speckit....[/dim]")
+        command_prefix = "/skill:speckit."
     else:
         lines.append(f"{step_num}. Start using slash commands with your AI agent:")
         command_prefix = "/speckit."
@@ -108,8 +112,15 @@ def build_next_steps_lines(selected_ai: str, here: bool, project_name: str) -> l
 
 def build_enhancement_panel_lines(selected_ai: str) -> list[str]:
     """Build the fork enhancement panel lines shown after init."""
-    command_prefix = "$speckit-" if selected_ai == "codex" else "/speckit."
-    lines = ["Enhanced commands [bright_black](Z-WICK fork)[/bright_black]", ""]
+    if selected_ai == "codex":
+        command_prefix = "$speckit-"
+        lines = ["Optional skills that you can use for your specs [bright_black](Z-WICK fork)[/bright_black]", ""]
+    elif selected_ai == "kimi":
+        command_prefix = "/skill:speckit."
+        lines = ["Optional skills that you can use for your specs [bright_black](Z-WICK fork)[/bright_black]", ""]
+    else:
+        command_prefix = "/speckit."
+        lines = ["Enhanced commands [bright_black](Z-WICK fork)[/bright_black]", ""]
     for command in FORK_COMMAND_REGISTRY:
         if not command["show_in_panel"]:
             continue

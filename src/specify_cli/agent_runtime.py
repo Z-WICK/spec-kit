@@ -78,6 +78,29 @@ def _get_skills_dir(project_path: Path, selected_ai: str) -> Path:
     return project_path / get_agent_skills_dir_relative(selected_ai)
 
 
+def _agent_command_templates(templates_dir: Path, selected_ai: str) -> list[Path]:
+    """Return only packaged spec-kit command templates for the selected agent."""
+    if not templates_dir.exists():
+        return []
+
+    pattern = "speckit.*.agent.md" if selected_ai == "copilot" else "speckit.*.md"
+    return sorted(path for path in templates_dir.glob(pattern) if path.is_file())
+
+
+def _command_name_from_template(command_file: Path) -> str:
+    """Normalize a packaged command filename to its logical command name."""
+    command_name = command_file.name
+    if command_name.endswith(".agent.md"):
+        command_name = command_name[: -len(".agent.md")]
+    else:
+        command_name = command_file.stem
+
+    if command_name.startswith("speckit."):
+        command_name = command_name[len("speckit.") :]
+
+    return command_name
+
+
 def install_ai_skills(project_path: Path, selected_ai: str, tracker: Any | None = None, console: Any | None = None) -> bool:
     """Install Prompt.MD files from the packaged or repo fallback command templates as agent skills."""
     agent_config = AGENT_CONFIG.get(selected_ai, {})
@@ -90,19 +113,20 @@ def install_ai_skills(project_path: Path, selected_ai: str, tracker: Any | None 
     else:
         templates_dir = project_path / commands_subdir
 
-    if not templates_dir.exists() or not any(templates_dir.glob("*.md")):
+    command_files = _agent_command_templates(templates_dir, selected_ai)
+
+    if not command_files:
         fallback_templates = iter_command_templates(script_dir)
     else:
         fallback_templates = []
 
-    if not fallback_templates and (not templates_dir.exists() or not any(templates_dir.glob("*.md"))):
+    if not fallback_templates and not command_files:
         if tracker:
             tracker.error("ai-skills", "command templates not found")
         elif console:
             console.print("[yellow]Warning: command templates not found, skipping skills installation[/yellow]")
         return False
 
-    command_files = sorted(templates_dir.glob("*.md")) if templates_dir.exists() else []
     if not command_files and fallback_templates:
         command_files = fallback_templates
 
@@ -139,9 +163,7 @@ def install_ai_skills(project_path: Path, selected_ai: str, tracker: Any | None 
                 frontmatter = {}
                 body = content
 
-            command_name = command_file.stem
-            if command_name.startswith("speckit."):
-                command_name = command_name[len("speckit."):]
+            command_name = _command_name_from_template(command_file)
 
             skill_name = build_skill_name(selected_ai, command_name)
             skill_dir = skills_dir / skill_name
@@ -154,6 +176,8 @@ def install_ai_skills(project_path: Path, selected_ai: str, tracker: Any | None 
             )
 
             source_name = command_file.name
+            if source_name.endswith(".agent.md"):
+                source_name = source_name[: -len(".agent.md")] + ".md"
             if source_name.startswith("speckit."):
                 source_name = source_name[len("speckit."):]
 
@@ -252,6 +276,14 @@ def _handle_agy_deprecation(console: Any) -> None:
     raise typer.Exit(1)
 
 
+def _handle_codex_deprecation(console: Any) -> None:
+    """Print the Codex native-skills migration error and exit."""
+    console.print("\n[red]Error:[/red] Custom prompt-based spec-kit initialization is deprecated for Codex CLI.")
+    console.print("Please use [cyan]--ai-skills[/cyan] so Spec Kit installs or validates native skills instead.")
+    console.print("[yellow]Usage:[/yellow] specify init <project> --ai codex --ai-skills")
+    raise typer.Exit(1)
+
+
 def resolve_ai_skills_mode(
     selected_ai: str,
     ai_assistant: str | None,
@@ -259,15 +291,28 @@ def resolve_ai_skills_mode(
     console: Any,
 ) -> bool:
     """Apply agent-specific compatibility rules for --ai-skills selection."""
-    if selected_ai != "agy" or ai_skills:
+    if ai_skills:
         return ai_skills
 
-    if ai_assistant:
-        _handle_agy_deprecation(console)
+    if selected_ai == "agy":
+        if ai_assistant:
+            _handle_agy_deprecation(console)
 
-    console.print(
-        "\n[yellow]Note:[/yellow] 'agy' was selected interactively; "
-        "enabling [cyan]--ai-skills[/cyan] automatically for compatibility "
-        "(explicit .agent/commands usage is deprecated)."
-    )
-    return True
+        console.print(
+            "\n[yellow]Note:[/yellow] 'agy' was selected interactively; "
+            "enabling [cyan]--ai-skills[/cyan] automatically for compatibility "
+            "(explicit .agent/commands usage is deprecated)."
+        )
+        return True
+
+    if selected_ai == "codex":
+        if ai_assistant:
+            _handle_codex_deprecation(console)
+
+        console.print(
+            "\n[yellow]Note:[/yellow] 'codex' was selected interactively; "
+            "enabling [cyan]--ai-skills[/cyan] automatically because Codex uses native skills."
+        )
+        return True
+
+    return ai_skills
