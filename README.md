@@ -217,6 +217,8 @@ Stage 9   Rebuild + Docs        Deploy and verify
 
 Key features: checkpoint recovery (resume from any failed stage), multi-module parallel execution, migration version conflict detection, and progressive knowledge base enrichment.
 
+The shared pipeline template is agent-agnostic across slash-command and skill-based CLIs. It is not a hook-equivalent wrapper around `/speckit.specify` → `/speckit.plan` → `/speckit.tasks` → `/speckit.implement`; on skill-based agents such as Codex it does not automatically execute command-level hooks declared in `.specify/extensions.yml`.
+
 ### Bug Fix Pipeline (`/speckit.fixbug`)
 
 ```

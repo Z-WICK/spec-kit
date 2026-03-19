@@ -177,6 +177,8 @@ Stage 9   Rebuild + Docs        Deploy and verify
 
 核心特性：检查点恢复（可从任何失败阶段继续）、多模块并行执行、迁移版本冲突检测，以及渐进式知识库积累。
 
+共享的 pipeline 模板在 slash command 与 skill-based CLI 之间保持 agent-agnostic。它不是对 `/speckit.specify` → `/speckit.plan` → `/speckit.tasks` → `/speckit.implement` 的 hook 等价包装；在 Codex 这类 skill-based agent 下，它不会自动执行 `.specify/extensions.yml` 中声明的 command-level hooks。
+
 ### Bug 修复流水线（`/speckit.fixbug`）
 
 ```

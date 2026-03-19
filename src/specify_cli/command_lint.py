@@ -523,6 +523,42 @@ def _lint_fork_customizations(repo_root: Path, result: LintResult) -> None:
             )
 
 
+def _lint_agent_agnostic_fork_templates(repo_root: Path, result: LintResult) -> None:
+    agent_agnostic_templates = ("pipeline", "fixbug")
+    hook_markers = (
+        "hooks.before_specify",
+        "hooks.after_specify",
+        "hooks.before_plan",
+        "hooks.after_plan",
+        "hooks.before_tasks",
+        "hooks.after_tasks",
+        "hooks.before_implement",
+        "hooks.after_implement",
+    )
+
+    for command_name in agent_agnostic_templates:
+        template_path = repo_root / FORK_COMMAND_TEMPLATES_DIR / f"{command_name}.md"
+        content = _read_checked_text(template_path, result)
+        if not content:
+            continue
+
+        rel_path = template_path.relative_to(repo_root).as_posix()
+        for agent_name, cfg in AGENT_COMMAND_CONFIGS.items():
+            marker = str(cfg["dir"])
+            if marker in content:
+                result.errors.append(
+                    f"{rel_path}: agent-agnostic fork template must not reference "
+                    f"agent-specific path '{marker}'"
+                )
+
+        for marker in hook_markers:
+            if marker in content:
+                result.errors.append(
+                    f"{rel_path}: agent-agnostic fork template must not reference "
+                    f"command-level hook marker '{marker}'"
+                )
+
+
 def _lint_pipeline_gate_scripts(repo_root: Path, result: LintResult) -> None:
     required = [
         "scripts/bash/pipeline-stage-gate.sh",
@@ -545,5 +581,6 @@ def lint_repository(repo_root: Path) -> LintResult:
     _lint_pipeline_gate_scripts(repo_root, result)
     _lint_execution_contract(repo_root, result)
     _lint_fork_customizations(repo_root, result)
+    _lint_agent_agnostic_fork_templates(repo_root, result)
     _lint_release_scripts(repo_root, result)
     return result

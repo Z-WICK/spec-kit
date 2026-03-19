@@ -1,8 +1,10 @@
 """Regression tests for enhanced command and release consistency."""
 
+import shutil
 from pathlib import Path
 
 import yaml
+import pytest
 
 from specify_cli.agents import AGENT_CONFIG, AGENT_COMMAND_CONFIGS
 from specify_cli.command_lint import lint_repository
@@ -75,6 +77,48 @@ def test_pipeline_template_allows_flexible_input():
     assert "需求:" in pipeline_template
     assert "Feature description" in pipeline_template
     assert "描述:" in pipeline_template
+
+
+@pytest.mark.parametrize("command_name", ["pipeline", "fixbug"])
+@pytest.mark.parametrize(
+    ("injected_text", "expected_marker"),
+    [
+        (".claude/commands/speckit.plan.md", "agent-specific path '.claude/commands'"),
+        ("hooks.before_tasks", "command-level hook marker 'hooks.before_tasks'"),
+    ],
+)
+def test_repository_lint_rejects_agent_specific_leaks_in_agent_agnostic_fork_templates(
+    tmp_path: Path, command_name: str, injected_text: str, expected_marker: str
+):
+    """Agent-agnostic fork templates should not bake in agent storage or hook wiring."""
+    fixture_root = tmp_path / "fixture-repo"
+    fixture_root.mkdir()
+
+    for rel in (".github", "memory", "scripts", "src", "templates"):
+        shutil.copytree(REPO_ROOT / rel, fixture_root / rel)
+
+    target = fixture_root / "templates" / "fork-commands" / f"{command_name}.md"
+    target.write_text(
+        target.read_text(encoding="utf-8") + f"\n\nInjected regression marker: {injected_text}\n",
+        encoding="utf-8",
+    )
+
+    result = lint_repository(fixture_root)
+
+    expected_error = (
+        f"templates/fork-commands/{command_name}.md: agent-agnostic fork template "
+        f"must not reference {expected_marker}"
+    )
+    assert expected_error in result.errors
+
+
+def test_pipeline_readme_documents_agent_agnostic_hook_boundary():
+    """README should explain that pipeline is shared across CLIs but not hook-equivalent."""
+    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+
+    assert "shared pipeline template is agent-agnostic" in readme
+    assert ".specify/extensions.yml" in readme
+    assert "Codex" in readme
 
 
 def test_update_agent_context_scripts_support_droid_agent():
