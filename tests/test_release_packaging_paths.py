@@ -137,6 +137,52 @@ def test_release_packages_codex_pipeline_gate_matches_source(tmp_path):
 
 
 @pytest.mark.skipif(shutil.which("bash") is None, reason="bash is required for release packaging tests")
+def test_release_packages_codex_pipeline_skill_uses_codex_friendly_guidance(tmp_path):
+    """Codex pipeline skill should avoid slash-command-only guidance and state hook limits."""
+    repo_root = Path(__file__).resolve().parents[1]
+    fixture_root = tmp_path / "fixture-repo-codex-pipeline-skill"
+    fixture_root.mkdir()
+
+    for rel in (".github", "templates", "scripts", "memory"):
+        shutil.copytree(repo_root / rel, fixture_root / rel)
+
+    release_script = fixture_root / ".github" / "workflows" / "scripts" / "create-release-packages.sh"
+    env = os.environ.copy()
+    env["AGENTS"] = "codex"
+    env["SCRIPTS"] = "sh"
+
+    result = subprocess.run(
+        ["bash", str(release_script), "v9.9.9"],
+        cwd=fixture_root,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
+
+    skill_file = (
+        fixture_root
+        / ".genreleases"
+        / "sdd-codex-package-sh"
+        / ".agents"
+        / "skills"
+        / "speckit-pipeline"
+        / "SKILL.md"
+    )
+    assert skill_file.exists()
+
+    skill_text = skill_file.read_text(encoding="utf-8")
+    assert "shared pipeline template is agent-agnostic" in skill_text
+    assert ".specify/extensions.yml" in skill_text
+    assert "$speckit-analyze" in skill_text
+    assert "$speckit-implement" in skill_text
+    assert "Run /speckit.init first" not in skill_text
+    assert "run `/speckit.update` first" not in skill_text
+    assert "/speckit.pipeline to auto-resume from stage 4" not in skill_text
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is required for release packaging tests")
 def test_release_packages_droid_pipeline_gate_matches_source(tmp_path):
     """Droid packages should include the latest pipeline stage gate scripts."""
     repo_root = Path(__file__).resolve().parents[1]

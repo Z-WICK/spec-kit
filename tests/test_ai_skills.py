@@ -769,6 +769,50 @@ class TestNewProjectCommandSkip:
         mock_skills.assert_not_called()
         assert "Expected bundled agent skills" in result.output
 
+    def test_codex_init_preserves_pipeline_skill_and_runtime_assets(self, tmp_path):
+        """Codex init should keep bundled pipeline skill and required runtime assets."""
+        from typer.testing import CliRunner
+
+        runner = CliRunner()
+        target = tmp_path / "codex-pipeline-proj"
+
+        def fake_download(project_path, *args, **kwargs):
+            pipeline_skill_dir = project_path / ".agents" / "skills" / "speckit-pipeline"
+            pipeline_skill_dir.mkdir(parents=True, exist_ok=True)
+            (pipeline_skill_dir / "SKILL.md").write_text(
+                "---\ndescription: Pipeline skill\n---\n\nPipeline body.\n",
+                encoding="utf-8",
+            )
+
+            bash_dir = project_path / ".specify" / "scripts" / "bash"
+            ps_dir = project_path / ".specify" / "scripts" / "powershell"
+            memory_dir = project_path / ".specify" / "memory"
+            bash_dir.mkdir(parents=True, exist_ok=True)
+            ps_dir.mkdir(parents=True, exist_ok=True)
+            memory_dir.mkdir(parents=True, exist_ok=True)
+            (bash_dir / "pipeline-stage-gate.sh").write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+            (ps_dir / "pipeline-stage-gate.ps1").write_text("Write-Host 'ok'\n", encoding="utf-8")
+            (memory_dir / "execution-contract.md").write_text("# Execution Contract\n", encoding="utf-8")
+
+        with patch("specify_cli.download_and_extract_template", side_effect=fake_download), \
+             patch("specify_cli.ensure_executable_scripts"), \
+             patch("specify_cli.ensure_constitution_from_template"), \
+             patch("specify_cli.install_ai_skills") as mock_skills, \
+             patch("specify_cli.is_git_repo", return_value=False), \
+             patch("specify_cli.shutil.which", return_value="/usr/bin/codex"):
+            result = runner.invoke(
+                app,
+                ["init", str(target), "--ai", "codex", "--ai-skills", "--script", "sh", "--no-git"],
+            )
+
+        assert result.exit_code == 0
+        mock_skills.assert_not_called()
+        assert (target / ".agents" / "skills" / "speckit-pipeline" / "SKILL.md").exists()
+        assert (target / ".specify" / "scripts" / "bash" / "pipeline-stage-gate.sh").exists()
+        assert (target / ".specify" / "scripts" / "powershell" / "pipeline-stage-gate.ps1").exists()
+        assert (target / ".specify" / "memory" / "execution-contract.md").exists()
+        assert not (target / ".claude").exists()
+
     def test_commands_preserved_when_skills_fail(self, tmp_path):
         """If skills fail, commands should NOT be removed (safety net)."""
         from typer.testing import CliRunner
