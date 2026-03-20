@@ -9,11 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.31] - 2026-03-20
+
 ### Changed
 
 - Integrated upstream `main` through the 0.3.2 line while preserving the fork's shared agent registry and fork-only command pipeline.
 - Added shared metadata, packaging, and context support for Trae, Pi Coding Agent, and iFlow CLI.
 - Adopted upstream Codex native-skills migration behavior and JSON/JSONC settings merge coverage without regressing fork-specific layouts.
+- Clarified shared `speckit.pipeline` guidance for Codex-compatible skill workflows and synced plugin install resources with the resulting packaged artifacts.
 
 ## [1.0.30] - 2026-03-15
 
