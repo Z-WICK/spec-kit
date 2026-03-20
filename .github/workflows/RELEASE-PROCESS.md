@@ -10,6 +10,8 @@ The release process is split into two workflows to ensure version consistency:
 2. **Release Workflow** (`release.yml`) - Builds and publishes artifacts
 
 This separation ensures that git tags always point to commits with the correct version in `pyproject.toml`.
+When `RELEASE_PAT` is unavailable, the trigger workflow falls back to `github.token`
+and explicitly dispatches the release workflow after pushing the tag.
 
 ## Before Creating a Release
 
@@ -63,7 +65,7 @@ The workflow will:
 - Commit changes to a `chore/release-vX.Y.Z` branch
 - Create and push the git tag from that branch
 - Open a PR to merge the version bump into `main`
-- Trigger the release workflow automatically via the tag push
+- Start the release workflow via tag push or an explicit fallback dispatch when `RELEASE_PAT` is not configured
 
 ### Option 2: Manual Version (For major/minor bumps)
 
@@ -79,7 +81,7 @@ The workflow will:
 - Commit changes to a `chore/release-vX.Y.Z` branch
 - Create and push the git tag from that branch
 - Open a PR to merge the version bump into `main`
-- Trigger the release workflow automatically via the tag push
+- Start the release workflow via tag push or an explicit fallback dispatch when `RELEASE_PAT` is not configured
 
 ## What Happens Next
 
@@ -87,7 +89,7 @@ Once the release trigger workflow completes:
 
 1. A `chore/release-vX.Y.Z` branch is pushed with the version bump commit
 2. The git tag is pushed, pointing to that commit
-3. The **Release Workflow** is automatically triggered by the tag push
+3. The **Release Workflow** is started by the tag push or by an explicit `workflow_dispatch` fallback
 4. Release artifacts are built for all supported agents
 5. A GitHub Release is created with all assets
 6. A PR is opened to merge the version bump branch into `main`
@@ -102,7 +104,7 @@ Once the release trigger workflow completes:
 
 **Trigger**: Manual (`workflow_dispatch`)
 
-**Permissions Required**: `contents: write`
+**Permissions Required**: `actions: write`, `contents: write`, `pull-requests: write`
 
 **Steps**:
 1. Checkout repository
@@ -119,7 +121,7 @@ Once the release trigger workflow completes:
 
 **File**: `.github/workflows/release.yml`
 
-**Trigger**: Tag push (`v*`)
+**Trigger**: Tag push (`v*`) or manual dispatch with a `tag` input
 
 **Permissions Required**: `contents: write`
 
@@ -174,6 +176,14 @@ Check that:
 - The release trigger workflow completed successfully
 - The tag was pushed (check repository tags)
 - The release workflow is enabled in Actions settings
+- If `RELEASE_PAT` is not configured, confirm the trigger workflow reached the fallback `gh workflow run release.yml -f tag=...` step
+
+### Missing RELEASE_PAT Secret
+
+If `RELEASE_PAT` is not configured:
+- The release trigger workflow now falls back to `github.token`
+- The version-bump PR can still be opened by the workflow
+- The release workflow is started explicitly because tag pushes created with `github.token` do not trigger downstream workflows
 
 ### Version Mismatch
 

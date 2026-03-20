@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+import yaml
+
 from specify_cli import AGENT_CONFIG, AI_ASSISTANT_ALIASES, AI_ASSISTANT_HELP
 from specify_cli.agents import (
     AGENT_COMMAND_CONFIGS,
@@ -197,3 +199,32 @@ class TestAgentConfigConsistency:
 
         assert cfg["iflow"]["dir"] == ".iflow/commands"
         assert cfg["iflow"]["extension"] == ".md"
+
+    def test_release_trigger_workflow_falls_back_when_release_pat_is_missing(self):
+        """Release trigger should not hard-require RELEASE_PAT just to start."""
+        workflow_text = (REPO_ROOT / ".github" / "workflows" / "release-trigger.yml").read_text(encoding="utf-8")
+
+        assert "steps.release_token.outputs.token" in workflow_text
+        assert "secrets.RELEASE_PAT" in workflow_text
+        assert "github.token" in workflow_text
+        assert "token: ${{ secrets.RELEASE_PAT }}" not in workflow_text
+        assert "GITHUB_TOKEN: ${{ secrets.RELEASE_PAT }}" not in workflow_text
+
+    def test_release_trigger_dispatches_release_when_using_github_token_fallback(self):
+        """Release trigger should explicitly start the release workflow on fallback token flow."""
+        workflow_text = (REPO_ROOT / ".github" / "workflows" / "release-trigger.yml").read_text(encoding="utf-8")
+
+        assert "actions: write" in workflow_text
+        assert "if: steps.release_token.outputs.source == 'github_token'" in workflow_text
+        assert "gh workflow run release.yml" in workflow_text
+        assert "tag=${{ steps.version.outputs.tag }}" in workflow_text
+
+    def test_release_workflow_supports_manual_dispatch_with_tag_input(self):
+        """Create Release should support workflow_dispatch so Release Trigger can invoke it directly."""
+        workflow_text = (REPO_ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
+        workflow = yaml.load(workflow_text, Loader=yaml.BaseLoader)
+
+        assert "workflow_dispatch" in workflow["on"]
+        assert workflow["on"]["workflow_dispatch"]["inputs"]["tag"]["required"] == "true"
+        assert "ref: ${{ github.event.inputs.tag || github.ref }}" in workflow_text
+        assert "INPUT_TAG: ${{ github.event.inputs.tag }}" in workflow_text

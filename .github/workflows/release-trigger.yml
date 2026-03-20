@@ -12,14 +12,33 @@ jobs:
   bump-version:
     runs-on: ubuntu-latest
     permissions:
+      actions: write
       contents: write
       pull-requests: write
     steps:
+      - name: Resolve release token
+        id: release_token
+        env:
+          RELEASE_PAT: ${{ secrets.RELEASE_PAT }}
+          FALLBACK_TOKEN: ${{ github.token }}
+        run: |
+          if [[ -n "$RELEASE_PAT" ]]; then
+            echo "::add-mask::$RELEASE_PAT"
+            echo "token=$RELEASE_PAT" >> "$GITHUB_OUTPUT"
+            echo "source=release_pat" >> "$GITHUB_OUTPUT"
+            echo "Using RELEASE_PAT for release automation"
+          else
+            echo "::add-mask::$FALLBACK_TOKEN"
+            echo "token=$FALLBACK_TOKEN" >> "$GITHUB_OUTPUT"
+            echo "source=github_token" >> "$GITHUB_OUTPUT"
+            echo "RELEASE_PAT is not configured; falling back to github.token"
+          fi
+
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
-          token: ${{ secrets.RELEASE_PAT }}
+          token: ${{ steps.release_token.outputs.token }}
 
       - name: Configure Git
         run: |
@@ -141,9 +160,17 @@ jobs:
           git push origin "${{ steps.version.outputs.tag }}"
           echo "Branch ${{ env.branch }} and tag ${{ steps.version.outputs.tag }} pushed"
 
+      - name: Trigger release workflow when using github.token fallback
+        if: steps.release_token.outputs.source == 'github_token'
+        env:
+          GH_TOKEN: ${{ steps.release_token.outputs.token }}
+        run: |
+          gh workflow run release.yml -f tag=${{ steps.version.outputs.tag }}
+          echo "Triggered Create Release via workflow_dispatch because github.token tag pushes do not trigger downstream workflows"
+
       - name: Open pull request
         env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_PAT }}
+          GH_TOKEN: ${{ steps.release_token.outputs.token }}
         run: |
           gh pr create \
             --base main \
@@ -160,4 +187,8 @@ jobs:
           echo "✅ Version bumped to ${{ steps.version.outputs.version }}"
           echo "✅ Tag ${{ steps.version.outputs.tag }} created and pushed"
           echo "✅ PR opened to merge version bump into main"
-          echo "🚀 Release workflow is building artifacts from the tag"
+          if [[ "${{ steps.release_token.outputs.source }}" == "github_token" ]]; then
+            echo "🚀 Release workflow was started via workflow_dispatch fallback"
+          else
+            echo "🚀 Release workflow is building artifacts from the tag"
+          fi
