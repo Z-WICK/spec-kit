@@ -25,9 +25,12 @@ Or install globally:
     specify init --here
 """
 
+from __future__ import annotations
+
 import os
 import subprocess
 import sys
+import tempfile
 import zipfile
 import shutil
 import yaml
@@ -67,6 +70,7 @@ from .fork_customizations import (
     build_enhancement_panel_lines,
     build_next_steps_lines,
 )
+from . import template_runtime as _template_runtime_module
 from .init_runtime import (
     build_init_tracker,
     install_requested_preset,
@@ -79,6 +83,7 @@ from .init_runtime import (
 )
 from .template_runtime import (
     _github_auth_headers,
+    download_template_from_github as download_template_from_github,
     download_and_extract_template,
     ensure_constitution_from_template,
     ensure_executable_scripts,
@@ -90,6 +95,12 @@ from .template_runtime import (
 client = httpx.Client(verify=ssl_context)
 
 AI_ASSISTANT_ALIASES = dict(LEGACY_AGENT_ALIASES)
+
+# Agents that use TOML command format (others use Markdown)
+_TOML_AGENTS = frozenset({"gemini", "tabnine"})
+
+# Agents whose template archives already ship native skills in final layout.
+NATIVE_SKILLS_AGENTS = {"codex", "kimi"}
 
 
 def _build_ai_assistant_help() -> str:
@@ -119,14 +130,174 @@ def _build_ai_assistant_help() -> str:
 AI_ASSISTANT_HELP = _build_ai_assistant_help()
 
 
+def download_and_extract_template(*args, **kwargs):
+    """Compatibility wrapper so tests/patches can replace download_template_from_github via specify_cli."""
+    original = _template_runtime_module.download_template_from_github
+    _template_runtime_module.download_template_from_github = download_template_from_github
+    try:
+        return _template_runtime_module.download_and_extract_template(*args, **kwargs)
+    finally:
+        _template_runtime_module.download_template_from_github = original
+
+
 def _has_bundled_codex_skills(project_path: Path) -> bool:
     """Return True when the extracted template already contains Spec Kit Codex skills."""
     skills_dir = project_path / ".agents" / "skills"
     return any(skills_dir.glob("speckit-*/SKILL.md"))
 
+
+def _has_bundled_skills(project_path: Path, selected_ai: str) -> bool:
+    """Return True when the extracted template already contains native skills."""
+    skills_dir = _get_skills_dir(project_path, selected_ai)
+    if not skills_dir.is_dir():
+        return False
+    return any(skills_dir.glob("speckit-*/SKILL.md"))
+
+
+def _migrate_legacy_kimi_dotted_skills(skills_dir: Path) -> tuple[int, int]:
+    """Migrate legacy Kimi dotted skill dirs (speckit.xxx) to hyphenated format."""
+    if not skills_dir.is_dir():
+        return (0, 0)
+
+    migrated_count = 0
+    removed_count = 0
+
+    for legacy_dir in sorted(skills_dir.glob("speckit.*")):
+        if not legacy_dir.is_dir():
+            continue
+        legacy_skill = legacy_dir / "SKILL.md"
+        if not legacy_skill.is_file():
+            continue
+
+        suffix = legacy_dir.name[len("speckit.") :]
+        if not suffix:
+            continue
+
+        target_dir = skills_dir / f"speckit-{suffix.replace('.', '-')}"
+        if not target_dir.exists():
+            shutil.move(str(legacy_dir), str(target_dir))
+            migrated_count += 1
+            continue
+
+        target_skill = target_dir / "SKILL.md"
+        if not target_skill.is_file():
+            continue
+
+        try:
+            if target_skill.read_bytes() != legacy_skill.read_bytes():
+                continue
+
+            has_extra_entries = any(child.name != "SKILL.md" for child in legacy_dir.iterdir())
+            if not has_extra_entries:
+                shutil.rmtree(legacy_dir)
+                removed_count += 1
+        except OSError:
+            # Best-effort migration only; preserve legacy dirs on read errors.
+            continue
+
+    return (migrated_count, removed_count)
+
+
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parent.parent.parent
+
+
+def _locate_core_pack() -> Optional[Path]:
+    """Locate bundled/source core assets for offline scaffolding."""
+    pkg_root = Path(__file__).resolve().parent
+    wheel_core = pkg_root / "core_pack"
+    if wheel_core.exists():
+        return wheel_core
+
+    repo_root = _repo_root()
+    templates_dir = repo_root / "templates" / "commands"
+    if templates_dir.is_dir():
+        return repo_root / "templates"
+
+    return None
+
+
+def _resolve_release_script() -> Optional[Path]:
+    """Resolve the release packaging script used for offline scaffolding parity."""
+    repo_script = _repo_root() / ".github" / "workflows" / "scripts" / "create-release-packages.sh"
+    if repo_script.exists():
+        return repo_script
+
+    wheel_script = Path(__file__).resolve().parent / "core_pack" / "release_scripts" / "create-release-packages.sh"
+    if wheel_script.exists():
+        return wheel_script
+
+    return None
+
+
+def scaffold_from_core_pack(
+    project_path: Path,
+    selected_ai: str,
+    selected_script: str,
+    here: bool = False,
+    tracker: StepTracker | None = None,
+) -> bool:
+    """Scaffold a project from bundled assets without a network download.
+
+    In a source checkout this shells out to the same release-packaging script
+    used by CI, then unzips the generated agent package into ``project_path``.
+    This keeps offline scaffolding byte-for-byte aligned with release artifacts.
+    """
+    release_script = _resolve_release_script()
+    if release_script is None:
+        if tracker:
+            tracker.error("scaffold", "release script not found")
+        return False
+
+    bash_bin = shutil.which("bash")
+    if bash_bin is None:
+        if tracker:
+            tracker.error("scaffold", "'bash' not found on PATH")
+        return False
+
+    if tracker:
+        tracker.add("scaffold", "Apply bundled assets")
+        tracker.start("scaffold")
+
+    with tempfile.TemporaryDirectory(prefix="specify-core-pack-") as tmpdir:
+        tmpdir_path = Path(tmpdir)
+        version = "v0.0.0"
+        env = os.environ.copy()
+        env["AGENTS"] = selected_ai
+        env["SCRIPTS"] = selected_script
+        env["GENRELEASES_DIR"] = str(tmpdir_path)
+
+        result = subprocess.run(
+            [bash_bin, str(release_script), version],
+            cwd=_repo_root(),
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            detail = result.stderr.strip() or result.stdout.strip() or f"release script failed ({result.returncode})"
+            if tracker:
+                tracker.error("scaffold", detail)
+            return False
+
+        zip_path = tmpdir_path / f"spec-kit-template-{selected_ai}-{selected_script}-{version}.zip"
+        if not zip_path.exists():
+            if tracker:
+                tracker.error("scaffold", f"missing generated package: {zip_path.name}")
+            return False
+
+        project_path.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(zip_path) as zf:
+            zf.extractall(project_path)
+
+    if tracker:
+        tracker.complete("scaffold", "bundled assets copied")
+    return True
+
 SCRIPT_TYPE_CHOICES = {"sh": "POSIX Shell (bash/zsh)", "ps": "PowerShell"}
 
 CLAUDE_LOCAL_PATH = Path.home() / ".claude" / "local" / "claude"
+CLAUDE_NPM_LOCAL_PATH = Path.home() / ".claude" / "local" / "node_modules" / ".bin" / "claude"
 
 BANNER = """
 ███████╗██████╗ ███████╗ ██████╗██╗███████╗██╗   ██╗
@@ -393,7 +564,10 @@ def check_tool(tool: str, tracker: StepTracker = None) -> bool:
     # and creates an alias at ~/.claude/local/claude instead
     # This path should be prioritized over other claude executables in PATH
     if tool == "claude":
-        if CLAUDE_LOCAL_PATH.exists() and CLAUDE_LOCAL_PATH.is_file():
+        if (
+            (CLAUDE_LOCAL_PATH.exists() and CLAUDE_LOCAL_PATH.is_file())
+            or (CLAUDE_NPM_LOCAL_PATH.exists() and CLAUDE_NPM_LOCAL_PATH.is_file())
+        ):
             if tracker:
                 tracker.complete(tool, "available")
             return True
@@ -483,7 +657,9 @@ def init(
     debug: bool = typer.Option(False, "--debug", help="Show verbose diagnostic output for network and extraction failures"),
     github_token: str = typer.Option(None, "--github-token", help="GitHub token to use for API requests (or set GH_TOKEN or GITHUB_TOKEN environment variable)"),
     ai_skills: bool = typer.Option(False, "--ai-skills", help="Install Prompt.MD templates as agent skills (requires --ai)"),
+    offline: bool = typer.Option(False, "--offline", help="Use bundled assets instead of downloading from GitHub (no network access required)"),
     preset: str = typer.Option(None, "--preset", help="Install a preset during initialization (by preset ID)"),
+    branch_numbering: str = typer.Option(None, "--branch-numbering", help="Branch numbering strategy: 'sequential' (001, 002, ...) or 'timestamp' (YYYYMMDD-HHMMSS)"),
 ):
     """
     Initialize a new Specify project from the latest template.
@@ -491,7 +667,7 @@ def init(
     This command will:
     1. Check that required tools are installed (git is optional)
     2. Let you choose your AI assistant
-    3. Download the appropriate template from GitHub
+    3. Download the appropriate template from GitHub (or use bundled assets with --offline)
     4. Extract the template to a new project directory or current directory
     5. Initialize a fresh git repository (if not --no-git and no existing repo)
     6. Optionally set up AI assistant commands
@@ -512,6 +688,7 @@ def init(
         specify init my-project --ai claude --ai-skills   # Install agent skills
         specify init --here --ai gemini --ai-skills
         specify init my-project --ai generic --ai-commands-dir .myagent/commands/  # Unsupported agent
+        specify init my-project --offline  # Use bundled assets (no network access)
         specify init my-project --ai claude --preset healthcare-compliance  # With preset
     """
 
@@ -522,6 +699,14 @@ def init(
     if ai_skills and not ai_assistant:
         console.print("[red]Error:[/red] --ai-skills requires --ai to be specified")
         console.print("[yellow]Usage:[/yellow] specify init <project> --ai <agent> --ai-skills")
+        raise typer.Exit(1)
+
+    BRANCH_NUMBERING_CHOICES = {"sequential", "timestamp"}
+    if branch_numbering and branch_numbering not in BRANCH_NUMBERING_CHOICES:
+        console.print(
+            f"[red]Error:[/red] Invalid --branch-numbering value '{branch_numbering}'. "
+            f"Choose from: {', '.join(sorted(BRANCH_NUMBERING_CHOICES))}"
+        )
         raise typer.Exit(1)
 
     init_target = resolve_project_target(project_name, here, force, console, confirm=typer.confirm)
@@ -594,6 +779,11 @@ def init(
         ai_skills,
         tracker_cls=StepTracker,
     )
+    use_github = not offline
+    if not use_github:
+        tracker.add("scaffold", "Apply bundled assets")
+        for key in ("fetch", "download", "extract", "zip-list", "extracted-summary"):
+            tracker.skip(key, "--offline")
 
     sys._specify_tracker_active = True
 
@@ -605,9 +795,26 @@ def init(
         try:
             verify = not skip_tls
             local_ssl_context = ssl_context if verify else False
-            local_client = httpx.Client(verify=local_ssl_context)
-
-            download_and_extract_template(project_path, selected_ai, selected_script, here, verbose=False, tracker=tracker, client=local_client, debug=debug, github_token=github_token)
+            if use_github:
+                with httpx.Client(verify=local_ssl_context) as local_client:
+                    download_and_extract_template(
+                        project_path,
+                        selected_ai,
+                        selected_script,
+                        here,
+                        skip_legacy_codex_prompts=(selected_ai == "codex" and ai_skills),
+                        verbose=False,
+                        tracker=tracker,
+                        client=local_client,
+                        debug=debug,
+                        github_token=github_token,
+                    )
+            else:
+                scaffold_ok = scaffold_from_core_pack(project_path, selected_ai, selected_script, here=here, tracker=tracker)
+                if not scaffold_ok:
+                    if not here and project_path.exists():
+                        shutil.rmtree(project_path)
+                    raise typer.Exit(1)
 
             relocate_generic_commands_dir(project_path, selected_ai, ai_commands_dir, tracker)
 
@@ -615,16 +822,44 @@ def init(
 
             ensure_constitution_from_template(project_path, tracker=tracker)
 
+            migrated_legacy_kimi_skills = 0
+            removed_legacy_kimi_skills = 0
+            skills_dir: Optional[Path] = None
+            if selected_ai in NATIVE_SKILLS_AGENTS:
+                skills_dir = _get_skills_dir(project_path, selected_ai)
+                if selected_ai == "kimi" and skills_dir.is_dir():
+                    (
+                        migrated_legacy_kimi_skills,
+                        removed_legacy_kimi_skills,
+                    ) = _migrate_legacy_kimi_dotted_skills(skills_dir)
+
             if ai_skills:
-                if selected_ai == "codex":
-                    if not _has_bundled_codex_skills(project_path):
-                        expected_dir = project_path / ".agents" / "skills"
-                        raise RuntimeError(
-                            f"Expected bundled agent skills in {expected_dir.relative_to(project_path)}, "
-                            "but none were found. Re-run with an up-to-date template."
+                if selected_ai in NATIVE_SKILLS_AGENTS:
+                    bundled_found = _has_bundled_skills(project_path, selected_ai)
+                    if bundled_found:
+                        detail = f"bundled skills → {skills_dir.relative_to(project_path)}"
+                        if migrated_legacy_kimi_skills or removed_legacy_kimi_skills:
+                            detail += (
+                                f" (migrated {migrated_legacy_kimi_skills}, "
+                                f"removed {removed_legacy_kimi_skills} legacy Kimi dotted skills)"
+                            )
+                        tracker.start("ai-skills")
+                        tracker.complete("ai-skills", detail)
+                    else:
+                        fallback_ok = install_ai_skills(
+                            project_path,
+                            selected_ai,
+                            tracker=tracker,
+                            console=console,
+                            overwrite_existing=True,
                         )
-                    tracker.start("ai-skills")
-                    tracker.complete("ai-skills", "bundled skills → .agents/skills")
+                        if not fallback_ok:
+                            expected_dir = _get_skills_dir(project_path, selected_ai)
+                            raise RuntimeError(
+                                f"Expected bundled agent skills in {expected_dir.relative_to(project_path)}, "
+                                "but none were found and fallback conversion failed. "
+                                "Re-run with an up-to-date template."
+                            )
                 else:
                     skills_ok = install_ai_skills(
                         project_path,
@@ -677,9 +912,14 @@ def init(
                 preset=preset,
                 selected_script=selected_script,
                 speckit_version=speckit_version,
+                branch_numbering=branch_numbering or "sequential",
+                offline=offline,
                 save_init_options_fn=save_init_options,
             )
             install_requested_preset(project_path, preset, speckit_version, console)
+
+            if not use_github:
+                tracker.skip("cleanup", "not needed (no download)")
 
             tracker.complete("final", "project ready")
         except Exception as e:
@@ -1708,10 +1948,12 @@ def extension_list(
         for ext in installed:
             status_icon = "✓" if ext["enabled"] else "✗"
             status_color = "green" if ext["enabled"] else "red"
+            priority = ext.get("priority", 10)
 
-            console.print(f"  [{status_color}]{status_icon}[/{status_color}] [bold]{ext['name']}[/bold] (v{ext['version']})")
+            console.print(f"  [{status_color}]{status_icon}[/{status_color}] [bold]{ext['name']}[/bold] ({ext['id']}) (v{ext['version']})")
             console.print(f"     {ext['description']}")
             console.print(f"     Commands: {ext['command_count']} | Hooks: {ext['hook_count']} | Status: {'Enabled' if ext['enabled'] else 'Disabled'}")
+            console.print(f"     Priority: {priority}")
             console.print()
 
     if available or all_extensions:
@@ -1899,6 +2141,7 @@ def extension_add(
     extension: str = typer.Argument(help="Extension name or path"),
     dev: bool = typer.Option(False, "--dev", help="Install from local directory"),
     from_url: Optional[str] = typer.Option(None, "--from", help="Install from custom URL"),
+    priority: int = typer.Option(10, "--priority", help="Resolution priority (lower = higher precedence, default 10)"),
 ):
     """Install an extension."""
     from .extensions import ExtensionManager, ExtensionCatalog, ExtensionError, ValidationError, CompatibilityError
@@ -1928,7 +2171,7 @@ def extension_add(
                     console.print(f"[red]Error:[/red] No extension.yml found in {source_path}")
                     raise typer.Exit(1)
 
-                manifest = manager.install_from_directory(source_path, speckit_version)
+                manifest = manager.install_from_directory(source_path, speckit_version, priority=priority)
 
             elif from_url:
                 # Install from URL (ZIP file)
@@ -1961,7 +2204,7 @@ def extension_add(
                     zip_path.write_bytes(zip_data)
 
                     # Install from downloaded ZIP
-                    manifest = manager.install_from_zip(zip_path, speckit_version)
+                    manifest = manager.install_from_zip(zip_path, speckit_version, priority=priority)
                 except urllib.error.URLError as e:
                     console.print(f"[red]Error:[/red] Failed to download from {from_url}: {e}")
                     raise typer.Exit(1)
@@ -2005,7 +2248,7 @@ def extension_add(
 
                 try:
                     # Install from downloaded ZIP
-                    manifest = manager.install_from_zip(zip_path, speckit_version)
+                    manifest = manager.install_from_zip(zip_path, speckit_version, priority=priority)
                 finally:
                     # Clean up downloaded ZIP
                     if zip_path.exists():
@@ -2014,6 +2257,7 @@ def extension_add(
         console.print("\n[green]✓[/green] Extension installed successfully!")
         console.print(f"\n[bold]{manifest.name}[/bold] (v{manifest.version})")
         console.print(f"  {manifest.description}")
+        console.print(f"  Priority: {priority}")
         console.print("\n[bold cyan]Provided commands:[/bold cyan]")
         for cmd in manifest.commands:
             console.print(f"  • {cmd['name']} - {cmd.get('description', '')}")
@@ -2030,6 +2274,47 @@ def extension_add(
     except ExtensionError as e:
         console.print(f"\n[red]Error:[/red] {e}")
         raise typer.Exit(1)
+
+
+@extension_app.command("set-priority")
+def extension_set_priority(
+    extension: str = typer.Argument(help="Extension ID or name"),
+    priority: int = typer.Argument(help="New priority (lower = higher precedence)"),
+):
+    """Set the resolution priority of an installed extension."""
+    from .extensions import ExtensionManager, normalize_priority
+
+    project_root = Path.cwd()
+
+    specify_dir = project_root / ".specify"
+    if not specify_dir.exists():
+        console.print("[red]Error:[/red] Not a spec-kit project (no .specify/ directory)")
+        console.print("Run this command from a spec-kit project root")
+        raise typer.Exit(1)
+
+    if priority < 1:
+        console.print("[red]Error:[/red] Priority must be a positive integer (1 or higher)")
+        raise typer.Exit(1)
+
+    manager = ExtensionManager(project_root)
+    installed = manager.list_installed()
+    extension_id, _display_name = _resolve_installed_extension(extension, installed, "set-priority")
+
+    metadata = manager.registry.get(extension_id)
+    if metadata is None or not isinstance(metadata, dict):
+        console.print(f"[red]Error:[/red] Extension '{extension_id}' not found in registry (corrupted state)")
+        raise typer.Exit(1)
+
+    raw_priority = metadata.get("priority")
+    if isinstance(raw_priority, int) and raw_priority == priority:
+        console.print(f"[yellow]Extension '{extension_id}' already has priority {priority}[/yellow]")
+        raise typer.Exit(0)
+
+    old_priority = normalize_priority(raw_priority)
+    manager.registry.update(extension_id, {"priority": priority})
+
+    console.print(f"[green]✓[/green] Extension '{extension_id}' priority changed: {old_priority} → {priority}")
+    console.print("\n[dim]Lower priority = higher precedence in template resolution[/dim]")
 
 
 @extension_app.command("remove")

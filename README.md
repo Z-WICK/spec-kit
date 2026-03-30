@@ -100,6 +100,10 @@ Choose your preferred CLI installation method:
 Install once and use everywhere:
 
 ```bash
+# Replace vX.Y.Z with the release you want to pin
+uv tool install specify-cli --from git+https://github.com/Z-WICK/spec-kit.git@vX.Y.Z
+
+# Or track main
 uv tool install specify-cli --from git+https://github.com/Z-WICK/spec-kit.git
 ```
 
@@ -121,7 +125,7 @@ specify check
 To upgrade Specify, see the [Upgrade Guide](./docs/upgrade.md) for detailed instructions. Quick upgrade:
 
 ```bash
-uv tool install specify-cli --force --from git+https://github.com/Z-WICK/spec-kit.git
+uv tool install specify-cli --force --from git+https://github.com/Z-WICK/spec-kit.git@vX.Y.Z
 ```
 
 #### Option 2: One-time Usage
@@ -129,7 +133,6 @@ uv tool install specify-cli --force --from git+https://github.com/Z-WICK/spec-ki
 Run directly without installing:
 
 ```bash
-uvx --from git+https://github.com/Z-WICK/spec-kit.git specify init <PROJECT_NAME>
 uvx --from git+https://github.com/Z-WICK/spec-kit.git specify init <PROJECT_NAME>
 
 # Or initialize in an existing project
@@ -285,6 +288,7 @@ See Spec-Driven Development in action across different scenarios with these comm
 | [IBM Bob](https://www.ibm.com/products/bob)                                          | ✅      | IDE-based agent with slash command support                                                                                                |
 | [Jules](https://jules.google.com/)                                                   | ✅      |                                                                                                                                           |
 | [Kilo Code](https://github.com/Kilo-Org/kilocode)                                    | ✅      |                                                                                                                                           |
+| [Junie](https://junie.jetbrains.com/)                                                | ✅      | Use `--ai junie`.                                                                                                                         |
 | [opencode](https://opencode.ai/)                                                     | ✅      |                                                                                                                                           |
 | [Qwen Code](https://github.com/QwenLM/qwen-code)                                     | ✅      |                                                                                                                                           |
 | [Roo Code](https://roocode.com/)                                                     | ✅      |                                                                                                                                           |
@@ -309,7 +313,7 @@ The `specify` command supports the following options:
 | Command | Description                                                                                                                                             |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `init`  | Initialize a new Specify project from the latest template                                                                                               |
-| `check` | Check for installed core tools and supported CLI-based AI agents                                                                                         |
+| `check` | Check for installed core tools and supported CLI-based AI agents (including newer CLIs such as `junie`, `kimi`, `iflow`, `pi`, and more)               |
 | `lint-commands` | Validate enhanced command templates, gate scripts, and release mapping consistency                                                             |
 
 ### `specify init` Arguments & Options
@@ -317,7 +321,7 @@ The `specify` command supports the following options:
 | Argument/Option        | Type     | Description                                                                                                                                                                                  |
 | ---------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `<project-name>`       | Argument | Name for your new project directory (optional if using `--here`, or use `.` for current directory)                                                                                           |
-| `--ai`                 | Option   | AI assistant to use (see `src/specify_cli/agents.py` for the canonical list). Common options include `claude`, `gemini`, `copilot`, `cursor-agent`, `qwen`, `opencode`, `codex`, `windsurf`, `kilocode`, `auggie`, `roo`, `codebuddy`, `amp`, `shai`, `tabnine`, `kiro-cli` (`kiro` alias), `agy`, `bob`, `droid`, `qodercli` (`qoder` alias), `vibe`, `kimi`, `trae`, `pi`, `iflow`, or `generic` (requires `--ai-commands-dir`) |
+| `--ai`                 | Option   | AI assistant to use (see `src/specify_cli/agents.py` for the canonical list). Common options include `claude`, `gemini`, `copilot`, `cursor-agent`, `qwen`, `opencode`, `codex`, `windsurf`, `junie`, `kilocode`, `auggie`, `roo`, `codebuddy`, `amp`, `shai`, `tabnine`, `kiro-cli` (`kiro` alias), `agy`, `bob`, `droid`, `qodercli` (`qoder` alias), `vibe`, `kimi`, `trae`, `pi`, `iflow`, or `generic` (requires `--ai-commands-dir`) |
 | `--ai-commands-dir`    | Option   | Directory for agent command files (required with `--ai generic`, e.g. `.myagent/commands/`)                                                                                                  |
 | `--script`             | Option   | Script variant to use: `sh` (bash/zsh) or `ps` (PowerShell)                                                                                                                                  |
 | `--ignore-agent-tools` | Flag     | Skip checks for AI agent tools like Claude Code                                                                                                                                              |
@@ -328,6 +332,8 @@ The `specify` command supports the following options:
 | `--debug`              | Flag     | Enable detailed debug output for troubleshooting                                                                                                                                             |
 | `--github-token`       | Option   | GitHub token for API requests (or set GH_TOKEN/GITHUB_TOKEN env variable)                                                                                                                    |
 | `--ai-skills`          | Flag     | Install Prompt.MD templates as agent skills in agent-specific `skills/` directory (requires `--ai`)                                                                                          |
+| `--offline`            | Flag     | Scaffold from bundled assets instead of downloading from GitHub                                                                                                                               |
+| `--branch-numbering`   | Option   | Branch numbering strategy for later feature creation: `sequential` or `timestamp`                                                                                                            |
 
 ### Examples
 
@@ -361,6 +367,9 @@ specify init my-project --ai vibe
 
 # Initialize with IBM Bob support
 specify init my-project --ai bob
+
+# Initialize with Junie support
+specify init my-project --ai junie
 
 # Initialize with Factory Droid support
 specify init my-project --ai droid

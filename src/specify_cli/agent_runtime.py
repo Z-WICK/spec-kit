@@ -101,7 +101,14 @@ def _command_name_from_template(command_file: Path) -> str:
     return command_name
 
 
-def install_ai_skills(project_path: Path, selected_ai: str, tracker: Any | None = None, console: Any | None = None) -> bool:
+def install_ai_skills(
+    project_path: Path,
+    selected_ai: str,
+    tracker: Any | None = None,
+    console: Any | None = None,
+    *,
+    overwrite_existing: bool = False,
+) -> bool:
     """Install Prompt.MD files from the packaged or repo fallback command templates as agent skills."""
     agent_config = AGENT_CONFIG.get(selected_ai, {})
     agent_folder = agent_config.get("folder", "")
@@ -210,6 +217,10 @@ def install_ai_skills(project_path: Path, selected_ai: str, tracker: Any | None 
 
             skill_file = skill_dir / "SKILL.md"
             if skill_file.exists():
+                if overwrite_existing:
+                    skill_file.write_text(skill_content, encoding="utf-8")
+                    installed_count += 1
+                    continue
                 skipped_count += 1
                 continue
 

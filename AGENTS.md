@@ -35,6 +35,7 @@ Specify supports multiple AI agents by generating agent-specific command files a
 | **opencode**               | `.opencode/command/`   | Markdown | `opencode`      | opencode CLI                |
 | **Codex CLI**              | `.agents/skills/<skill>/SKILL.md` | Markdown | `codex`         | Codex CLI                   |
 | **Windsurf**               | `.windsurf/workflows/` | Markdown | N/A (IDE-based) | Windsurf IDE workflows      |
+| **Junie**                  | `.junie/commands/`     | Markdown | `junie`         | Junie by JetBrains          |
 | **Kilo Code**              | `.kilocode/rules/`     | Markdown | N/A (IDE-based) | Kilo Code IDE               |
 | **Auggie CLI**             | `.augment/rules/`      | Markdown | `auggie`        | Auggie CLI                  |
 | **Roo Code**               | `.roo/rules/`          | Markdown | N/A (IDE-based) | Roo Code IDE                |
@@ -340,7 +341,7 @@ Work within integrated development environments:
 
 ### Markdown Format
 
-Used by: Claude, Cursor, opencode, Windsurf, Kiro CLI, Amp, SHAI, IBM Bob, Kimi Code, Qwen
+Used by: Claude, Cursor, opencode, Windsurf, Junie, Kiro CLI, Amp, SHAI, IBM Bob, Kimi Code, Qwen, Pi
 
 **Standard format:**
 
@@ -378,6 +379,14 @@ Command content with {SCRIPT} and {{args}} placeholders.
 ## Directory Conventions
 
 - **CLI agents**: Usually `.<agent-name>/commands/`
+- **Skills-based exceptions**:
+  - Codex: `.agents/skills/`
+  - Kimi: `.kimi/skills/`
+  - Factory Droid: `.factory/skills/`
+- **Prompt-based exceptions**:
+  - Kiro CLI: `.kiro/prompts/`
+  - Pi: `.pi/prompts/`
+  - Vibe: `.vibe/prompts/`
 - **IDE agents**: Follow IDE-specific patterns:
   - Copilot: `.github/agents/`
   - Cursor: `.cursor/commands/`

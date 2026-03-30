@@ -96,8 +96,8 @@ def build_next_steps_lines(selected_ai: str, here: bool, project_name: str) -> l
     elif selected_ai == "kimi":
         lines.append(f"{step_num}. Start using skills with Kimi Code:")
         lines.append("   [dim]Skills are generated at .kimi/skills/<skill>/SKILL.md.[/dim]")
-        lines.append("   [dim]In Kimi, invoke skills as /skill:speckit....[/dim]")
-        command_prefix = "/skill:speckit."
+        lines.append("   [dim]In Kimi, invoke skills as /skill:speckit-...[/dim]")
+        command_prefix = "/skill:speckit-"
     else:
         lines.append(f"{step_num}. Start using slash commands with your AI agent:")
         command_prefix = "/speckit."
@@ -116,7 +116,7 @@ def build_enhancement_panel_lines(selected_ai: str) -> list[str]:
         command_prefix = "$speckit-"
         lines = ["Optional skills that you can use for your specs [bright_black](Z-WICK fork)[/bright_black]", ""]
     elif selected_ai == "kimi":
-        command_prefix = "/skill:speckit."
+        command_prefix = "/skill:speckit-"
         lines = ["Optional skills that you can use for your specs [bright_black](Z-WICK fork)[/bright_black]", ""]
     else:
         command_prefix = "/speckit."

@@ -52,7 +52,7 @@ if ($Version -notmatch '^v\d+\.\d+\.\d+$') {
 Write-Host "Building release packages for $Version"
 
 # Create and use .genreleases directory for all build artifacts
-$GenReleasesDir = ".genreleases"
+$GenReleasesDir = if ($env:GENRELEASES_DIR) { $env:GENRELEASES_DIR } else { ".genreleases" }
 if (Test-Path $GenReleasesDir) {
     Remove-Item -Path $GenReleasesDir -Recurse -Force -ErrorAction SilentlyContinue
 }
@@ -72,13 +72,11 @@ function Rewrite-Paths {
 }
 
 function Get-CommandTemplates {
-    $templates = @()
-    foreach ($templateRoot in @("templates/commands", "templates/fork-commands")) {
-        if (Test-Path $templateRoot) {
-            $templates += Get-ChildItem -Path (Join-Path $templateRoot "*.md") -File -ErrorAction SilentlyContinue
-        }
+    if (-not (Test-Path "templates/commands")) {
+        return @()
     }
-    return $templates | Sort-Object FullName
+    return Get-ChildItem -Path (Join-Path "templates/commands" "*.md") -File -ErrorAction SilentlyContinue |
+        Sort-Object FullName
 }
 
 function Generate-Commands {
@@ -108,30 +106,30 @@ function Generate-Commands {
 
         $body = $fileContent
 
-        # Keep script matrices and {SCRIPT}/{AGENT_SCRIPT} placeholders for all
-        # release outputs except Codex, whose SKILL.md format strips source
-        # frontmatter and needs concrete commands in-body.
-        if ($Agent -eq 'codex') {
-            $scriptCommand = ""
-            if ($fileContent -match "(?m)^\s*${ScriptVariant}:\s*(.+)$") {
-                $scriptCommand = $matches[1]
-            }
+        $scriptCommand = ""
+        if ($fileContent -match "(?m)^\s*${ScriptVariant}:\s*(.+)$") {
+            $scriptCommand = $matches[1]
+        }
 
-            if ([string]::IsNullOrEmpty($scriptCommand)) {
-                Write-Warning "No script command found for $ScriptVariant in $($template.Name)"
-                $scriptCommand = "(Missing script command for $ScriptVariant)"
-            }
+        if ([string]::IsNullOrEmpty($scriptCommand)) {
+            Write-Warning "No script command found for $ScriptVariant in $($template.Name)"
+            $scriptCommand = "(Missing script command for $ScriptVariant)"
+        }
 
-            $agentScriptCommand = ""
-            if ($fileContent -match "(?ms)agent_scripts:.*?^\s*${ScriptVariant}:\s*(.+?)$") {
-                $agentScriptCommand = $matches[1].Trim()
-            }
+        $agentScriptCommand = ""
+        if ($fileContent -match "(?ms)agent_scripts:.*?^\s*${ScriptVariant}:\s*(.+?)$") {
+            $agentScriptCommand = $matches[1].Trim()
+        }
 
-            $body = $body -replace '\{SCRIPT\}', $scriptCommand
+        $body = $body -replace '\{SCRIPT\}', $scriptCommand
 
-            if (-not [string]::IsNullOrEmpty($agentScriptCommand)) {
-                $body = $body -replace '\{AGENT_SCRIPT\}', $agentScriptCommand
-            }
+        if (-not [string]::IsNullOrEmpty($agentScriptCommand)) {
+            $body = $body -replace '\{AGENT_SCRIPT\}', $agentScriptCommand
+        }
+
+        # Codex and Kimi skills strip source frontmatter script matrices after
+        # placeholders are concretized; other agents keep the original frontmatter.
+        if ($Agent -in @('codex', 'kimi')) {
 
             $lines = $body -split "`n"
             $outputLines = @()
@@ -240,7 +238,7 @@ agent: $basename
 
 # Create Kimi Code skills in .kimi/skills/<name>/SKILL.md format.
 # Kimi CLI discovers skills as directories containing a SKILL.md file,
-# invoked with /skill:<name> (e.g. /skill:speckit.specify).
+# invoked with /skill:<name> (e.g. /skill:speckit-specify).
 function New-KimiSkills {
     param(
         [string]$SkillsDir,
@@ -251,7 +249,7 @@ function New-KimiSkills {
 
     foreach ($template in $templates) {
         $name = [System.IO.Path]::GetFileNameWithoutExtension($template.Name)
-        $skillName = "speckit.$name"
+        $skillName = "speckit-$name"
         $skillDir = Join-Path $SkillsDir $skillName
         New-Item -ItemType Directory -Force -Path $skillDir | Out-Null
 

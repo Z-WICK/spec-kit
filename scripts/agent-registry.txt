@@ -7,6 +7,7 @@ qwen|Qwen Code|.qwen/commands|markdown|markdown_args|.md|.qwen/skills|QWEN.md|Qw
 opencode|opencode|.opencode/command|markdown|markdown_args|.md|.opencode/skills|AGENTS.md|opencode|plain|standard_commands|||||0|0
 codex|Codex CLI|.agents/skills|markdown|markdown_args|/SKILL.md|.agents/skills|AGENTS.md|Codex CLI|plain|codex_skill_tree|||||1|0
 windsurf|Windsurf|.windsurf/workflows|markdown|markdown_args|.md|.windsurf/skills|.windsurf/rules/specify-rules.md|Windsurf|plain|standard_commands|||||0|0
+junie|Junie|.junie/commands|markdown|markdown_args|.md|.junie/skills|.junie/AGENTS.md|Junie|plain|standard_commands|||||0|0
 kilocode|Kilo Code|.kilocode/rules|markdown|markdown_args|.md|.kilocode/skills|.kilocode/rules/specify-rules.md|Kilo Code|plain|standard_commands|||||0|0
 auggie|Auggie CLI|.augment/rules|markdown|markdown_args|.md|.augment/skills|.augment/rules/specify-rules.md|Auggie CLI|plain|standard_commands|||||0|0
 roo|Roo Code|.roo/rules|markdown|markdown_args|.md|.roo/skills|.roo/rules/specify-rules.md|Roo Code|plain|standard_commands|||||0|0

@@ -26,7 +26,7 @@ fi
 echo "Building release packages for $NEW_VERSION"
 
 # Create and use .genreleases directory for all build artifacts
-GENRELEASES_DIR=".genreleases"
+GENRELEASES_DIR="${GENRELEASES_DIR:-.genreleases}"
 mkdir -p "$GENRELEASES_DIR"
 rm -rf "$GENRELEASES_DIR"/* || true
 
@@ -49,11 +49,8 @@ rewrite_paths() {
 }
 
 command_template_files() {
-  local template_dir
-  for template_dir in templates/commands templates/fork-commands; do
-    [[ -d "$template_dir" ]] || continue
-    find "$template_dir" -maxdepth 1 -type f -name '*.md' -print
-  done | LC_ALL=C sort
+  [[ -d templates/commands ]] || return 0
+  find templates/commands -maxdepth 1 -type f -name '*.md' -print | LC_ALL=C sort
 }
 
 generate_commands() {
@@ -71,39 +68,39 @@ generate_commands() {
     description=$(awk '/^description:/ {sub(/^description:[[:space:]]*/, ""); print; exit}' <<< "$file_content")
     body="$file_content"
 
-    # Keep script matrices and {SCRIPT}/{AGENT_SCRIPT} placeholders for all
-    # release outputs except Codex, whose SKILL.md format currently strips the
-    # source frontmatter and still requires concrete commands in-body.
-    if [[ $agent == "codex" ]]; then
-      script_command=$(awk -v sv="$script_variant" '
-        /^[[:space:]]*[a-zA-Z0-9_-]+:[[:space:]]*/ {
-          if ($0 ~ "^[[:space:]]*" sv ":[[:space:]]*") {
-            sub("^[[:space:]]*" sv ":[[:space:]]*", "")
-            print
-            exit
-          }
-        }
-      ' <<< "$file_content")
-
-      if [[ -z $script_command ]]; then
-        echo "Warning: no script command found for $script_variant in $template" >&2
-        script_command="(Missing script command for $script_variant)"
-      fi
-
-      agent_script_command=$(awk '
-        /^agent_scripts:$/ { in_agent_scripts=1; next }
-        in_agent_scripts && /^[[:space:]]*'"$script_variant"':[[:space:]]*/ {
-          sub(/^[[:space:]]*'"$script_variant"':[[:space:]]*/, "")
+    script_command=$(awk -v sv="$script_variant" '
+      /^[[:space:]]*[a-zA-Z0-9_-]+:[[:space:]]*/ {
+        if ($0 ~ "^[[:space:]]*" sv ":[[:space:]]*") {
+          sub("^[[:space:]]*" sv ":[[:space:]]*", "")
           print
           exit
         }
-        in_agent_scripts && /^[a-zA-Z]/ { in_agent_scripts=0 }
-      ' <<< "$file_content")
+      }
+    ' <<< "$file_content")
 
-      body=$(printf '%s\n' "$body" | sed "s|{SCRIPT}|${script_command}|g")
-      if [[ -n $agent_script_command ]]; then
-        body=$(printf '%s\n' "$body" | sed "s|{AGENT_SCRIPT}|${agent_script_command}|g")
-      fi
+    if [[ -z $script_command ]]; then
+      echo "Warning: no script command found for $script_variant in $template" >&2
+      script_command="(Missing script command for $script_variant)"
+    fi
+
+    agent_script_command=$(awk '
+      /^agent_scripts:$/ { in_agent_scripts=1; next }
+      in_agent_scripts && /^[[:space:]]*'"$script_variant"':[[:space:]]*/ {
+        sub(/^[[:space:]]*'"$script_variant"':[[:space:]]*/, "")
+        print
+        exit
+      }
+      in_agent_scripts && /^[a-zA-Z]/ { in_agent_scripts=0 }
+    ' <<< "$file_content")
+
+    body=$(printf '%s\n' "$body" | sed "s|{SCRIPT}|${script_command}|g")
+    if [[ -n $agent_script_command ]]; then
+      body=$(printf '%s\n' "$body" | sed "s|{AGENT_SCRIPT}|${agent_script_command}|g")
+    fi
+
+    # Codex and Kimi skills strip source frontmatter script matrices after
+    # placeholders are concretized; other agents keep the original frontmatter.
+    if [[ $agent == "codex" || $agent == "kimi" ]]; then
 
       body=$(printf '%s\n' "$body" | awk '
         /^---$/ { print; if (++dash_count == 1) in_frontmatter=1; else in_frontmatter=0; next }
@@ -178,7 +175,7 @@ EOF
 
 # Create Kimi Code skills in .kimi/skills/<name>/SKILL.md format.
 # Kimi CLI discovers skills as directories containing a SKILL.md file,
-# invoked with /skill:<name> (e.g. /skill:speckit.specify).
+# invoked with /skill:<name> (e.g. /skill:speckit-specify).
 create_kimi_skills() {
   local skills_dir="$1"
   local script_variant="$2"
@@ -187,7 +184,7 @@ create_kimi_skills() {
     [[ -f "$template" ]] || continue
     local name
     name=$(basename "$template" .md)
-    local skill_name="speckit.${name}"
+    local skill_name="speckit-${name}"
     local skill_dir="${skills_dir}/${skill_name}"
     mkdir -p "$skill_dir"
 

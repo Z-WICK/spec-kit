@@ -149,10 +149,17 @@ Execution steps:
        - Ensure a `## Clarifications` section exists (create it just after the highest-level contextual/overview section per the spec template if missing).
        - Under it, create (if not present) a `### Session YYYY-MM-DD` subheading for today.
     - Append a bullet line immediately after acceptance with source anchor:
-      `- Q: <question> -> A: <final answer> | Source: <section-or-requirement-anchor>`.
+      `- Q: <question> → A: <final answer> | Source: <section-or-requirement-anchor>`.
     - `Source` MUST point to the requirement origin in current spec (example: `Functional Requirements > FR-003`).
-    - Default behavior is append-only in Clarifications; do not rewrite non-clarification sections automatically.
-    - If the user explicitly approves requirement text replacement, record a separate line:
+    - Default behavior is incremental: always record the clarification bullet, then immediately apply the clarification to the most appropriate section(s):
+       - Functional ambiguity → Update or add a bullet in Functional Requirements.
+       - User interaction / actor distinction → Update User Stories or Actors subsection (if present) with clarified role, constraint, or scenario.
+       - Data shape / entities → Update Data Model (add fields, types, relationships) preserving ordering; note added constraints succinctly.
+       - Non-functional constraint → Add/modify measurable criteria in Success Criteria > Measurable Outcomes (convert vague adjective to metric or explicit target).
+       - Edge case / negative flow → Add a new bullet under Edge Cases / Error Handling (or create such subsection if template provides placeholder for it).
+       - Terminology conflict → Normalize term across spec; retain original only if necessary by adding `(formerly referred to as "X")` once.
+    - If the clarification invalidates an earlier ambiguous statement, replace that statement instead of duplicating; leave no obsolete contradictory text.
+    - If the user explicitly approves requirement text replacement or structural edits beyond the clarification itself, record a separate line:
       `- CHANGE_REQUEST: <summary> | Approved-By: <user>`.
     - Save the spec file AFTER each integration to minimize risk of context loss (atomic overwrite).
     - Preserve formatting: do not reorder unrelated sections; keep heading hierarchy intact.

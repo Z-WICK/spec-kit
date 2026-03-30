@@ -553,6 +553,7 @@ def download_and_extract_template(
     script_type: str,
     is_current_dir: bool = False,
     *,
+    skip_legacy_codex_prompts: bool = False,
     verbose: bool = True,
     tracker: TrackerLike | None = None,
     client: httpx.Client | None = None,
@@ -629,6 +630,8 @@ def download_and_extract_template(
                             console.print("[cyan]Found nested directory structure[/cyan]")
 
                     for item in source_dir.iterdir():
+                        if skip_legacy_codex_prompts and ai_assistant == "codex" and item.name == ".codex":
+                            continue
                         dest_path = project_path / item.name
                         _ensure_within_destination(dest_path, project_path)
                         if item.is_dir():
@@ -708,6 +711,11 @@ def download_and_extract_template(
                         tracker.complete("flatten")
                     elif verbose:
                         console.print("[cyan]Flattened nested directory structure[/cyan]")
+
+                if skip_legacy_codex_prompts and ai_assistant == "codex":
+                    legacy_codex_dir = project_path / ".codex"
+                    if legacy_codex_dir.is_dir():
+                        shutil.rmtree(legacy_codex_dir, ignore_errors=True)
 
     except Exception as e:
         if tracker:

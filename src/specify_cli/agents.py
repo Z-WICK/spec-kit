@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import platform
+from copy import deepcopy
 from pathlib import Path
 import re
 from typing import Any, Dict, List
@@ -90,6 +91,16 @@ BASE_AGENT_METADATA: Dict[str, Dict[str, Any]] = {
         "install_url": None,
         "requires_cli": False,
         "command_dir": ".windsurf/workflows",
+        "command_format": "markdown",
+        "args": "$ARGUMENTS",
+        "extension": ".md",
+    },
+    "junie": {
+        "name": "Junie",
+        "folder": ".junie/",
+        "install_url": "https://junie.jetbrains.com/",
+        "requires_cli": True,
+        "command_dir": ".junie/commands",
         "command_format": "markdown",
         "args": "$ARGUMENTS",
         "extension": ".md",
@@ -323,6 +334,10 @@ LOCAL_AGENT_METADATA_OVERRIDES: Dict[str, Dict[str, Any]] = {
         "context_file": ".windsurf/rules/specify-rules.md",
         "context_name": "Windsurf",
     },
+    "junie": {
+        "context_file": ".junie/AGENTS.md",
+        "context_name": "Junie",
+    },
     "kilocode": {
         "context_file": ".kilocode/rules/specify-rules.md",
         "context_name": "Kilo Code",
@@ -380,7 +395,7 @@ LOCAL_AGENT_METADATA_OVERRIDES: Dict[str, Dict[str, Any]] = {
         "context_name": "Mistral Vibe",
     },
     "kimi": {
-        "skill_name_style": "dot",
+        "skill_name_style": "hyphen",
         "skill_file_mode": "literal",
         "context_file": "KIMI.md",
         "context_name": "Kimi Code",
@@ -574,12 +589,12 @@ class CommandRegistrar:
         if not frontmatter:
             return ""
 
-        yaml_str = yaml.dump(frontmatter, default_flow_style=False, sort_keys=False)
+        yaml_str = yaml.dump(frontmatter, default_flow_style=False, sort_keys=False, allow_unicode=True)
         return f"---\n{yaml_str}---\n"
 
     def _adjust_script_paths(self, frontmatter: dict) -> dict:
-        """Adjust script paths from extension-relative to repo-relative."""
-        updated = dict(frontmatter)
+        """Normalize script paths from template-relative to project-relative."""
+        updated = deepcopy(frontmatter)
         for script_key in ("scripts", "agent_scripts"):
             scripts = updated.get(script_key)
             if not isinstance(scripts, dict):
@@ -587,10 +602,29 @@ class CommandRegistrar:
 
             updated_scripts = dict(scripts)
             for key, script_path in updated_scripts.items():
-                if isinstance(script_path, str) and script_path.startswith("../../scripts/"):
-                    updated_scripts[key] = f".specify/scripts/{script_path[14:]}"
+                if isinstance(script_path, str):
+                    updated_scripts[key] = self._rewrite_project_relative_paths(script_path)
             updated[script_key] = updated_scripts
         return updated
+
+    @staticmethod
+    def _rewrite_project_relative_paths(text: str) -> str:
+        """Rewrite repo-relative paths to their generated project locations."""
+        if not isinstance(text, str) or not text:
+            return text
+
+        for old, new in (
+            ("../../memory/", ".specify/memory/"),
+            ("../../scripts/", ".specify/scripts/"),
+            ("../../templates/", ".specify/templates/"),
+        ):
+            text = text.replace(old, new)
+
+        text = re.sub(r'(^|[\s`"\'(])(?:\.?/)?memory/', r"\1.specify/memory/", text)
+        text = re.sub(r'(^|[\s`"\'(])(?:\.?/)?scripts/', r"\1.specify/scripts/", text)
+        text = re.sub(r'(^|[\s`"\'(])(?:\.?/)?templates/', r"\1.specify/templates/", text)
+
+        return text.replace(".specify/.specify/", ".specify/").replace(".specify.specify/", ".specify/")
 
     def render_markdown_command(
         self,
@@ -615,9 +649,23 @@ class CommandRegistrar:
 
         toml_lines.append(f"# Source: {source_id}")
         toml_lines.append("")
-        toml_lines.append('prompt = """')
-        toml_lines.append(body)
-        toml_lines.append('"""')
+        if '"""' not in body:
+            toml_lines.append('prompt = """')
+            toml_lines.append(body)
+            toml_lines.append('"""')
+        elif "'''" not in body:
+            toml_lines.append("prompt = '''")
+            toml_lines.append(body)
+            toml_lines.append("'''")
+        else:
+            escaped_body = (
+                body.replace("\\", "\\\\")
+                .replace('"', '\\"')
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t")
+            )
+            toml_lines.append(f'prompt = "{escaped_body}"')
         return "\n".join(toml_lines)
 
     @staticmethod
@@ -641,8 +689,8 @@ class CommandRegistrar:
         if not isinstance(frontmatter, dict):
             frontmatter = {}
 
-        if agent_name == "codex":
-            body = self._resolve_codex_skill_placeholders(frontmatter, body, project_root)
+        if agent_name in {"codex", "kimi"}:
+            body = self.resolve_skill_placeholders(agent_name, frontmatter, body, project_root)
 
         description = str(frontmatter.get("description", "")).strip() or f"Skill for {skill_name}"
         skill_frontmatter = {
@@ -655,13 +703,11 @@ class CommandRegistrar:
             },
         }
         rendered = self.render_frontmatter(skill_frontmatter) + "\n"
-        if context_note:
-            rendered += context_note
         return rendered + body
 
     @staticmethod
-    def _resolve_codex_skill_placeholders(frontmatter: dict, body: str, project_root: Path) -> str:
-        """Resolve Codex placeholder commands using the selected script variant."""
+    def resolve_skill_placeholders(agent_name: str, frontmatter: dict, body: str, project_root: Path) -> str:
+        """Resolve script placeholders for skills-backed agents."""
         try:
             from .agent_runtime import load_init_options
         except ImportError:
@@ -674,7 +720,11 @@ class CommandRegistrar:
         if not isinstance(agent_scripts, dict):
             agent_scripts = {}
 
-        script_variant = load_init_options(project_root).get("script")
+        init_opts = load_init_options(project_root)
+        if not isinstance(init_opts, dict):
+            init_opts = {}
+
+        script_variant = init_opts.get("script")
         if script_variant not in {"sh", "ps"}:
             fallback_order: list[str] = []
             default_variant = "ps" if platform.system().lower().startswith("win") else "sh"
@@ -705,7 +755,8 @@ class CommandRegistrar:
                 str(agent_script_command).replace("{ARGS}", "$ARGUMENTS"),
             )
 
-        return body.replace("{ARGS}", "$ARGUMENTS").replace("__AGENT__", "codex")
+        body = body.replace("{ARGS}", "$ARGUMENTS").replace("__AGENT__", agent_name)
+        return CommandRegistrar._rewrite_project_relative_paths(body)
 
     @staticmethod
     def _convert_argument_placeholder(content: str, from_placeholder: str, to_placeholder: str) -> str:
@@ -839,7 +890,7 @@ class CommandRegistrar:
         results: dict[str, list[str]] = {}
 
         for agent_name, agent_config in self.AGENT_CONFIGS.items():
-            agent_dir = project_root / agent_config["dir"].split("/")[0]
+            agent_dir = project_root / agent_config["dir"]
             if not agent_dir.exists():
                 continue
 

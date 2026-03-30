@@ -7,8 +7,8 @@ import pytest
 
 
 @pytest.mark.skipif(shutil.which("bash") is None, reason="bash is required for release packaging tests")
-def test_release_packages_keep_script_matrix_and_placeholder(tmp_path):
-    """Regression for #1609: generated commands should stay cross-platform."""
+def test_release_packages_keep_script_matrix_and_concretize_selected_variant(tmp_path):
+    """Generated commands should retain the script matrix and concretize the selected variant in-body."""
     repo_root = Path(__file__).resolve().parents[1]
     fixture_root = tmp_path / "fixture-repo"
     fixture_root.mkdir()
@@ -41,14 +41,16 @@ def test_release_packages_keep_script_matrix_and_placeholder(tmp_path):
     sh_text = sh_command.read_text(encoding="utf-8")
     ps_text = ps_command.read_text(encoding="utf-8")
 
-    assert "{SCRIPT}" in sh_text
-    assert "Run `{SCRIPT}` from repo root" in sh_text
+    assert "{SCRIPT}" not in sh_text
+    assert "{SCRIPT}" not in ps_text
     assert "scripts:" in sh_text
     assert "sh: .specify/scripts/bash/setup-plan.sh --json" in sh_text
     assert "ps: .specify/scripts/powershell/setup-plan.ps1 -Json" in sh_text
+    assert "Run `.specify/scripts/bash/setup-plan.sh --json` from repo root" in sh_text
+    assert "Run `.specify/scripts/powershell/setup-plan.ps1 -Json` from repo root" in ps_text
 
-    # The command body should be identical regardless of selected build script type.
-    assert sh_text == ps_text
+    # The selected script variant should be concretized per package.
+    assert sh_text != ps_text
 
 
 @pytest.mark.skipif(shutil.which("bash") is None, reason="bash is required for release packaging tests")
@@ -137,8 +139,8 @@ def test_release_packages_codex_pipeline_gate_matches_source(tmp_path):
 
 
 @pytest.mark.skipif(shutil.which("bash") is None, reason="bash is required for release packaging tests")
-def test_release_packages_codex_pipeline_skill_uses_codex_friendly_guidance(tmp_path):
-    """Codex pipeline skill should avoid slash-command-only guidance and state hook limits."""
+def test_release_packages_codex_pipeline_skill_not_included_in_core_pack(tmp_path):
+    """Fork-only pipeline skills should not be emitted in the core Codex release package."""
     repo_root = Path(__file__).resolve().parents[1]
     fixture_root = tmp_path / "fixture-repo-codex-pipeline-skill"
     fixture_root.mkdir()
@@ -170,16 +172,7 @@ def test_release_packages_codex_pipeline_skill_uses_codex_friendly_guidance(tmp_
         / "speckit-pipeline"
         / "SKILL.md"
     )
-    assert skill_file.exists()
-
-    skill_text = skill_file.read_text(encoding="utf-8")
-    assert "shared pipeline template is agent-agnostic" in skill_text
-    assert ".specify/extensions.yml" in skill_text
-    assert "$speckit-analyze" in skill_text
-    assert "$speckit-implement" in skill_text
-    assert "Run /speckit.init first" not in skill_text
-    assert "run `/speckit.update` first" not in skill_text
-    assert "/speckit.pipeline to auto-resume from stage 4" not in skill_text
+    assert not skill_file.exists()
 
 
 @pytest.mark.skipif(shutil.which("bash") is None, reason="bash is required for release packaging tests")
