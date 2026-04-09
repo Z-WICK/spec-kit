@@ -7,6 +7,13 @@ All notable changes to the Specify CLI and templates are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.32] - 2026-03-20
+
+### Changes
+
+- fix: make release trigger fall back without pat
+
+
 ## [Unreleased]
 
 ### Changed
